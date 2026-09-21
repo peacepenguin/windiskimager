@@ -1643,10 +1643,31 @@ void MainWindow::on_bRead_clicked()
             QByteArray zeros((size_t)(sectors * sectorsize), 0);
             return writeOut(zeros.constData(), sectors);
         };
+        // headerregion and backupregion are, unlike a data range, written in
+        // one piece below rather than read in chunks first -- but writeOut()
+        // still ends up handing sectorsize * sectors to ReadFile/WriteFile's
+        // DWORD length parameter, so a region large enough to overflow that
+        // (over 4GiB, which headerregion can in principle reach: it is
+        // bounded only by devicesectors / 2) would silently truncate. Chunked
+        // the same TRANSFER_SECTORS-at-a-time way the data ranges already
+        // are, so no single writeOut() call is ever asked to move more than
+        // that regardless of how large the region is.
+        auto writeOutChunked = [&](const char *data, unsigned long long sectors) -> bool
+        {
+            for (unsigned long long i = 0ull; i < sectors; i += TRANSFER_SECTORS)
+            {
+                unsigned long long chunk = (sectors - i >= TRANSFER_SECTORS) ? TRANSFER_SECTORS : (sectors - i);
+                if (!writeOut(data + i * sectorsize, chunk))
+                {
+                    return false;
+                }
+            }
+            return true;
+        };
 
         if (shrinkPlanned)
         {
-            if (!writeOut(shrinkPlan.headerregion.constData(), shrinkPlan.headersectors))
+            if (!writeOutChunked(shrinkPlan.headerregion.constData(), shrinkPlan.headersectors))
             {
                 failRead();
                 return;
@@ -1697,7 +1718,7 @@ void MainWindow::on_bRead_clicked()
             // computed by planGptShrink(), it works the same way whether the
             // backend behind writeOut() can be seeked back into afterward or
             // not. An MBR plan has no backup table, so this is skipped there.
-            if (!writeOut(shrinkPlan.backupregion.constData(), shrinkPlan.backupsectors))
+            if (!writeOutChunked(shrinkPlan.backupregion.constData(), shrinkPlan.backupsectors))
             {
                 failRead();
                 return;

@@ -500,6 +500,343 @@ static void caseAfterTheFact(const char *name, unsigned long long firstusable,
     printf("\n");
 }
 
+// ---------------------------------------------------------------------------
+// listGptPartitions() / listMbrPartitions() / planGptShrink() / planMbrShrink()
+// with excludeSlots -- the "choose partitions to read" machinery. These write
+// a plain table straight to the test file (no backup GPT is built; the
+// functions under test here never look for one) and drive planGptShrink()/
+// planMbrShrink() with alignsectors=1 so the expected sector numbers stay
+// small and readable instead of chasing a real 1MiB alignment.
+// ---------------------------------------------------------------------------
+
+// One partition to place in a multi-partition GPT test fixture, by table
+// slot rather than position -- callers deliberately put slots out of
+// position order, since that mismatch is exactly what the ordering bug
+// this reproduces (a partition recreated into an earlier freed slot lands
+// physically out of order, but still is a real diskpart-visible partition).
+struct GptPart
+{
+    int slot;
+    unsigned long long first, last;
+    const char *name;   // ASCII; NULL for none
+};
+
+static QByteArray buildMultiGptDisk(unsigned long long devicesectors,
+                                    unsigned long long firstusable,
+                                    const QList<GptPart> &parts)
+{
+    QByteArray bytes(devicesectors * SEC, 0);
+    unsigned char *d = (unsigned char *)bytes.data();
+
+    d[446 + 4] = 0xEE;
+    wr32(d, 446 + 8, 1);
+    unsigned long long span = devicesectors - 1;
+    wr32(d, 446 + 12, (unsigned int)(span > 0xFFFFFFFFull ? 0xFFFFFFFFull : span));
+    d[510] = 0x55; d[511] = 0xAA;
+
+    QByteArray entries(ENTRIES * ENTRYSIZE, 0);
+    unsigned char *earr = (unsigned char *)entries.data();
+    for (const GptPart &p : parts)
+    {
+        unsigned char *e = earr + p.slot * ENTRYSIZE;
+        memset(e, 0xAB, 16);          // type GUID: any non-zero value
+        memset(e + 16, 0xCD, 16);     // unique GUID
+        wr64(e, P_START, p.first);
+        wr64(e, P_END, p.last);
+        if (p.name)
+        {
+            QString name = QString::fromLatin1(p.name);
+            memcpy(e + 56, name.utf16(), (size_t)name.size() * 2);
+        }
+    }
+    unsigned int ecrc = crc32of((const unsigned char *)entries.constData(),
+                                ENTRIES * ENTRYSIZE);
+    makeHeader(d + SEC, 1, devicesectors - 1, 2, firstusable, devicesectors - 2, ecrc);
+    memcpy(d + 2 * SEC, entries.constData(), ENTRIES * ENTRYSIZE);
+    return bytes;
+}
+
+static HANDLE writeTestFile(const QByteArray &bytes)
+{
+    DeleteFileA(TESTFILE);
+    HANDLE h = CreateFileA(TESTFILE, GENERIC_READ | GENERIC_WRITE, 0, NULL,
+                           CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h == INVALID_HANDLE_VALUE)
+    {
+        printf("  FAIL could not create %s\n", TESTFILE);
+        ++failures;
+        return INVALID_HANDLE_VALUE;
+    }
+    DWORD put = 0;
+    if (!WriteFile(h, bytes.constData(), (DWORD)bytes.size(), &put, NULL)
+        || put != (DWORD)bytes.size())
+    {
+        printf("  FAIL could not write the test device\n");
+        ++failures;
+        CloseHandle(h);
+        return INVALID_HANDLE_VALUE;
+    }
+    return h;
+}
+
+// A partition physically out of slot order -- slot 3 sits second on the
+// disk -- reproduces the real report this fixed: diskpart (and this
+// program) must list it as "Partition 4" in position order on the disk,
+// not renumber it to match where it happens to appear in the list.
+static void caseListGptOrder()
+{
+    printf("listGptPartitions() orders by disk position, not table slot\n");
+    const unsigned long long device = 2000, firstusable = 34;
+    QList<GptPart> parts = {
+        {0, 100, 199, "PART1"},
+        {1, 400, 499, "PART2"},
+        {2, 500, 599, "PART3"},
+        {3, 200, 299, "NEWVOL"},
+    };
+    HANDLE h = writeTestFile(buildMultiGptDisk(device, firstusable, parts));
+    if (h == INVALID_HANDLE_VALUE) return;
+
+    QList<PartitionInfo> found;
+    QString detail;
+    bool ok = listGptPartitions(h, SEC, device, &found, &detail);
+    CloseHandle(h);
+
+    check(ok, "reported success");
+    check(found.size() == 4, "found all four partitions");
+    if (found.size() == 4)
+    {
+        check(found[0].slot == 0 && found[0].name == "PART1", "1st by position is slot 0 (PART1)");
+        check(found[1].slot == 3 && found[1].name == "NEWVOL", "2nd by position is slot 3 (NEWVOL)");
+        check(found[2].slot == 1 && found[2].name == "PART2", "3rd by position is slot 1 (PART2)");
+        check(found[3].slot == 2 && found[3].name == "PART3", "4th by position is slot 2 (PART3)");
+        check(found[0].firstSector == 100 && found[0].sectors == 100,
+              "position and size are read correctly, not just the slot");
+    }
+    printf("\n");
+}
+
+// Excluding a partition must repack around the gap it leaves, zero its
+// table entry (so the excluded data is unreachable even if something later
+// reads past what the ranges cover), and leave every other entry pointing
+// at its new, repacked location -- both in the primary table (headerregion)
+// and in the fresh backup copy planGptShrink() builds for the shrunk image.
+static void caseGptShrinkExclude()
+{
+    printf("planGptShrink() with an excluded slot\n");
+    const unsigned long long device = 2000, firstusable = 34;
+    QList<GptPart> parts = {
+        {0, 100, 199, "KEEP1"},   // 100 sectors
+        {1, 300, 399, "DROP"},    // 100 sectors -- excluded
+        {2, 500, 599, "KEEP2"},   // 100 sectors
+    };
+    HANDLE h = writeTestFile(buildMultiGptDisk(device, firstusable, parts));
+    if (h == INVALID_HANDLE_VALUE) return;
+
+    QList<int> excludeSlots = {1};
+    PartitionShrinkPlan plan;
+    QString detail;
+    bool ok = planGptShrink(h, SEC, device, /*alignsectors=*/1ull, &plan, &detail, &excludeSlots);
+    CloseHandle(h);
+    check(ok, "reported success");
+    if (!ok)
+    {
+        printf("  -> %s\n", detail.toLocal8Bit().constData());
+        printf("\n");
+        return;
+    }
+
+    // Mirrors planGptShrink()'s own packing arithmetic with alignsectors=1,
+    // over just the two kept partitions in position order: nothing rounds
+    // up past the exact byte, so the expected numbers are exact, not
+    // approximate.
+    unsigned long long newKeep1First = firstusable;                    // 34
+    unsigned long long newKeep2First = newKeep1First + 100;            // 134
+    unsigned long long cursor = newKeep2First + 100;                   // 234
+    unsigned long long backupentries = cursor;                        // 234
+    unsigned long long backuphdr = cursor + ENTRYSECTORS;             // 266
+
+    check(plan.ranges.size() == 2, "only the two kept partitions are copied");
+    if (plan.ranges.size() == 2)
+    {
+        check(plan.ranges[0].srcfirst == 100 && plan.ranges[0].dstfirst == newKeep1First
+                  && plan.ranges[0].length == 100,
+              "KEEP1 repacked right after FirstUsableLBA");
+        check(plan.ranges[1].srcfirst == 500 && plan.ranges[1].dstfirst == newKeep2First
+                  && plan.ranges[1].length == 100,
+              "KEEP2 repacked right after KEEP1, with no gap for the excluded slot");
+    }
+    check(plan.totalsectors == backuphdr + 1, "totalsectors covers up to the backup header");
+    check(plan.backupsectors == ENTRYSECTORS + 1, "backupsectors is the array plus its header");
+
+    const unsigned char *region = (const unsigned char *)plan.headerregion.constData();
+    const unsigned char *entry1 = region + 2 * SEC + 1 * ENTRYSIZE;
+    QByteArray zero(ENTRYSIZE, 0);
+    check(memcmp(entry1, zero.constData(), ENTRYSIZE) == 0,
+          "the excluded slot's entry is zeroed in the primary table");
+    const unsigned char *entry0 = region + 2 * SEC + 0 * ENTRYSIZE;
+    const unsigned char *entry2 = region + 2 * SEC + 2 * ENTRYSIZE;
+    check(rd64(entry0, P_START) == newKeep1First && rd64(entry0, P_END) == newKeep1First + 99,
+          "KEEP1's entry points at its repacked location");
+    check(rd64(entry2, P_START) == newKeep2First && rd64(entry2, P_END) == newKeep2First + 99,
+          "KEEP2's entry points at its repacked location");
+
+    const unsigned char *hdr = region + SEC;
+    check(headerCrcValid(hdr), "the primary header checksum was recomputed");
+    check(rd32(hdr, 88) == crc32of(region + 2 * SEC, ENTRIES * ENTRYSIZE),
+          "the entries checksum matches the patched table, exclusion included");
+
+    // The backup copy planGptShrink() builds is entries (already patched
+    // above) followed by the backup header -- the same zeroed/repacked
+    // bytes have to show up here too, or a card written from this plan
+    // would carry a backup table that still describes the excluded
+    // partition.
+    const unsigned char *backupentriesbytes = (const unsigned char *)plan.backupregion.constData();
+    check(memcmp(backupentriesbytes, region + 2 * SEC, ENTRIES * ENTRYSIZE) == 0,
+          "the backup entry array matches the patched primary entries exactly");
+    const unsigned char *backuphdrbytes = backupentriesbytes + ENTRYSECTORS * SEC;
+    check(headerCrcValid(backuphdrbytes), "the backup header checksum is valid");
+    check(rd64(backuphdrbytes, H_MYLBA) == backuphdr, "the backup header's own MyLBA matches its position");
+    printf("\n");
+}
+
+// One partition per slot to place in a multi-primary-entry MBR test
+// fixture, by slot (0-3) rather than position, and an optional partition
+// type -- 0xEE marks a protective entry, which walkMbrEntries() must skip
+// even though it is a non-zero type byte like any real partition's.
+struct MbrPart
+{
+    int slot;
+    unsigned long long first, count;
+    unsigned char type;
+};
+
+static QByteArray buildMultiMbrDisk(unsigned long long devicesectors,
+                                    const QList<MbrPart> &parts)
+{
+    QByteArray bytes(devicesectors * SEC, 0);
+    unsigned char *d = (unsigned char *)bytes.data();
+    for (const MbrPart &p : parts)
+    {
+        unsigned char *e = d + 446 + p.slot * 16;
+        e[4] = p.type;
+        wr32(e, 8, (unsigned int)p.first);
+        wr32(e, 12, (unsigned int)p.count);
+    }
+    d[510] = 0x55; d[511] = 0xAA;
+    return bytes;
+}
+
+static void caseListMbrOrder()
+{
+    printf("listMbrPartitions() orders by disk position, not table slot\n");
+    const unsigned long long device = 2000;
+    QList<MbrPart> parts = {
+        {0, 100, 100, 0x0C},
+        {1, 400, 100, 0x0C},
+        {2, 500, 100, 0x0C},
+        {3, 200, 100, 0x0C},   // physically 2nd, like the GPT case above
+    };
+    HANDLE h = writeTestFile(buildMultiMbrDisk(device, parts));
+    if (h == INVALID_HANDLE_VALUE) return;
+
+    QList<PartitionInfo> found;
+    QString detail;
+    bool ok = listMbrPartitions(h, SEC, device, &found, &detail);
+    CloseHandle(h);
+
+    check(ok, "reported success");
+    check(found.size() == 4, "found all four partitions");
+    if (found.size() == 4)
+    {
+        check(found[0].slot == 0, "1st by position is slot 0");
+        check(found[1].slot == 3, "2nd by position is slot 3");
+        check(found[2].slot == 1, "3rd by position is slot 1");
+        check(found[3].slot == 2, "4th by position is slot 2");
+    }
+    printf("\n");
+}
+
+static void caseMbrShrinkExclude()
+{
+    printf("planMbrShrink() with an excluded slot\n");
+    const unsigned long long device = 2000;
+    QList<MbrPart> parts = {
+        {0, 100, 100, 0x0C},   // KEEP1
+        {1, 300, 100, 0x0C},   // DROP -- excluded
+        {2, 500, 100, 0x0C},   // KEEP2
+    };
+    HANDLE h = writeTestFile(buildMultiMbrDisk(device, parts));
+    if (h == INVALID_HANDLE_VALUE) return;
+
+    QList<int> excludeSlots = {1};
+    PartitionShrinkPlan plan;
+    QString detail;
+    bool ok = planMbrShrink(h, SEC, device, /*alignsectors=*/1ull, &plan, &detail, &excludeSlots);
+    CloseHandle(h);
+    check(ok, "reported success");
+    if (!ok)
+    {
+        printf("  -> %s\n", detail.toLocal8Bit().constData());
+        printf("\n");
+        return;
+    }
+
+    unsigned long long newKeep1First = 1ull;      // right after the boot sector
+    unsigned long long newKeep2First = newKeep1First + 100;
+
+    check(plan.ranges.size() == 2, "only the two kept partitions are copied");
+    if (plan.ranges.size() == 2)
+    {
+        check(plan.ranges[0].srcfirst == 100 && plan.ranges[0].dstfirst == newKeep1First
+                  && plan.ranges[0].length == 100,
+              "KEEP1 repacked right after the boot sector");
+        check(plan.ranges[1].srcfirst == 500 && plan.ranges[1].dstfirst == newKeep2First
+                  && plan.ranges[1].length == 100,
+              "KEEP2 repacked right after KEEP1, with no gap for the excluded slot");
+    }
+    check(plan.backupsectors == 0ull && plan.backupregion.isEmpty(),
+          "MBR has no backup table to build");
+
+    const unsigned char *sector0 = (const unsigned char *)plan.headerregion.constData();
+    QByteArray zero16(16, 0);
+    check(memcmp(sector0 + 446 + 16, zero16.constData(), 16) == 0,
+          "the excluded slot's entry is entirely zeroed, not just its type byte");
+    check(rd32(sector0 + 446 + 0 * 16, 8) == newKeep1First, "KEEP1's start field was patched");
+    check(rd32(sector0 + 446 + 2 * 16, 8) == newKeep2First, "KEEP2's start field was patched");
+    printf("\n");
+}
+
+// A protective MBR (the one a GPT disk itself carries in sector 0) must
+// never be walked as if its 0xEE entry were a real partition to repack or
+// exclude -- both listMbrPartitions() and planMbrShrink() are exercised
+// here since each has its own call into walkMbrEntries().
+static void caseMbrProtectiveEntrySkipped()
+{
+    printf("walkMbrEntries() skips a 0xEE protective entry\n");
+    const unsigned long long device = 2000;
+    QList<MbrPart> parts = {
+        {0, 1, (unsigned long long)(device - 1), 0xEE},   // protective, spans the device
+        {1, 100, 100, 0x0C},                              // the one real partition
+    };
+    HANDLE h = writeTestFile(buildMultiMbrDisk(device, parts));
+    if (h == INVALID_HANDLE_VALUE) { return; }
+
+    QList<PartitionInfo> found;
+    QString detail;
+    bool listok = listMbrPartitions(h, SEC, device, &found, &detail);
+    check(listok, "listMbrPartitions reported success");
+    check(found.size() == 1 && found[0].slot == 1,
+          "only the real partition is listed, not the protective entry");
+
+    PartitionShrinkPlan plan;
+    bool planok = planMbrShrink(h, SEC, device, 1ull, &plan, &detail);
+    CloseHandle(h);
+    check(planok, "planMbrShrink reported success");
+    check(plan.ranges.size() == 1 && plan.ranges[0].srcfirst == 100,
+          "only the real partition was packed, the protective entry was not treated as data");
+    printf("\n");
+}
+
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
@@ -533,6 +870,12 @@ int main(int argc, char **argv)
     // After Windows has already mangled it, with "Fix GPT after write" off.
     caseAfterTheFact("windows rewrote the table (reserved-space layout)", 2048, true);
     caseAfterTheFact("windows rewrote the table (ordinary layout)", 34, false);
+
+    caseListGptOrder();
+    caseGptShrinkExclude();
+    caseListMbrOrder();
+    caseMbrShrinkExclude();
+    caseMbrProtectiveEntrySkipped();
 
     DeleteFileA(TESTFILE);
     printf("%d checks, %d failures\n", checks, failures);
