@@ -1,4 +1,5 @@
-$exe = ".\dist\WinDiskImager.exe"
+# Relative to the repo, not to wherever the script is run from.
+$exe = Join-Path $PSScriptRoot "..\dist\WinDiskImager.exe"
 
 $cultures = @(
     "de-DE",

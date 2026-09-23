@@ -721,6 +721,10 @@ Naprawić tablicę partycji teraz?</translation>
         <translation>Nie udało się odczytać tablicy partycji albo jest ona uszkodzona w inny sposób niż ten, który ta funkcja naprawia.</translation>
     </message>
     <message>
+        <source>The device list changed while you were confirming. Check the target device and try again.</source>
+        <translation>Lista urządzeń zmieniła się podczas potwierdzania. Sprawdź urządzenie docelowe i spróbuj ponownie.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Zapisywanie…</translation>
     </message>
@@ -830,7 +834,7 @@ Wyjmij urządzenie TERAZ i nie wkładaj go ponownie tutaj. Włóż je bezpośred
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
-        <translation>Obrazy można odczytać z powrotem tylko nieskompresowane. Wybierz nazwę pliku bez rozszerzenia .gz lub .xz, albo zaznacz &quot;Odczytaj do .img.gz&quot; lub &quot;Odczytaj do .img.xz&quot;.</translation>
+        <translation type="vanished">Obrazy można odczytać z powrotem tylko nieskompresowane. Wybierz nazwę pliku bez rozszerzenia .gz lub .xz, albo zaznacz &quot;Odczytaj do .img.gz&quot; lub &quot;Odczytaj do .img.xz&quot;.</translation>
     </message>
     <message>
         <source>Please select a source device.</source>

@@ -95,4 +95,6 @@ command -v "$strip_tool" >/dev/null 2>&1 || {
 find "$dist" \( -name '*.dll' -o -name '*.exe' \) \
     -exec "$strip_tool" --strip-unneeded {} +
 
+deploy_check_dist "$dist"
+
 echo "dist: $(find "$dist" -type f | wc -l) files, $(du -sh "$dist" | cut -f1)"

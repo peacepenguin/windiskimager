@@ -708,6 +708,10 @@ Repair the partition table now?</translation>
         <translation>The partition table could not be read, or is damaged in some way other than the one this repairs.</translation>
     </message>
     <message>
+        <source>The device list changed while you were confirming. Check the target device and try again.</source>
+        <translation>The device list changed while you were confirming. Check the target device and try again.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Writing...</translation>
     </message>
@@ -817,7 +821,7 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
-        <translation>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</translation>
+        <translation type="vanished">Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</translation>
     </message>
     <message>
         <source>Please select a source device.</source>

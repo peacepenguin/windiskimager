@@ -342,6 +342,56 @@ static void caseSinkAbort(const char *name, const QString &file,
     printf("\n");
 }
 
+// Write and verify stop at a known size, then read one sector more: that is
+// what makes a decoder reach the end of the stream and check it. A clean
+// image must answer "nothing left"; a damaged trailer must be an error.
+static void caseEndProbe(const char *name, const QString &file, const QByteArray &raw,
+                         bool expectError)
+{
+    printf("%s: reading past the end\n", name);
+    ImageSource src;
+    if (!src.open(file, SS))
+    {
+        check(false, "opened");
+        printf("\n");
+        return;
+    }
+    const unsigned long long n = sectorsOf(raw);
+    bool ok = true;
+    for (unsigned long long at = 0; ok && at < n; at += 8)
+    {
+        unsigned long long produced = 0;
+        char *data = src.read(at, qMin(8ull, n - at), &produced);
+        ok = (data != NULL);
+        delete[] data;
+    }
+    if (expectError)
+    {
+        // zlib checks the trailer as soon as it is in the same input buffer
+        // as the last data, so the error can come before the extra read.
+        bool reported = !ok;
+        if (ok)
+        {
+            unsigned long long leftover = 0;
+            char *extra = src.read(n, 1, &leftover);
+            reported = (extra == NULL);
+            delete[] extra;
+        }
+        check(reported && !src.errorString().isEmpty(),
+              "the damaged trailer is reported by the time the stream has been read to its end");
+    }
+    else
+    {
+        check(ok, "the whole image up to its size reads without error");
+        unsigned long long leftover = 99;
+        char *extra = src.read(n, 1, &leftover);
+        check(extra != NULL && leftover == 0, "one sector past the end: no error, nothing left");
+        delete[] extra;
+    }
+    src.close();
+    printf("\n");
+}
+
 static void caseNames()
 {
     printf("output names for Read\n");
@@ -364,9 +414,6 @@ static void caseNames()
                                 + " -> " + c.want;
         check(got == QString::fromLatin1(c.want), what.constData());
     }
-    check(ImageSource::nameLooksCompressed("x.img.gz") && ImageSource::nameLooksCompressed("X.IMG.XZ")
-              && !ImageSource::nameLooksCompressed("x.img"),
-          "nameLooksCompressed goes by .gz/.xz, case-insensitively");
     printf("\n");
 }
 
@@ -451,6 +498,18 @@ int main(int argc, char **argv)
     caseSeek("raw", "imgtest.img", raw, false);
     caseSeek("gzip", "imgtest.img.gz", raw, true);
     caseSeek("xz", "imgtest.img.xz", raw, true);
+
+    caseEndProbe("raw", "imgtest.img", raw, false);
+    caseEndProbe("gzip", "imgtest.img.gz", raw, false);
+    caseEndProbe("xz", "imgtest.img.xz", raw, false);
+    {
+        // The gzip CRC-32 is the trailer's first four bytes.
+        QByteArray badcrc = gz;
+        badcrc[badcrc.size() - 8] = (char)(badcrc.at(badcrc.size() - 8) ^ 0xFF);
+        check(writeFile("imgtest-badcrc.img.gz", badcrc), "fixture: gzip with a bad CRC written");
+        caseEndProbe("gzip with a bad CRC", "imgtest-badcrc.img.gz", raw, true);
+        DeleteFileA("imgtest-badcrc.img.gz");
+    }
 
     caseSinkRoundTrip("ImageSink, gzip", "imgtest-sink.img.gz", ImageSink::FORMAT_GZIP, raw);
     caseSinkRoundTrip("ImageSink, xz", "imgtest-sink.img.xz", ImageSink::FORMAT_XZ, raw);

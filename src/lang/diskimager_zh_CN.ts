@@ -720,6 +720,10 @@ Repair the partition table now?</source>
         <translation>无法读取分区表，或者其损坏方式不属于本功能所能修复的类型。</translation>
     </message>
     <message>
+        <source>The device list changed while you were confirming. Check the target device and try again.</source>
+        <translation>确认期间设备列表发生了变化。请检查目标设备后重试。</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>正在写入…</translation>
     </message>
@@ -829,7 +833,7 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
-        <translation>映像只能以未压缩方式读回。请选择不带 .gz 或 .xz 扩展名的文件名，或勾选&quot;读取为 .img.gz&quot;或&quot;读取为 .img.xz&quot;。</translation>
+        <translation type="vanished">映像只能以未压缩方式读回。请选择不带 .gz 或 .xz 扩展名的文件名，或勾选&quot;读取为 .img.gz&quot;或&quot;读取为 .img.xz&quot;。</translation>
     </message>
     <message>
         <source>Please select a source device.</source>

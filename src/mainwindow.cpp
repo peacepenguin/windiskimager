@@ -75,6 +75,22 @@ static unsigned long long progressTotalFor(const ImageSource &image,
     return numsectors;
 }
 
+// An estimate can be passed (gzip's size field wraps at 4 GiB), which would
+// pin the bar at 100% with the image still being written. Past it, fall back
+// to the device size, re-deriving the shift so the range still fits an int.
+static void growProgressTotal(QProgressBar *bar, unsigned long long done,
+                              unsigned long long devicetotal,
+                              unsigned long long *total, int *shift)
+{
+    if (done <= *total || *total >= devicetotal)
+    {
+        return;
+    }
+    *total = devicetotal;
+    *shift = progressShift(devicetotal);
+    bar->setRange(0, (int)(devicetotal >> *shift));
+}
+
 // Qt word-wraps a tooltip only if it looks like rich text, so a long plain one
 // becomes a single line clipped at both screen edges. Break it into lines here
 // and keep it plain: an HTML wrapper needs a fixed pixel width that every long
@@ -265,14 +281,22 @@ void MainWindow::showThroughput(unsigned long long sector, unsigned long long to
     *lastsector = sector;
 }
 
-// Returns the window to idle after a run that fails or is cancelled early.
+// Returns the window to idle after a run that fails or is cancelled early. A
+// window close confirmed during the run (STATUS_EXIT) is carried out here,
+// since resetting status would otherwise forget it.
 void MainWindow::endRun(const QString &message)
 {
+    const bool exiting = (status == STATUS_EXIT);
     status = STATUS_IDLE;
     showProgress(false);
+    elapsed_timer->stop();
     statusbar->showMessage(message);
     bCancel->setEnabled(false);
     setReadWriteButtonState();
+    if (exiting)
+    {
+        close();
+    }
 }
 
 // An empty status bar reads as blank space; a shade off the window colour and
@@ -427,6 +451,14 @@ void MainWindow::initializeHomeDir()
     myHomeDir = downloadPath;
 }
 
+// A hash type is chosen (index 0 is "None") and the file has something to hash.
+static bool hashableFile(const QString &file, int typeIndex)
+{
+    QFileInfo fi(file);
+    return typeIndex != 0 && !file.isEmpty() && fi.exists() && fi.isFile()
+           && fi.isReadable() && fi.size() > 0;
+}
+
 void MainWindow::setReadWriteButtonState()
 {
     // The image field and device list stay live during a run and both end up
@@ -438,8 +470,12 @@ void MainWindow::setReadWriteButtonState()
         bWrite->setEnabled(false);
         bVerify->setEnabled(false);
         bCheckGpt->setEnabled(false);
+        // Hashing is synchronous: started from a transfer loop's
+        // processEvents(), it would stall the transfer with the disk locked.
+        bHashGen->setEnabled(false);
         return;
     }
+    bHashGen->setEnabled(hashableFile(leFile->text(), cboxHashType->currentIndex()));
     bool fileSelected = !(leFile->text().isEmpty());
     bool deviceSelected = (cboxDevice->count() > 0);
     QFileInfo fi(leFile->text());
@@ -769,9 +805,15 @@ void MainWindow::on_bWrite_clicked()
                 QMessageBox::critical(this, tr("Write Error"), tr("Please select a target device."));
                 return;
             }
+            // The dialogs below leave the event loop running: a device-change
+            // notification can rebuild the list meanwhile, and Windows gives a
+            // newly inserted disk the number of the one just removed. What the
+            // user confirms is checked against what gets opened.
+            const QString targetText = cboxDevice->currentText();
+            const qulonglong targetBytes = cboxDevice->currentData(Qt::UserRole + 1).toULongLong();
             if (QMessageBox::warning(this, tr("Confirm overwrite"), tr("All files and data on this device will be deleted.\n"
                                                                        "(Target Device: %1)\n"
-                                                                       "Are you sure you want to continue?").arg(cboxDevice->currentText()),
+                                                                       "Are you sure you want to continue?").arg(targetText),
                                      QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No)
             {
                 return;
@@ -788,11 +830,18 @@ void MainWindow::on_bWrite_clicked()
                            "destroyed and cannot be recovered.\n\n"
                            "Check that %2 is not a drive you meant to keep.\n\n"
                            "Write to this device anyway?")
-                            .arg(cboxDevice->currentText()).arg(targetletters),
+                            .arg(targetText).arg(targetletters),
                         QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No)
                 {
                     return;
                 }
+            }
+            if (selectedDeviceID() != deviceID || cboxDevice->currentText() != targetText)
+            {
+                QMessageBox::critical(this, tr("Write Error"),
+                    tr("The device list changed while you were confirming. Check the "
+                       "target device and try again."));
+                return;
             }
             status = STATUS_WRITING;
             showProgress(true);
@@ -807,6 +856,19 @@ void MainWindow::on_bWrite_clicked()
             if (!acquireDeviceAndImage(deviceID, locked, image, &availablesectors,
                                        tr("Write Error"), tr("Write failed.")))
             {
+                return;
+            }
+            // Both sizes come from the same DiskSize; a mismatch means the
+            // disk behind this number is not the one that was confirmed.
+            if (targetBytes != 0ull && availablesectors != targetBytes / sectorsize)
+            {
+                CloseHandle(hRawDisk);
+                hRawDisk = INVALID_HANDLE_VALUE;
+                locked.release();
+                QMessageBox::critical(this, tr("Write Error"),
+                    tr("The device list changed while you were confirming. Check the "
+                       "target device and try again."));
+                endRun(tr("Write failed."));
                 return;
             }
             // Without an exact size (ImageSource::sizeKnown()) the loop runs
@@ -898,8 +960,8 @@ void MainWindow::on_bWrite_clicked()
                 return;
             }
 
-            const unsigned long long progresstotal = progressTotalFor(image, numsectors);
-            const int progshift = beginProgress(progresstotal, &lasti);
+            unsigned long long progresstotal = progressTotalFor(image, numsectors);
+            int progshift = beginProgress(progresstotal, &lasti);
             // Otherwise "Clearing old partition tables" stays up until the
             // first throughput figure.
             statusbar->showMessage(tr("Writing..."));
@@ -956,19 +1018,33 @@ void MainWindow::on_bWrite_clicked()
                     break;
                 }
                 QCoreApplication::processEvents();
-                showThroughput(i, progresstotal, &lasti);
                 // i is where this chunk started; the bar tracks its end.
                 unsigned long long written = i + chunk;
+                growProgressTotal(progressbar, written, numsectors, &progresstotal, &progshift);
+                showThroughput(i, progresstotal, &lasti);
                 progressbar->setValue(
                     (int)((written > progresstotal ? progresstotal : written) >> progshift));
                 QCoreApplication::processEvents();
             }
-            // With an estimated size the loop may have stopped at the device
-            // end with image still to come; ask the stream.
-            if (!image.sizeKnown() && status == STATUS_WRITING)
+            // Taken once: a Cancel or close during "Fixing GPT..." below must
+            // not turn a finished write into one reported as merely "Done".
+            // STATUS_WRITING survives the loop only if it completed; testing
+            // for STATUS_CANCELED alone would miss STATUS_EXIT.
+            const bool completed = (status == STATUS_WRITING);
+            // Ask the stream whether image is left over: with an estimated
+            // size the loop may have stopped at the device end. Also with a
+            // known size (unless the user chose to truncate), since only
+            // reading to the end makes a decoder check the trailing checksum
+            // and, for xz, the index.
+            QString imagedamage;
+            if (completed && (!image.sizeKnown() || numsectors == image.sizeInSectors()))
             {
                 unsigned long long leftover = 0ull;
                 char *extra = image.read(numsectors, 1ull, &leftover);
+                if (extra == NULL)
+                {
+                    imagedamage = image.errorString();
+                }
                 delete[] extra;
                 imagetruncated = (leftover > 0ull);
             }
@@ -984,10 +1060,7 @@ void MainWindow::on_bWrite_clicked()
             GptRewriteRisk gptrisk = gptRewriteRisk(hRawDisk, sectorsize);
             // Only for wording the no-GPT message; read while the handle is open.
             bool mbr = deviceHasMbrTable(hRawDisk, sectorsize);
-            // STATUS_WRITING survives the loop only if it completed: Cancel
-            // and closing the window both change it. Do not test for
-            // STATUS_CANCELED alone, which misses STATUS_EXIT.
-            if (fixGptCheckBox->isChecked() && status == STATUS_WRITING)
+            if (fixGptCheckBox->isChecked() && completed && imagedamage.isEmpty())
             {
                 statusbar->showMessage(tr("Fixing GPT..."));
                 QCoreApplication::processEvents();
@@ -1003,16 +1076,25 @@ void MainWindow::on_bWrite_clicked()
             hRawDisk = INVALID_HANDLE_VALUE;
             locked.release();
 
-            if (imagetruncated && status == STATUS_WRITING)
+            if (!completed)
+            {
+                passfail = false;
+            }
+            else if (!imagedamage.isEmpty())
+            {
+                QMessageBox::critical(this, tr("Write Error"),
+                    imagedamage
+                    + "\n\n" + tr("The device has been partially written and no longer holds "
+                                  "a usable image. Write the image again before using it."));
+                passfail = false;
+            }
+            else if (imagetruncated)
             {
                 QMessageBox::critical(this, tr("Image truncated"),
                     tr("The image is larger than the device, so the end of it was not "
                        "written and the device does not hold a complete image.\n\n"
                        "This could only be detected once the device was full, because "
                        "the compressed image does not record its uncompressed size."));
-                passfail = false;
-            }
-            else if (status != STATUS_WRITING){
                 passfail = false;
             }
             // No GPT means nothing for Windows to "repair", fix or no fix:
@@ -1246,38 +1328,25 @@ void MainWindow::on_bRead_clicked()
     if (!leFile->text().isEmpty())
     {
         myFile = leFile->text();
-        QFileInfo fileinfo(myFile);
-        if (fileinfo.path()=="."){
-            myFile = QDir::toNativeSeparators(QDir(myHomeDir).filePath(leFile->text()));
-            // Keep fileinfo in step, or the overwrite prompt checks a different
-            // file from the one getHandleOnFile truncates.
-            fileinfo.setFile(myFile);
+        // A relative name, "sub\foo.img" as much as "foo.img", goes in the
+        // image directory rather than the working directory (usually the
+        // install directory).
+        if (QFileInfo(myFile).isRelative())
+        {
+            myFile = QDir::toNativeSeparators(QDir(myHomeDir).filePath(myFile));
         }
         bool compressGz = readGzCheckBox->isChecked();
         bool compressXz = readXzCheckBox->isChecked();
-        const QString named = ImageSink::readTargetName(myFile, compressGz, compressXz);
-        bool renamedFile = (named != myFile);
-        if (renamedFile)
+        myFile = ImageSink::readTargetName(myFile, compressGz, compressXz);
+        // In step with myFile, or the overwrite prompt checks a different file
+        // from the one getHandleOnFile truncates.
+        QFileInfo fileinfo(myFile);
+        if (myFile != leFile->text())
         {
-            myFile = named;
-            fileinfo.setFile(myFile);
-        }
-        if (renamedFile)
-        {
-            // So later readers of the field (Verify, the hash controls) see
-            // the name actually written.
+            // Verify, Write and the hash controls all read the field, so it
+            // must name the file actually written.
             leFile->setText(myFile);
-        }
-        // Without compression, reading writes a raw image, and a raw image
-        // under a .gz or .xz name would mislead every other tool that opens
-        // it.
-        if (!compressGz && !compressXz && ImageSource::nameLooksCompressed(myFile))
-        {
-            QMessageBox::critical(this, tr("Read Error"),
-                tr("Images can only be read back uncompressed. Choose a file name "
-                   "without a .gz or .xz extension, or check \"Read to .img.gz\" "
-                   "or \"Read to .img.xz\"."));
-            return;
+            imageFileChanged();
         }
         // check whether source and target device is the same...
         if (fileIsOnSelectedDevice(myFile))
@@ -1306,6 +1375,9 @@ void MainWindow::on_bRead_clicked()
         bVerify->setEnabled(false);
         bCheckGpt->setEnabled(false);
         status = STATUS_READING;
+        // The file is about to be truncated: a digest of what was there
+        // before must not stay on screen as its checksum.
+        updateHashControls();
         showProgress(true);
         unsigned long long i, lasti, numsectors, filesize, spaceneeded = 0ull;
         // Locked as in acquireDeviceAndImage().
@@ -1736,8 +1808,8 @@ void MainWindow::on_bVerify_clicked()
             bool gptrepaired = false, gptleftdamaged = false;
             GptPrimaryState gptstate = GPT_PRIMARY_UNKNOWN;
 
-            const unsigned long long progresstotal = progressTotalFor(image, numsectors);
-            const int progshift = beginProgress(progresstotal, &lasti);
+            unsigned long long progresstotal = progressTotalFor(image, numsectors);
+            int progshift = beginProgress(progresstotal, &lasti);
             statusbar->showMessage(tr("Verifying..."));
             for (i = 0ul; i < numsectors && status == STATUS_VERIFYING; i += TRANSFER_SECTORS)
             {
@@ -1797,7 +1869,15 @@ void MainWindow::on_bVerify_clicked()
                             continue;
                         }
                         unsigned long long lba = i + s;
-                        if (gptknown && (lba < gptfrontend || lba >= gpttailstart))
+                        // LBA 0 is the boot sector: the fix only rewrites the
+                        // protective entry's size field (bytes 458-461), so
+                        // any other difference there is a real one.
+                        const char *imgsec = sectorData + s * sectorsize;
+                        const char *devsec = sectorData2 + s * sectorsize;
+                        bool fixable = (lba != 0ull)
+                            || (memcmp(imgsec, devsec, 458) == 0
+                                && memcmp(imgsec + 462, devsec + 462, sectorsize - 462) == 0);
+                        if (gptknown && fixable && (lba < gptfrontend || lba >= gpttailstart))
                         {
                             gptonly = true;
                             continue;
@@ -1818,24 +1898,35 @@ void MainWindow::on_bVerify_clicked()
                         break;
                     }
                 }
+                // i is where this chunk started; the bar tracks what is done.
+                unsigned long long checked = i + TRANSFER_SECTORS;
+                growProgressTotal(progressbar, checked, numsectors, &progresstotal, &progshift);
                 showThroughput(i, progresstotal, &lasti);
                 delete[] sectorData;
                 delete[] sectorData2;
                 sectorData = NULL;
                 sectorData2 = NULL;
-                // i is where this chunk started; the bar tracks what is done.
-                unsigned long long checked = i + TRANSFER_SECTORS;
                 progressbar->setValue(
                     (int)((checked > progresstotal ? progresstotal : checked) >> progshift));
                 QCoreApplication::processEvents();
             }
             // As after a write; comparing only the part that fits is not a
             // successful verify.
+            // Also with a known size (unless the user chose to truncate): only
+            // reading to the end of a compressed stream makes the decoder
+            // check its trailing checksum and, for xz, the index.
             bool imageunchecked = false;
-            if (!image.sizeKnown() && status == STATUS_VERIFYING && passfail)
+            if (status == STATUS_VERIFYING && passfail
+                && (!image.sizeKnown() || numsectors == image.sizeInSectors()))
             {
                 unsigned long long leftover = 0ull;
                 char *extra = image.read(numsectors, 1ull, &leftover);
+                if (extra == NULL)
+                {
+                    QMessageBox::critical(this, tr("Verify Error"), image.errorString());
+                    passfail = false;
+                    verifyreported = true;
+                }
                 delete[] extra;
                 imageunchecked = (leftover > 0ull);
             }
@@ -2025,6 +2116,9 @@ void MainWindow::getLogicalDrives()
                                 .arg(formatDeviceSize(dev.sizeBytes))
                                 .arg(dev.description),
                             (qulonglong)dev.deviceNumber);
+        // For on_bWrite_clicked() to check the device it opens is this one.
+        cboxDevice->setItemData(cboxDevice->count() - 1, (qulonglong)dev.sizeBytes,
+                                Qt::UserRole + 1);
     }
 
     // The popup is otherwise as narrow as the closed box, which elides the very
@@ -2095,8 +2189,17 @@ void MainWindow::on_readXzCheckBox_toggled(bool checked)
 void MainWindow::on_choosePartitionsCheckBox_toggled(bool checked)
 {
     // A partition selection needs the shrink plan, so force "Shrink image on
-    // Read" on and lock it while this is checked.
-    shrinkOnReadCheckBox->setChecked(checked || shrinkOnReadCheckBox->isChecked());
+    // Read" on and lock it while this is checked; unchecking puts back what
+    // the user had.
+    if (checked)
+    {
+        myShrinkBeforeChoose = shrinkOnReadCheckBox->isChecked();
+        shrinkOnReadCheckBox->setChecked(true);
+    }
+    else
+    {
+        shrinkOnReadCheckBox->setChecked(myShrinkBeforeChoose);
+    }
     shrinkOnReadCheckBox->setEnabled(!checked);
 }
 
@@ -2128,24 +2231,14 @@ bool MainWindow::nativeEvent(const QByteArray &type, void *vMsg, qintptr *result
 
 void MainWindow::updateHashControls()
 {
-    QFileInfo fileinfo(leFile->text());
-    bool validFile = (fileinfo.exists() && fileinfo.isFile() &&
-                      fileinfo.isReadable() && (fileinfo.size() >0));
-
     bHashCopy->setEnabled(false);
     hashLabel->clear();
     // Hidden while empty and, unlike the progress bar, not keeping its
     // space, so the group closes up.
     hashLabel->setVisible(false);
 
-    if (cboxHashType->currentIndex() != 0 && !leFile->text().isEmpty() && validFile)
-    {
-            bHashGen->setEnabled(true);
-    }
-    else
-    {
-        bHashGen->setEnabled(false);
-    }
+    bHashGen->setEnabled(status == STATUS_IDLE
+                         && hashableFile(leFile->text(), cboxHashType->currentIndex()));
 
     // generateHash() enables Copy once a digest exists.
 }
@@ -2166,6 +2259,11 @@ void MainWindow::on_cboxHashType_IdxChg()
 
 void MainWindow::on_bHashGen_clicked()
 {
+    // See setReadWriteButtonState().
+    if (status != STATUS_IDLE)
+    {
+        return;
+    }
     generateHash(leFile->text(), cboxHashType->currentData().toInt());
 
 }

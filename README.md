@@ -55,10 +55,12 @@ includes volumes mounted as folders or with no drive letter.
 By default, Read copies the whole device, sector by sector.
 
 **Shrink image on Read** reads the device's MBR or GPT and packs the partitions
-back to back, removing the space before, between and after them. Each partition
-is aligned to 1 MiB, the same default as Windows, `parted` and `sgdisk`. For
-GPT, the backup table is rebuilt at the new end of the image. A device with no
-partition table, or nothing to remove, is read in full.
+back to back, removing the space between and after them. Everything before the
+first partition is kept exactly where it is, because board images keep their
+bootloader there, outside any partition. Each partition is aligned to 1 MiB,
+the same default as Windows, `parted` and `sgdisk`, and never moves later on
+the disk. For GPT, the backup table is rebuilt at the new end of the image. A
+device with no partition table, or nothing to remove, is read in full.
 
 **Choose partitions to read** lists the device's partitions before reading.
 Partitions are numbered as `diskpart` numbers them and show their drive letter

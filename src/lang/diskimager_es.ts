@@ -700,6 +700,10 @@ Esto es lo que deja Windows cuando reanaliza una tarjeta escrita sin «Corregir 
         <translation>No se pudo leer la tabla de particiones, o está dañada de una forma distinta a la que esto repara.</translation>
     </message>
     <message>
+        <source>The device list changed while you were confirming. Check the target device and try again.</source>
+        <translation>La lista de dispositivos cambió mientras confirmaba. Compruebe el dispositivo de destino e inténtelo de nuevo.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Escribiendo…</translation>
     </message>
@@ -809,7 +813,7 @@ Extraiga el dispositivo AHORA y no vuelva a insertarlo aquí. Colóquelo directa
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
-        <translation>Las imágenes solo se pueden leer sin comprimir. Elija un nombre de archivo sin la extensión .gz o .xz, o marque «Leer a .img.gz» o «Leer a .img.xz».</translation>
+        <translation type="vanished">Las imágenes solo se pueden leer sin comprimir. Elija un nombre de archivo sin la extensión .gz o .xz, o marque «Leer a .img.gz» o «Leer a .img.xz».</translation>
     </message>
     <message>
         <source>Please select a source device.</source>

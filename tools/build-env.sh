@@ -212,9 +212,12 @@ container_run()
         podman build -t "$CROSS_IMAGE" --build-arg BASE="$CROSS_BASE_IMAGE" \
             -f "$repo/tools/Containerfile.build" "$repo"
     fi
-    podman run --rm -v "$repo:/src" -w /src \
+    # label=disable: on an SELinux host (Fedora, RHEL) the bind-mounted repo
+    # is otherwise unreadable in the container. The ${a[@]+...} form: bash
+    # before 4.4 (macOS's) treats an empty array as unset under set -u.
+    podman run --rm -v "$repo:/src" -w /src --security-opt label=disable \
         -e W32DI_IN_CONTAINER=1 \
-        "${CONTAINER_ENV[@]}" \
+        ${CONTAINER_ENV[@]+"${CONTAINER_ENV[@]}"} \
         "$CROSS_IMAGE" "$@"
 }
 
@@ -363,6 +366,25 @@ build_report()
 # Copy into DIST every DLL its binaries import that is in BINDIR and not yet in
 # DIST, repeating while a pass finds binaries not yet read (a copied DLL has
 # imports of its own). Windows' own DLLs are skipped by not being in BINDIR.
+# deploy_check_dist DIR
+#
+# Fail unless DIR holds what the exe cannot start or draw its icons without.
+# Plugin copies and objdump are allowed to fail quietly above, so a broken
+# package would otherwise be zipped and shipped.
+deploy_check_dist()
+{
+    local dist=${1:?usage: deploy_check_dist DIR}
+    local f missing=0
+    for f in WinDiskImager.exe Qt6Core.dll Qt6Gui.dll Qt6Widgets.dll Qt6Svg.dll \
+             platforms/qwindows.dll iconengines/qsvgicon.dll imageformats/qsvg.dll; do
+        if [ ! -f "$dist/$f" ]; then
+            echo "error: $dist/$f is missing from the package." >&2
+            missing=1
+        fi
+    done
+    return $missing
+}
+
 # Both deploy scripts use this so what a finished folder contains cannot drift
 # between them, whatever else differs in how they gather the Qt payload.
 #

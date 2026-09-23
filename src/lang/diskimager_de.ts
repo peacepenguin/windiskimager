@@ -700,6 +700,10 @@ Die Partitionstabelle jetzt reparieren?</translation>
         <translation>Die Partitionstabelle konnte nicht gelesen werden oder ist auf andere Weise beschädigt, als diese Funktion reparieren kann.</translation>
     </message>
     <message>
+        <source>The device list changed while you were confirming. Check the target device and try again.</source>
+        <translation>Die Geräteliste hat sich während der Bestätigung geändert. Prüfen Sie den Zieldatenträger und versuchen Sie es erneut.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Schreiben …</translation>
     </message>
@@ -809,7 +813,7 @@ Entfernen Sie den Datenträger JETZT und stecken Sie ihn hier nicht wieder ein. 
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
-        <translation>Images können nur unkomprimiert zurückgelesen werden. Wählen Sie einen Dateinamen ohne die Endung .gz oder .xz, oder aktivieren Sie „Als .img.gz lesen“ oder „Als .img.xz lesen“.</translation>
+        <translation type="vanished">Images können nur unkomprimiert zurückgelesen werden. Wählen Sie einen Dateinamen ohne die Endung .gz oder .xz, oder aktivieren Sie „Als .img.gz lesen“ oder „Als .img.xz lesen“.</translation>
     </message>
     <message>
         <source>Please select a source device.</source>

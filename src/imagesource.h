@@ -41,9 +41,6 @@ public:
     ImageSource();
     ~ImageSource();
 
-    // For use before anything is opened (e.g. the Read button); open() decides
-    // by content, not name.
-    static bool nameLooksCompressed(const QString &path);
     // "gzip" / "xz" / "raw", for messages.
     static QString formatName(Format f);
 

@@ -49,6 +49,10 @@ def dev_size(path, f):
     return struct.unpack("<q", buf.raw[:8])[0] if ok else None
 
 def show_header(name, raw, disk_lba_max):
+    # Past the end of a truncated image, or an AlternateLBA pointing off it.
+    if len(raw) < 92:
+        print(f"{name}: only {len(raw)} bytes there, no header")
+        return None
     sig, rev, hsize, hcrc, _, mylba, altlba, first, last, gid, plba, pnum, psize, pcrc = \
         struct.unpack_from("<8sIIII QQQQ 16s QIII", raw, 0)
     if sig != b"EFI PART":
@@ -101,8 +105,15 @@ def find_entry_array(f, pcrc, pnum, psize, last):
     return None
 
 def show_entries(f, plba, pnum, psize, pcrc, last=None):
+    # Same bounds as find_entry_array(): a corrupt count or size must not
+    # become a multi-gigabyte read.
+    if not (0 < pnum <= 65536 and 128 <= psize <= 4096):
+        print(f"  entry count/size out of range ({pnum} x {psize}); not reading them")
+        return
     f.seek(plba * SS)
     blob = f.read(pnum * psize)
+    if len(blob) < pnum * psize:
+        print(f"  ** the entry array is cut short: {len(blob)} of {pnum * psize} bytes")
     ok = crc(blob) == pcrc
     print(f"  entries CRC over array: {crc(blob):#010x} "
           f"{'OK' if ok else 'MISMATCH'}")
@@ -115,13 +126,14 @@ def show_entries(f, plba, pnum, psize, pcrc, last=None):
         else:
             print("  ** no array matching EntriesCRC found near either end; "
                   "the entries themselves were changed, not just the pointer")
-    for i in range(pnum):
+    for i in range(len(blob) // psize):
         e = blob[i*psize:(i+1)*psize]
         tguid = e[0:16]
         if tguid == b"\0"*16:
             continue
         pguid, sl, el, attr = struct.unpack_from("<16sQQQ", e, 16)
-        nm = e[56:128].decode("utf-16-le").split("\0")[0]
+        # A corrupt table is what this is for; its names can be garbage.
+        nm = e[56:128].decode("utf-16-le", errors="replace").split("\0")[0]
         print(f"   [{i}] {sl:>10}-{el:<10} attr={attr:#018x} "
               f"type={uuid.UUID(bytes_le=tguid)} name={nm!r}")
 
@@ -140,6 +152,9 @@ def main(path):
         print(f"== {path}  size={size} bytes ({size//SS if size else '?'} sectors)\n")
 
         mbr = read_at(f, 0)
+        if len(mbr) < SS:
+            print(f"only {len(mbr)} bytes: too short for an MBR, let alone a GPT")
+            return
         print("Protective MBR partition entries:")
         for i in range(4):
             e = mbr[446+i*16:462+i*16]
@@ -167,4 +182,7 @@ def main(path):
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit(__doc__)
+    # A Windows console's code page cannot show every partition name; escape
+    # what it cannot encode rather than dying mid-dump.
+    sys.stdout.reconfigure(errors="backslashreplace")
     main(sys.argv[1])

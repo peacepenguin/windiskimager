@@ -80,4 +80,6 @@ fi
 # dependencies on MSYS2; see deploy_resolve_closure in tools/build-env.sh.
 deploy_resolve_closure objdump "$MSYS2_BIN" dist
 
+deploy_check_dist dist
+
 echo "dist/ is ready ($(du -sh dist | cut -f1))"

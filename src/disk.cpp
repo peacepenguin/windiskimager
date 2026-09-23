@@ -499,31 +499,39 @@ bool diskPartitionNumbers(HANDLE hRawDisk, unsigned long long sectorsize,
     return true;
 }
 
-// Disk that holds the running Windows installation, or -1 if unknown.
-static int systemDiskNumber()
+// The volume Windows runs from, opened with no access so every disk can be
+// tested against all of its extents: a mirrored or spanned boot volume has
+// one per disk, and each of those disks must be hidden.
+static HANDLE openSystemVolume()
 {
     char windir[MAX_PATH + 1] = {0};
     if (GetWindowsDirectoryA(windir, MAX_PATH) == 0)
     {
-        return -1;
+        return INVALID_HANDLE_VALUE;
     }
-    return diskNumberOfVolume(windir[0]);
+    char device[] = "\\\\.\\A:";
+    device[4] = windir[0];
+    return CreateFileA(device, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                       OPEN_EXISTING, 0, NULL);
 }
 
 // A trailing run of spaces and NULs is normal in the descriptor strings.
-static QString descriptorString(const BYTE *buf, DWORD offset)
+// valid is how much of buf the driver filled: a descriptor too big for buf is
+// truncated, and its string offsets can then point past the end.
+static QString descriptorString(const BYTE *buf, DWORD valid, DWORD offset)
 {
-    if (offset == 0)
+    if (offset == 0 || offset >= valid)
     {
         return QString();
     }
-    return QString::fromLatin1((const char *)buf + offset).trimmed();
+    const char *s = (const char *)buf + offset;
+    return QString::fromLatin1(s, (qsizetype)strnlen(s, valid - offset)).trimmed();
 }
 
 QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed)
 {
     QList<PhysicalDevice> devices;
-    const int systemDisk = systemDiskNumber();
+    HANDLE systemVolume = openSystemVolume();
 
     // Disk numbers are not dense, so do not stop at the first gap.
     for (ULONG n = 0; n < 128; ++n)
@@ -544,7 +552,7 @@ QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed)
         dev.removable = false;
 
         int arrSz = sizeof(STORAGE_DEVICE_DESCRIPTOR) + 512 - 1;
-        BYTE *buf = new BYTE[arrSz];
+        BYTE *buf = new BYTE[arrSz]();
         PSTORAGE_DEVICE_DESCRIPTOR pDevDesc = (PSTORAGE_DEVICE_DESCRIPTOR)buf;
         pDevDesc->Size = arrSz;
         STORAGE_PROPERTY_QUERY query;
@@ -556,8 +564,9 @@ QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed)
                                          pDevDesc->Size, &dwOutBytes, NULL);
         if (described)
         {
-            QString vendor = descriptorString(buf, pDevDesc->VendorIdOffset);
-            QString product = descriptorString(buf, pDevDesc->ProductIdOffset);
+            const DWORD valid = qMin(dwOutBytes, (DWORD)arrSz);
+            QString vendor = descriptorString(buf, valid, pDevDesc->VendorIdOffset);
+            QString product = descriptorString(buf, valid, pDevDesc->ProductIdOffset);
             dev.description = QString("%1 %2").arg(vendor).arg(product).trimmed();
             // eSATA reports removable media but is a fixed internal disk in
             // practice, so it is only offered when fixed disks are shown.
@@ -571,7 +580,7 @@ QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed)
         // Filter before the geometry query: asking a disk in standby for its
         // size spins it up (seconds for an HDD), whereas the open and the
         // descriptor query do not. Disks about to be dropped are never asked.
-        if (systemDisk >= 0 && (int)n == systemDisk)
+        if (systemVolume != INVALID_HANDLE_VALUE && volumeIsOnDisk(systemVolume, n))
         {
             CloseHandle(hDevice);
             continue;
@@ -604,6 +613,10 @@ QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed)
         }
         dev.letters = driveLettersOnDevice(n);
         devices.append(dev);
+    }
+    if (systemVolume != INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(systemVolume);
     }
     return devices;
 }
@@ -641,6 +654,12 @@ bool LockedVolumes::lockAll(DWORD deviceID)
         }
         const QString name = volumeDisplayName(guidname);
         HANDLE h = openVolumeByName(guidname, GENERIC_READ | GENERIC_WRITE);
+        if (h == INVALID_HANDLE_VALUE)
+        {
+            // A write-protected card refuses write access, but lock and
+            // dismount work on a read handle, so a read can still go ahead.
+            h = openVolumeByName(guidname, GENERIC_READ);
+        }
         if (h == INVALID_HANDLE_VALUE)
         {
             QMessageBox::critical(MainWindow::getInstanceIfAvailable(), QObject::tr("Lock Error"),
@@ -1199,6 +1218,13 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     {
         return false;
     }
+    // Before exclusion, so an excluded first partition's data is not kept as
+    // part of the space ahead of it.
+    unsigned long long firststart = devicesectors;
+    for (const MbrSlot &s : order)
+    {
+        firststart = qMin(firststart, s.first);
+    }
     if (excludeSlots)
     {
         for (int i = order.size() - 1; i >= 0; --i)
@@ -1220,11 +1246,28 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         return a.first < b.first;
     });
 
+    // Everything from sector 1 to the first partition is kept as it is; see
+    // PartitionShrinkPlan.
     QList<ShrinkCopyRange> ranges;
-    unsigned long long cursor = 1ull;   // sector 0 is the boot sector itself
+    if (firststart > 1ull)
+    {
+        ranges.append(ShrinkCopyRange{1ull, 1ull, firststart - 1ull});
+    }
+    unsigned long long cursor = firststart;
+    unsigned long long prevend = firststart;   // original end of the last kept partition
     for (const MbrSlot &s : order)
     {
-        unsigned long long newfirst = ((cursor + alignsectors - 1) / alignsectors) * alignsectors;
+        if (s.first < prevend)
+        {
+            // Overlapping entries: packing them apart would change what each holds.
+            if (detail) *detail = QObject::tr("a partition entry describes an impossible range");
+            return false;
+        }
+        prevend = s.first + s.count;
+        // Never later than it already is: a partition already packed tighter
+        // than the alignment stays put.
+        unsigned long long newfirst = qMin(s.first,
+            ((cursor + alignsectors - 1) / alignsectors) * alignsectors);
         unsigned long long newlast  = newfirst + s.count - 1;
         if (newfirst > 0xFFFFFFFFull)
         {
@@ -1419,8 +1462,20 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     DWORD headersize = rd32(hdr, GPT_OFF_HEADERSIZE);
     unsigned long long entrybytes = numentries * entrysize;
 
+    // The tables themselves; everything after them up to the first partition
+    // is copied as a range (see PartitionShrinkPlan), not held in memory.
+    const unsigned long long headerend = entrylba + entrysectors;
+    if (headerend * sectorsize > 64ull * 1024ull * 1024ull)
+    {
+        if (detail) *detail = QObject::tr("the GPT partition entry array is not where the header says");
+        return false;
+    }
+
     // Kept slots, sorted by start below so packing preserves on-disk order.
+    // firststart counts excluded partitions too, so an excluded first
+    // partition's data is not kept as part of the space ahead of it.
     QList<int> order;
+    unsigned long long firststart = devicesectors;
     for (unsigned long long i = 0; i < numentries; ++i)
     {
         unsigned char *e = (unsigned char *)entries.data() + i * entrysize;
@@ -1428,6 +1483,14 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         {
             continue;
         }
+        unsigned long long first = rd64(e, GPT_ENT_FIRSTLBA);
+        unsigned long long last  = rd64(e, GPT_ENT_LASTLBA);
+        if (last < first || last >= devicesectors || first < firstusable)
+        {
+            if (detail) *detail = QObject::tr("a partition entry describes an impossible range");
+            return false;
+        }
+        firststart = qMin(firststart, first);
         if (excludeSlots && excludeSlots->contains((int)i))
         {
             memset(e, 0, (size_t)entrysize);
@@ -1448,19 +1511,28 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     });
 
     QList<ShrinkCopyRange> ranges;
-    unsigned long long cursor = firstusable;
+    if (firststart > headerend)
+    {
+        ranges.append(ShrinkCopyRange{headerend, headerend, firststart - headerend});
+    }
+    unsigned long long cursor = firststart;
+    unsigned long long prevend = firststart;   // original end of the last kept partition
     for (int idx : order)
     {
         unsigned char *e = (unsigned char *)entries.data() + (size_t)idx * entrysize;
         unsigned long long origfirst = rd64(e, GPT_ENT_FIRSTLBA);
         unsigned long long origlast  = rd64(e, GPT_ENT_LASTLBA);
-        if (origlast < origfirst || origlast >= devicesectors || origfirst < firstusable)
+        if (origfirst < prevend)
         {
+            // Overlapping entries: packing them apart would change what each holds.
             if (detail) *detail = QObject::tr("a partition entry describes an impossible range");
             return false;
         }
+        prevend = origlast + 1;
         unsigned long long length  = origlast - origfirst + 1;
-        unsigned long long newfirst = ((cursor + alignsectors - 1) / alignsectors) * alignsectors;
+        // Never later than it already is; see planMbrShrink().
+        unsigned long long newfirst = qMin(origfirst,
+            ((cursor + alignsectors - 1) / alignsectors) * alignsectors);
         unsigned long long newlast  = newfirst + length - 1;
         ranges.append(ShrinkCopyRange{origfirst, newfirst, length});
         wr64(e, GPT_ENT_FIRSTLBA, newfirst);
@@ -1488,7 +1560,7 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     wr32(hdr, GPT_OFF_HEADERCRC, 0);
     wr32(hdr, GPT_OFF_HEADERCRC, gptCrc32(hdr, headersize));
 
-    QByteArray region((size_t)(firstusable * sectorsize), 0);
+    QByteArray region((size_t)(headerend * sectorsize), 0);
     if (!rawSeekRead(hRawDisk, 0, region.data(), (DWORD)region.size()))
     {
         return false;
@@ -1522,7 +1594,7 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     backupregion.append(backup);
 
     plan->headerregion  = region;
-    plan->headersectors = firstusable;
+    plan->headersectors = headerend;
     plan->ranges        = ranges;
     plan->backupregion  = backupregion;
     plan->backupsectors = entrysectors + 1;
@@ -1792,8 +1864,9 @@ bool gptOwnedSectors(HANDLE hRawDisk, unsigned long long sectorsize,
         return false;
     }
 
-    // Front: protective MBR, primary header, primary entry array.
-    if (frontend)  *frontend  = 2 + entrysectors;
+    // Front: protective MBR and primary header -- the only front sectors
+    // relocateBackupGPT() and repairPrimaryGpt() write.
+    if (frontend)  *frontend  = 2;
     // Tail: relocated backup entry array plus its header at the last LBA.
     if (tailstart) *tailstart = devicesectors - 1 - entrysectors;
     return true;

@@ -720,6 +720,10 @@ De partitietabel nu herstellen?</translation>
         <translation>De partitietabel kon niet worden gelezen, of is op een andere manier beschadigd dan deze functie herstelt.</translation>
     </message>
     <message>
+        <source>The device list changed while you were confirming. Check the target device and try again.</source>
+        <translation>De apparatenlijst is gewijzigd tijdens het bevestigen. Controleer het doelapparaat en probeer het opnieuw.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Bezig met schrijven…</translation>
     </message>
@@ -829,7 +833,7 @@ Verwijder het apparaat NU en plaats het hier niet opnieuw. Steek het meteen in d
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
-        <translation>Images kunnen alleen ongecomprimeerd worden teruggelezen. Kies een bestandsnaam zonder .gz- of .xz-extensie, of vink &quot;Lezen naar .img.gz&quot; of &quot;Lezen naar .img.xz&quot; aan.</translation>
+        <translation type="vanished">Images kunnen alleen ongecomprimeerd worden teruggelezen. Kies een bestandsnaam zonder .gz- of .xz-extensie, of vink &quot;Lezen naar .img.gz&quot; of &quot;Lezen naar .img.xz&quot; aan.</translation>
     </message>
     <message>
         <source>Please select a source device.</source>

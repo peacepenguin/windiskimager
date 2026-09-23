@@ -187,17 +187,18 @@ bool gptImageBackupRange(const unsigned char *lba1, unsigned long long sectorsiz
                          unsigned long long *first, unsigned long long *last);
 
 // Sectors "Fix GPT after write" may rewrite, so a verify can tell them from a
-// bad card: front [0, *frontend) is the protective MBR, primary header and an
-// entry array at LBA 2; tail [*tailstart, devicesectors) is the relocated
-// backup array and header. Returns false, setting neither, if the device holds
-// no usable GPT.
+// bad card: front [0, *frontend) is the protective MBR (of which only the
+// protective entry's size field, bytes 458-461, changes) and the primary
+// header; tail [*tailstart, devicesectors) is the relocated backup array and
+// header. The primary entry array is never rewritten, so it is not included.
+// Returns false, setting neither, if the device holds no usable GPT.
 bool gptOwnedSectors(HANDLE hRawDisk, unsigned long long sectorsize,
                      unsigned long long devicesectors,
                      unsigned long long *frontend, unsigned long long *tailstart);
 
-// One partition, as planGptShrink()/planMbrShrink() repack it: sectors
-// [srcfirst, srcfirst + length) on the device become
-// [dstfirst, dstfirst + length) in the image.
+// A run of sectors planGptShrink()/planMbrShrink() copy: [srcfirst,
+// srcfirst + length) on the device becomes [dstfirst, dstfirst + length) in
+// the image.
 struct ShrinkCopyRange
 {
     unsigned long long srcfirst;
@@ -210,15 +211,18 @@ struct ShrinkCopyRange
 // dstfirst, then backupregion, totalsectors long.
 struct PartitionShrinkPlan
 {
-    // Sectors [0, headersectors), verbatim except for the table, which is
-    // patched to describe the repacked partitions. For GPT this runs up to
-    // FirstUsableLBA, so reserved space (e.g. U-Boot) is kept; for MBR it is
-    // the boot sector alone.
+    // Sectors [0, headersectors): the partition table, patched to describe
+    // the repacked partitions -- the boot sector for MBR; the protective MBR,
+    // primary header and entry array for GPT.
     QByteArray headerregion;
     unsigned long long headersectors;
-    // The kept partitions in on-disk order, each aligned to alignsectors.
-    // Alignment gaps must be written as explicit zeros: the output may not be
-    // a sparse file that zero-fills skipped regions.
+    // First, everything from the end of the table to the first partition,
+    // copied where it is: board images keep bootloaders there, outside any
+    // partition (Allwinner at sector 16, Rockchip at LBA 64 even with
+    // FirstUsableLBA 34). Then the kept partitions in on-disk order, each
+    // aligned to alignsectors but never moved later than it was. Gaps between
+    // ranges must be written as explicit zeros: the output may not be a sparse
+    // file that zero-fills skipped regions.
     QList<ShrinkCopyRange> ranges;
     // Sectors [totalsectors - backupsectors, totalsectors): the backup entry
     // array and header for the repacked layout, precomputed so the image is
@@ -229,13 +233,14 @@ struct PartitionShrinkPlan
     unsigned long long totalsectors;
 };
 
-// Plan a GPT "Shrink image on Read" that removes every unpartitioned gap:
-// after FirstUsableLBA, between partitions and after the last. Pass
+// Plan a GPT "Shrink image on Read" that removes the unpartitioned space
+// between partitions and after the last, and any excluded partition. The space
+// before the first partition is kept (see PartitionShrinkPlan). Pass
 // alignsectors = 1048576 / sectorsize so every partition starts on a 1MiB
 // boundary (the Windows/parted/sgdisk default, a multiple of any real sector
 // or erase-block size). Returns false, with *plan untouched, if the device
-// holds no usable GPT, a partition's range makes no sense, no partitions
-// remain, or there is nothing to gain.
+// holds no usable GPT, a partition's range makes no sense or overlaps
+// another, no partitions remain, or there is nothing to gain.
 // excludeSlots, if non-NULL, lists slots (GPT entry index, or MBR primary
 // entry index 0-3) to drop: the table entry is zeroed and the data not
 // copied.
@@ -244,11 +249,11 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
                    PartitionShrinkPlan *plan, QString *detail,
                    const QList<int> *excludeSlots = NULL);
 
-// planGptShrink() for a legacy MBR, packing after the boot sector. Only the
-// four primary entries are walked; extended/logical partitions are not.
+// planGptShrink() for a legacy MBR. Only the four primary entries are
+// walked; an extended partition moves as a whole with its logical ones inside.
 // Returns false, with *plan untouched, if the device holds no MBR, an entry
-// describes an impossible range, a repacked start exceeds 32 bits, no
-// partitions remain, or there is nothing to gain.
+// describes an impossible or overlapping range, a repacked start exceeds 32
+// bits, no partitions remain, or there is nothing to gain.
 bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
                    unsigned long long devicesectors, unsigned long long alignsectors,
                    PartitionShrinkPlan *plan, QString *detail,

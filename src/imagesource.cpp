@@ -49,12 +49,6 @@ ImageSource::~ImageSource()
     close();
 }
 
-bool ImageSource::nameLooksCompressed(const QString &path)
-{
-    QString name = path.toLower();
-    return name.endsWith(".gz") || name.endsWith(".xz");
-}
-
 QString ImageSource::formatName(Format f)
 {
     switch (f)
@@ -255,22 +249,33 @@ bool ImageSource::readXzSize(unsigned long long filesize)
     unsigned long long pos = filesize;
     unsigned long long total = 0ull;
     std::vector<unsigned char> buf;
+    std::vector<unsigned char> padbuf(65536);
 
     while (pos > 0ull)
     {
-        // Streams may be separated by padding: whole groups of four zero bytes.
-        while (pos >= 4ull)
+        // Streams may be separated by padding: whole groups of four zero
+        // bytes. Scanned back a block at a time; one read per group would
+        // stall open() on a file with megabytes of padding.
+        bool padding = true;
+        while (padding && pos >= 4ull)
         {
-            unsigned char pad[4];
-            if (!readAt(pos - 4ull, pad, 4))
+            const unsigned long long n = qMin(pos, (unsigned long long)padbuf.size()) & ~3ull;
+            if (!readAt(pos - n, &padbuf[0], (DWORD)n))
             {
                 return false;
             }
-            if (pad[0] || pad[1] || pad[2] || pad[3])
+            unsigned long long zeros = 0ull;
+            while (zeros < n)
             {
-                break;
+                const unsigned char *g = &padbuf[(size_t)(n - zeros - 4ull)];
+                if (g[0] || g[1] || g[2] || g[3])
+                {
+                    padding = false;
+                    break;
+                }
+                zeros += 4ull;
             }
-            pos -= 4ull;
+            pos -= zeros;
         }
         if (pos == 0ull)
         {
@@ -305,7 +310,10 @@ bool ImageSource::readXzSize(unsigned long long filesize)
         }
 
         lzma_index *index = NULL;
-        uint64_t memlimit = UINT64_MAX;
+        // The 64 MiB cap bounds the index's bytes, not the tree decoded from
+        // them, which a crafted index of tiny records can make many times
+        // larger. Past this, the size is just reported unknown.
+        uint64_t memlimit = 256ull * 1024ull * 1024ull;
         size_t inpos = 0;
         if (lzma_index_buffer_decode(&index, &memlimit, NULL, &buf[0], &inpos,
                                      buf.size()) != LZMA_OK)
@@ -316,7 +324,14 @@ bool ImageSource::readXzSize(unsigned long long filesize)
             }
             return false;
         }
-        total += lzma_index_uncompressed_size(index);
+        const unsigned long long add = lzma_index_uncompressed_size(index);
+        if (add > ~0ull - total)
+        {
+            // A wrapped total would be reported as an exact, and wrong, size.
+            lzma_index_end(index, NULL);
+            return false;
+        }
+        total += add;
         unsigned long long streamsize = lzma_index_stream_size(index);
         lzma_index_end(index, NULL);
         if (streamsize > pos)
@@ -783,11 +798,13 @@ bool ImageSink::finish()
         return false;
     }
     bool flushed = FlushFileBuffers(myHandle) != 0;
+    // Before abort(), whose cleanup calls can overwrite it.
+    const DWORD flusherror = flushed ? 0 : GetLastError();
     abort();
     if (!flushed)
     {
         myError = QObject::tr("The image file could not be flushed (error %1).")
-                      .arg(GetLastError());
+                      .arg(flusherror);
         return false;
     }
     return true;

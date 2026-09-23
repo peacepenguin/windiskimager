@@ -720,6 +720,10 @@ Repair the partition table now?</source>
         <translation>無法讀取分割表，或其損壞方式不屬於這項功能所能修復的類型。</translation>
     </message>
     <message>
+        <source>The device list changed while you were confirming. Check the target device and try again.</source>
+        <translation>確認期間裝置清單已變更。請檢查目標裝置後再試一次。</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>正在寫入…</translation>
     </message>
@@ -829,7 +833,7 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
-        <translation>映像檔只能以未壓縮方式讀回。請選擇不含 .gz 或 .xz 副檔名的檔名，或勾選「讀取為 .img.gz」或「讀取為 .img.xz」。</translation>
+        <translation type="vanished">映像檔只能以未壓縮方式讀回。請選擇不含 .gz 或 .xz 副檔名的檔名，或勾選「讀取為 .img.gz」或「讀取為 .img.xz」。</translation>
     </message>
     <message>
         <source>Please select a source device.</source>

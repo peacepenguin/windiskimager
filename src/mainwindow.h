@@ -126,6 +126,8 @@ private:
         // Image the hash type was last defaulted for, so a hand-picked type
         // survives later editingFinished signals.
         QString myHashDefaultedFor;
+        // "Shrink image on Read" as it was before "Choose partitions" forced it.
+        bool myShrinkBeforeChoose = false;
         QStringList myFileTypeList;
 };
 

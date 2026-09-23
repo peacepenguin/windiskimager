@@ -247,6 +247,10 @@ Write to this device anyway?</source>
 இருப்பினும் இந்தச் சாதனத்தில் எழுதவா?</translation>
     </message>
     <message>
+        <source>The device list changed while you were confirming. Check the target device and try again.</source>
+        <translation>நீங்கள் உறுதிசெய்துகொண்டிருந்தபோது சாதனப் பட்டியல் மாறிவிட்டது. இலக்குச் சாதனத்தைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.</translation>
+    </message>
+    <message>
         <source>The image is larger than the device:
   Image: at least %1 sectors
   Available: %2 sectors
@@ -751,7 +755,7 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
-        <translation>படிமங்களை அமுக்கப்படாமல் மட்டுமே மீண்டும் படிக்க முடியும். .gz அல்லது .xz நீட்டிப்பு இல்லாத கோப்புப் பெயரைத் தேர்ந்தெடுக்கவும், அல்லது &quot;.img.gz ஆகப் படி&quot; அல்லது &quot;.img.xz ஆகப் படி&quot; எனத் தேர்வுசெய்க.</translation>
+        <translation type="vanished">படிமங்களை அமுக்கப்படாமல் மட்டுமே மீண்டும் படிக்க முடியும். .gz அல்லது .xz நீட்டிப்பு இல்லாத கோப்புப் பெயரைத் தேர்ந்தெடுக்கவும், அல்லது &quot;.img.gz ஆகப் படி&quot; அல்லது &quot;.img.xz ஆகப் படி&quot; எனத் தேர்வுசெய்க.</translation>
     </message>
     <message>
         <source>No partition table was found on the device, so there is nothing to choose from. The whole device will be read.</source>

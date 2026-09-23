@@ -720,6 +720,10 @@ Repair the partition table now?</source>
         <translation>파티션 테이블을 읽을 수 없거나, 이 기능이 복구할 수 있는 것과는 다른 방식으로 손상되었습니다.</translation>
     </message>
     <message>
+        <source>The device list changed while you were confirming. Check the target device and try again.</source>
+        <translation>확인하는 동안 장치 목록이 바뀌었습니다. 대상 장치를 확인하고 다시 시도하세요.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>쓰는 중…</translation>
     </message>
@@ -829,7 +833,7 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
-        <translation>이미지는 압축되지 않은 상태로만 다시 읽을 수 있습니다. .gz 또는 .xz 확장자가 없는 파일 이름을 선택하거나, &quot;.img.gz로 읽기&quot; 또는 &quot;.img.xz로 읽기&quot;를 선택하십시오.</translation>
+        <translation type="vanished">이미지는 압축되지 않은 상태로만 다시 읽을 수 있습니다. .gz 또는 .xz 확장자가 없는 파일 이름을 선택하거나, &quot;.img.gz로 읽기&quot; 또는 &quot;.img.xz로 읽기&quot;를 선택하십시오.</translation>
     </message>
     <message>
         <source>Please select a source device.</source>

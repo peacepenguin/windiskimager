@@ -62,6 +62,12 @@ void ElapsedTimer::update(unsigned long long progress, unsigned long long total)
     timeStruct_t tTime, eTime;
 
     unsigned int baseSecs = timer->elapsed() / MS_PER_SEC;
+    // A total that is only an estimate can be passed; never project a finish
+    // earlier than now.
+    if (total < progress)
+    {
+        total = progress;
+    }
     // progress can be 0 on the first update; casting the resulting infinity
     // to unsigned int is undefined.
     unsigned int totalSecs = (progress > 0ull)

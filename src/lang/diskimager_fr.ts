@@ -700,6 +700,10 @@ Réparer la table de partitions maintenant ?</translation>
         <translation>La table de partitions n&apos;a pas pu être lue, ou elle est endommagée d&apos;une manière autre que celle que cette fonction répare.</translation>
     </message>
     <message>
+        <source>The device list changed while you were confirming. Check the target device and try again.</source>
+        <translation>La liste des périphériques a changé pendant la confirmation. Vérifiez le périphérique cible et réessayez.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Écriture…</translation>
     </message>
@@ -809,7 +813,7 @@ Retirez le périphérique MAINTENANT et ne le réinsérez pas ici. Placez-le dir
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
-        <translation>Les images ne peuvent être relues que non compressées. Choisissez un nom de fichier sans extension .gz ou .xz, ou cochez « Lire vers .img.gz » ou « Lire vers .img.xz ».</translation>
+        <translation type="vanished">Les images ne peuvent être relues que non compressées. Choisissez un nom de fichier sans extension .gz ou .xz, ou cochez « Lire vers .img.gz » ou « Lire vers .img.xz ».</translation>
     </message>
     <message>
         <source>Please select a source device.</source>

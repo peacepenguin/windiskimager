@@ -780,6 +780,10 @@ Riparare adesso la tabella delle partizioni?</translation>
         <translation>Non è stato possibile leggere la tabella delle partizioni, oppure è danneggiata in un modo diverso da quello che questa funzione ripara.</translation>
     </message>
     <message>
+        <source>The device list changed while you were confirming. Check the target device and try again.</source>
+        <translation>L&apos;elenco dei dispositivi è cambiato durante la conferma. Controlla il dispositivo di destinazione e riprova.</translation>
+    </message>
+    <message>
         <source>Write successful.
 
 The GPT now matches the device (%1), so Windows has nothing to repair. Remove the device normally.</source>
@@ -873,7 +877,7 @@ Rimuovere il dispositivo ORA e non reinserirlo qui. Inserirlo direttamente nell&
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
-        <translation>Le immagini possono essere rilette solo non compresse. Scegliere un nome file senza estensione .gz o .xz, oppure selezionare «Leggi in .img.gz» o «Leggi in .img.xz».</translation>
+        <translation type="vanished">Le immagini possono essere rilette solo non compresse. Scegliere un nome file senza estensione .gz o .xz, oppure selezionare «Leggi in .img.gz» o «Leggi in .img.xz».</translation>
     </message>
     <message>
         <source>No partition table was found on the device, so there is nothing to choose from. The whole device will be read.</source>
