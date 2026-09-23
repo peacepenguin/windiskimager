@@ -30,7 +30,7 @@ if ! LUPDATE=$(lupdate_path); then
     # would only loop.
     if [ -n "${W32DI_IN_CONTAINER:-}" ]; then
         echo "error: no Qt 6 lupdate inside the container image." >&2
-        echo "       Rebuild it: podman build -t $CROSS_IMAGE -f tools/Containerfile.build ." >&2
+        echo "       Rebuild it: podman build -t $CROSS_IMAGE --build-arg BASE=$CROSS_BASE_IMAGE -f tools/Containerfile.build ." >&2
         exit 1
     fi
     if ! command -v podman >/dev/null 2>&1; then

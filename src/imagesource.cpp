@@ -37,10 +37,6 @@ static inline unsigned long long sectorsFor(unsigned long long bytes,
 }
 
 
-// DEFLATE's maximum expansion (a 258-byte match in its shortest encoding);
-// bounds whether a gzip stream could have passed 4 GiB.
-static const unsigned long long MAX_DEFLATE_RATIO = 1032ull;
-
 ImageSource::ImageSource()
     : myHandle(INVALID_HANDLE_VALUE), myFormat(FORMAT_RAW), mySectorSize(0ull),
       mySectors(0ull), myCompressedSize(0ull), myPos(0ull), mySizeKnown(false),
@@ -216,14 +212,14 @@ bool ImageSource::readAt(unsigned long long offset, void *buf, DWORD len)
 }
 
 // gzip's trailing ISIZE is the uncompressed size mod 4 GiB, and of the last
-// member only, so a 6 GiB image records 2 GiB. It is exact only when even a
-// 1032:1 expansion keeps the image under 4 GiB (about 4 MiB compressed, so no
-// real disk image); otherwise it is kept as a progress estimate and the size
-// reported unknown, so the write runs to the end of the stream rather than
-// stopping at a wrapped value.
+// member only: a 6 GiB image records 2 GiB, and two concatenated members
+// record just the second. Neither case can be told apart from the real size
+// without decompressing the whole file, so the size is never reported exact
+// and the write runs to the end of the stream. ISIZE is kept only as a
+// progress estimate.
 //
-// Returns true only when exact; mySectors is set whenever the value is usable
-// as an estimate.
+// Always returns false; mySectors is set whenever the value is usable as an
+// estimate.
 bool ImageSource::readGzipSize(unsigned long long filesize)
 {
     if (filesize < 18ull)
@@ -247,7 +243,7 @@ bool ImageSource::readGzipSize(unsigned long long filesize)
         return false;
     }
     mySectors = sectorsFor(size, mySectorSize);
-    return filesize * MAX_DEFLATE_RATIO < 0x100000000ull;
+    return false;
 }
 
 // xz indexes every block, so the size is exact when the index can be read.
@@ -560,6 +556,20 @@ static const size_t OUTPUT_CHUNK = 1024ul * 1024ul;
 ImageSink::ImageSink()
     : myHandle(INVALID_HANDLE_VALUE), myFormat(FORMAT_GZIP), myEncoder(NULL)
 {
+}
+
+QString ImageSink::readTargetName(const QString &typed, bool gz, bool xz)
+{
+    const QString want = gz ? ".img.gz" : xz ? ".img.xz" : ".img";
+    if (typed.endsWith(want, Qt::CaseInsensitive))
+    {
+        return typed;
+    }
+    if ((gz || xz) && typed.endsWith(".img", Qt::CaseInsensitive))
+    {
+        return typed + (gz ? ".gz" : ".xz");
+    }
+    return typed + want;
 }
 
 ImageSink::~ImageSink()

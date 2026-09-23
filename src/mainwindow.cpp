@@ -1253,25 +1253,14 @@ void MainWindow::on_bRead_clicked()
             // file from the one getHandleOnFile truncates.
             fileinfo.setFile(myFile);
         }
-        // Make the name end in .img, .img.gz or .img.xz to match the chosen
-        // format, only ever appending to what the user typed: ".gz"/".xz"
-        // after a plain .img, otherwise the full ending.
         bool compressGz = readGzCheckBox->isChecked();
         bool compressXz = readXzCheckBox->isChecked();
-        QString wantExtension = compressGz ? ".img.gz" : compressXz ? ".img.xz" : ".img";
-        bool renamedFile = false;
-        if (!myFile.endsWith(wantExtension, Qt::CaseInsensitive))
+        const QString named = ImageSink::readTargetName(myFile, compressGz, compressXz);
+        bool renamedFile = (named != myFile);
+        if (renamedFile)
         {
-            if ((compressGz || compressXz) && myFile.endsWith(".img", Qt::CaseInsensitive))
-            {
-                myFile += compressGz ? ".gz" : ".xz";
-            }
-            else
-            {
-                myFile += wantExtension;
-            }
+            myFile = named;
             fileinfo.setFile(myFile);
-            renamedFile = true;
         }
         if (renamedFile)
         {

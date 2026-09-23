@@ -120,9 +120,11 @@ bool unmountVolume(HANDLE handle)
 
 char *readSectorDataFromHandle(HANDLE handle, unsigned long long startsector, unsigned long long numsectors, unsigned long long sectorsize)
 {
+    // Not Win32 failures, so no error code to report: reportWin32Error()
+    // expects %1/%2 placeholders for one.
     if (sectorsize == 0 || numsectors > ULLONG_MAX / sectorsize) {
-        reportWin32Error(QObject::tr("Read Error"),
-                         QObject::tr("Sector count too large."));
+        QMessageBox::critical(MainWindow::getInstanceIfAvailable(), QObject::tr("Read Error"),
+                              QObject::tr("Sector count too large."));
         return NULL;
     }
 
@@ -130,8 +132,8 @@ char *readSectorDataFromHandle(HANDLE handle, unsigned long long startsector, un
     char *data = new(std::nothrow) char[sectorsize * numsectors];
     if (!data)
     {
-        reportWin32Error(QObject::tr("Read Error"),
-                         QObject::tr("Unable to allocate memory for read buffer."));
+        QMessageBox::critical(MainWindow::getInstanceIfAvailable(), QObject::tr("Read Error"),
+                              QObject::tr("Unable to allocate memory for read buffer."));
         return NULL;
     }
     LARGE_INTEGER li;

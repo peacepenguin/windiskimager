@@ -170,7 +170,9 @@ static void caseRoundTrip(const char *name, const QString &file, const QByteArra
         printf("\n");
         return;
     }
-    check(got.size() >= raw.size(), "read back at least the whole image");
+    const unsigned long long wantsize = ((unsigned long long)raw.size() + SS - 1) / SS * SS;
+    check((unsigned long long)got.size() == wantsize,
+          "read back exactly the image, rounded up to a whole sector");
     check(got.size() >= raw.size()
           && memcmp(got.constData(), raw.constData(), (size_t)raw.size()) == 0,
           "every byte matches the original");
@@ -183,7 +185,10 @@ static void caseRoundTrip(const char *name, const QString &file, const QByteArra
     printf("\n");
 }
 
-static void caseRejected(const char *name, const QString &file)
+// A truncated stream must fail as truncated -- not as damaged data, which
+// would also fail but means the end-of-input path was never reached -- and
+// what came before the cut must still have been decoded correctly.
+static void caseRejected(const char *name, const QString &file, const QByteArray &raw)
 {
     printf("%s\n", name);
     QByteArray got;
@@ -193,14 +198,183 @@ static void caseRejected(const char *name, const QString &file)
     if (!ok)
     {
         printf("  -> %s\n", why.toLocal8Bit().constData());
-        check(!why.isEmpty(), "said why");
+        check(why.contains("ends in the middle"), "reported as truncated, not as damaged");
+        check(got.size() > 0 && got.size() <= raw.size()
+                  && memcmp(got.constData(), raw.constData(), (size_t)got.size()) == 0,
+              "everything decoded before the cut matches the original");
     }
+    printf("\n");
+}
+
+// open() decides by content: a misnamed image must still be read correctly.
+static void caseMisnamed(const char *name, const QString &file, const QByteArray &raw,
+                         bool expectCompressed)
+{
+    printf("%s\n", name);
+    ImageSource src;
+    check(src.open(file, SS) && src.isCompressed() == expectCompressed,
+          expectCompressed ? "detected as compressed despite the name"
+                           : "detected as raw despite the name");
+    src.close();
+    printf("\n");
+    caseRoundTrip("  ...read back", file, raw);
+}
+
+static unsigned long long sectorsOf(const QByteArray &raw)
+{
+    return ((unsigned long long)raw.size() + SS - 1) / SS;
+}
+
+// The write and verify loops stop at sizeInSectors() whenever sizeKnown(), so
+// a size claimed exact but wrong truncates the image with nothing reported.
+static void caseSize(const char *name, const QString &file, const QByteArray &raw)
+{
+    printf("%s: reported size\n", name);
+    ImageSource src;
+    if (!src.open(file, SS))
+    {
+        check(false, "opened");
+        printf("\n");
+        return;
+    }
+    if (src.sizeKnown())
+    {
+        check(src.sizeInSectors() == sectorsOf(raw), "a size reported exact is the real size");
+    }
+    else
+    {
+        check(src.sizeInSectors() <= sectorsOf(raw),
+              "size unknown, and the estimate does not overshoot the image");
+    }
+    src.close();
+    printf("\n");
+}
+
+// Reads at a later sector first: raw seeks, compressed decompresses and
+// discards up to it. Then asks to go back, which only raw can do.
+static void caseSeek(const char *name, const QString &file, const QByteArray &raw,
+                     bool compressed)
+{
+    printf("%s: reading out of order\n", name);
+    ImageSource src;
+    if (!src.open(file, SS))
+    {
+        check(false, "opened");
+        printf("\n");
+        return;
+    }
+    const unsigned long long at = 3000;   // well past the first input buffer
+    unsigned long long produced = 0;
+    char *data = src.read(at, 4, &produced);
+    check(data != NULL && produced == 4
+          && memcmp(data, raw.constData() + at * SS, 4 * SS) == 0,
+          "a later sector read first holds that sector's data");
+    delete[] data;
+
+    data = src.read(10, 1, &produced);
+    if (compressed)
+    {
+        check(data == NULL && !src.errorString().isEmpty(),
+              "going backwards is refused, not answered with the wrong sector");
+    }
+    else
+    {
+        check(data != NULL && produced == 1
+              && memcmp(data, raw.constData() + 10 * SS, SS) == 0,
+              "going backwards reads the right sector");
+    }
+    delete[] data;
+    src.close();
+    printf("\n");
+}
+
+// "Read to .img.gz/.img.xz": everything written through ImageSink must come
+// back out of ImageSource unchanged. The chunk sizes are uneven and one is
+// larger than the sink's internal buffer.
+static void caseSinkRoundTrip(const char *name, const QString &file,
+                              ImageSink::Format format, const QByteArray &raw)
+{
+    printf("%s\n", name);
+    ImageSink sink;
+    bool ok = sink.open(file, format);
+    check(ok, "the sink opened");
+    const int sizes[] = { 777, 1536 * 1024, 1, 4096 };
+    int pos = 0;
+    for (int i = 0; ok && pos < raw.size(); i = (i + 1) % 4)
+    {
+        const int n = qMin(sizes[i], raw.size() - pos);
+        ok = sink.write(raw.constData() + pos, (unsigned long long)n);
+        pos += n;
+    }
+    check(ok, "every write was accepted");
+    check(ok && sink.finish(), "finish() flushed and closed the file");
+
+    QFile f(file);
+    QByteArray head;
+    if (f.open(QIODevice::ReadOnly))
+    {
+        head = f.read(6);
+        f.close();
+    }
+    check(format == ImageSink::FORMAT_GZIP
+              ? head.startsWith("\x1f\x8b")
+              : head == QByteArray("\xfd" "7zXZ\x00", 6),
+          "the file really is compressed in the chosen format");
+    printf("\n");
+    caseRoundTrip("  ...read back", file, raw);
+}
+
+// abort() leaves a truncated stream, which the reader must reject rather than
+// hand back as a complete, shorter image.
+static void caseSinkAbort(const char *name, const QString &file,
+                          ImageSink::Format format, const QByteArray &raw)
+{
+    printf("%s\n", name);
+    {
+        ImageSink sink;
+        check(sink.open(file, format) && sink.write(raw.constData(), raw.size() / 2),
+              "half the image was written");
+        sink.abort();
+    }
+    QByteArray got;
+    QString why;
+    check(!readBack(file, &got, &why), "the aborted file is not read as a valid image");
+    printf("\n");
+}
+
+static void caseNames()
+{
+    printf("output names for Read\n");
+    struct { const char *typed; bool gz, xz; const char *want; } cases[] = {
+        { "C:\\a\\myimage",          false, false, "C:\\a\\myimage.img" },
+        { "C:\\a\\myimage",          true,  false, "C:\\a\\myimage.img.gz" },
+        { "C:\\a\\myimage",          false, true,  "C:\\a\\myimage.img.xz" },
+        { "C:\\a\\myimage.img",      false, false, "C:\\a\\myimage.img" },
+        { "C:\\a\\myimage.img",      true,  false, "C:\\a\\myimage.img.gz" },
+        { "C:\\a\\myimage.IMG",      false, true,  "C:\\a\\myimage.IMG.xz" },
+        { "C:\\a\\myimage.img.gz",   true,  false, "C:\\a\\myimage.img.gz" },
+        { "C:\\a\\myimage.img.gz",   false, true,  "C:\\a\\myimage.img.gz.img.xz" },
+        { "C:\\a\\myimage.img.xz",   false, false, "C:\\a\\myimage.img.xz.img" },
+        { "C:\\a\\disk.bin",         false, false, "C:\\a\\disk.bin.img" },
+    };
+    for (const auto &c : cases)
+    {
+        const QString got = ImageSink::readTargetName(QString::fromLatin1(c.typed), c.gz, c.xz);
+        const QByteArray what = QByteArray(c.typed) + (c.gz ? " +gz" : c.xz ? " +xz" : " raw")
+                                + " -> " + c.want;
+        check(got == QString::fromLatin1(c.want), what.constData());
+    }
+    check(ImageSource::nameLooksCompressed("x.img.gz") && ImageSource::nameLooksCompressed("X.IMG.XZ")
+              && !ImageSource::nameLooksCompressed("x.img"),
+          "nameLooksCompressed goes by .gz/.xz, case-insensitively");
     printf("\n");
 }
 
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
+
+    caseNames();
 
     // Not a whole number of sectors, so the last-sector padding is exercised.
     const QByteArray raw = pattern(3 * 1024 * 1024) + QByteArray("TAIL");
@@ -224,14 +398,21 @@ int main(int argc, char **argv)
     const QByteArray gz1 = gzipOf(raw.left(cut)), gz2 = gzipOf(raw.mid(cut));
     const QByteArray xz1 = xzOf(raw.left(cut)),   xz2 = xzOf(raw.mid(cut));
 
-    writeFile("imgtest.img", raw);
-    writeFile("imgtest.img.gz", gz);
-    writeFile("imgtest.img.xz", xz);
-    writeFile("imgtest-multi.img.gz", gz1 + gz2);
-    writeFile("imgtest-multi.img.xz", xz1 + xz2);
-    writeFile("imgtest-padded.img.xz", xz1 + QByteArray(4, '\0') + xz2);
-    writeFile("imgtest-trunc.img.gz", gz.left(gz.size() / 2));
-    writeFile("imgtest-trunc.img.xz", xz.left(xz.size() / 2));
+    // Checked: a failed write could leave a stale file from an earlier run to
+    // be tested instead.
+    printf("fixture files\n");
+    check(writeFile("imgtest.img", raw)
+          && writeFile("imgtest.img.gz", gz)
+          && writeFile("imgtest.img.xz", xz)
+          && writeFile("imgtest-multi.img.gz", gz1 + gz2)
+          && writeFile("imgtest-multi.img.xz", xz1 + xz2)
+          && writeFile("imgtest-padded.img.xz", xz1 + QByteArray(4, '\0') + xz2)
+          && writeFile("imgtest-trunc.img.gz", gz.left(gz.size() / 2))
+          && writeFile("imgtest-trunc.img.xz", xz.left(xz.size() / 2))
+          && writeFile("imgtest-gz-named.img", gz)
+          && writeFile("imgtest-raw-named.img.gz", raw),
+          "every fixture file was written");
+    printf("\n");
 
     caseRoundTrip("raw", "imgtest.img", raw);
     caseRoundTrip("gzip", "imgtest.img.gz", raw);
@@ -241,13 +422,48 @@ int main(int argc, char **argv)
     caseRoundTrip("xz, two streams with padding between", "imgtest-padded.img.xz", raw);
 
     // Truncation must be reported, or half an image is written and called done.
-    caseRejected("gzip that stops in the middle", "imgtest-trunc.img.gz");
-    caseRejected("xz that stops in the middle", "imgtest-trunc.img.xz");
+    caseRejected("gzip that stops in the middle", "imgtest-trunc.img.gz", raw);
+    caseRejected("xz that stops in the middle", "imgtest-trunc.img.xz", raw);
+
+    caseMisnamed("gzip named .img", "imgtest-gz-named.img", raw, true);
+    caseMisnamed("raw named .img.gz", "imgtest-raw-named.img.gz", raw, false);
+
+    caseSize("raw", "imgtest.img", raw);
+    caseSize("gzip", "imgtest.img.gz", raw);
+    caseSize("xz", "imgtest.img.xz", raw);
+    // Its trailer records the last member's size only.
+    caseSize("gzip, two members", "imgtest-multi.img.gz", raw);
+    caseSize("xz, two streams", "imgtest-multi.img.xz", raw);
+    caseSize("xz, two streams with padding between", "imgtest-padded.img.xz", raw);
+    // Mostly zeros, like a real disk image: small enough compressed that the
+    // last member's size passes for the whole image's.
+    {
+        QByteArray sparse(3 * 1024 * 1024, 0);
+        sparse.replace(0, 4096, pattern(4096));
+        sparse.append("TAIL");
+        const int scut = 2 * 1024 * 1024 + 100;
+        writeFile("imgtest-sparse.img.gz", gzipOf(sparse.left(scut)) + gzipOf(sparse.mid(scut)));
+        caseSize("gzip, two members, compressible", "imgtest-sparse.img.gz", sparse);
+        caseRoundTrip("gzip, two members, compressible", "imgtest-sparse.img.gz", sparse);
+        DeleteFileA("imgtest-sparse.img.gz");
+    }
+
+    caseSeek("raw", "imgtest.img", raw, false);
+    caseSeek("gzip", "imgtest.img.gz", raw, true);
+    caseSeek("xz", "imgtest.img.xz", raw, true);
+
+    caseSinkRoundTrip("ImageSink, gzip", "imgtest-sink.img.gz", ImageSink::FORMAT_GZIP, raw);
+    caseSinkRoundTrip("ImageSink, xz", "imgtest-sink.img.xz", ImageSink::FORMAT_XZ, raw);
+    caseSinkAbort("ImageSink, gzip aborted", "imgtest-abort.img.gz", ImageSink::FORMAT_GZIP, raw);
+    caseSinkAbort("ImageSink, xz aborted", "imgtest-abort.img.xz", ImageSink::FORMAT_XZ, raw);
 
     const char *leftovers[] = {
         "imgtest.img", "imgtest.img.gz", "imgtest.img.xz",
         "imgtest-multi.img.gz", "imgtest-multi.img.xz", "imgtest-padded.img.xz",
         "imgtest-trunc.img.gz", "imgtest-trunc.img.xz",
+        "imgtest-sink.img.gz", "imgtest-sink.img.xz",
+        "imgtest-abort.img.gz", "imgtest-abort.img.xz",
+        "imgtest-gz-named.img", "imgtest-raw-named.img.gz",
     };
     for (size_t i = 0; i < sizeof(leftovers) / sizeof(leftovers[0]); ++i)
     {

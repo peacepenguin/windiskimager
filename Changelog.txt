@@ -1,3 +1,17 @@
+Release 1.9.0
+=============
+Fix a small .img.gz made of more than one gzip member being only partly
+  written, with the write still reported successful
+Fix closing the window during a Write, Read or Verify reporting success;
+  a half-written card no longer gets "Fix GPT after write"
+Fix Check GPT, or editing the image name, starting a second operation while
+  one was running
+Lock and dismount partitions mounted as a folder or with no drive letter
+  before writing, and refuse an image stored on one of them
+Fix a very large shrink-on-read header region being written short
+Local cross-builds use fedora:latest, the same as CI
+Many more automated tests
+
 Release 1.8.0
 =============
 Add "Choose partitions to read", to leave specific partitions out of the

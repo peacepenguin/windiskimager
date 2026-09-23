@@ -153,8 +153,10 @@ while it runs.
 
 It has to be Fedora: Debian and Ubuntu ship no MinGW Qt6 packages, so there is
 nothing to link against there. That is why CI runs `ubuntu-latest` but inside a
-Fedora container. Which release is named once, as `CROSS_BASE_IMAGE` in
-[tools/build-env.sh](tools/build-env.sh).
+Fedora container. Both use `fedora:latest`; locally it is named once, as
+`CROSS_BASE_IMAGE` in [tools/build-env.sh](tools/build-env.sh). A local
+container image keeps the Fedora release it was built from, so remove it to
+pick up a newer one.
 
 `tools/build-cross.sh` *is* the cross build. Run it on a Fedora host and it
 builds; `tools/build-container.sh` runs that same script inside the container;

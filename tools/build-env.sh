@@ -26,8 +26,10 @@
 # ---------------------------------------------------------------- toolchain ---
 
 # Fedora is not a preference: Debian and Ubuntu ship no MinGW Qt6 packages, so
-# there is nothing to link against there.
-CROSS_BASE_IMAGE="fedora:44"
+# there is nothing to link against there. :latest to match CI, which cannot read
+# this. A local image is cached under a tag derived from this string, so it
+# keeps the Fedora it was built from until it is removed and rebuilt.
+CROSS_BASE_IMAGE="fedora:latest"
 
 # qt6-linguist is the *native* Linguist: lrelease-qt6 compiles lang/*.ts for the
 # build, lupdate-qt6 serves tools/lupdate.sh. The mingw64-qt6-qttools copies are

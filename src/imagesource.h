@@ -54,9 +54,9 @@ public:
 
     bool isCompressed() const { return myFormat != FORMAT_RAW; }
     // True when sizeInSectors() is exact: always for raw, for xz whenever its
-    // index could be read, and for gzip only when the image is too small for
-    // the 32-bit stored size to have wrapped. When false, the image has to be
-    // written until the stream ends.
+    // index could be read, never for gzip (its trailer records only the last
+    // member's size, mod 4 GiB). When false, the image has to be written until
+    // the stream ends.
     bool sizeKnown() const { return mySizeKnown; }
     // Exact when sizeKnown(); otherwise a progress estimate, or 0. Never use it
     // to decide where the image ends unless sizeKnown().
@@ -115,6 +115,11 @@ public:
 
     ImageSink();
     ~ImageSink();
+
+    // The file a Read should write, given the name typed in: it ends in .img,
+    // .img.gz or .img.xz to match the chosen output, and is only ever appended
+    // to -- ".gz"/".xz" after a plain .img, otherwise the whole ending.
+    static QString readTargetName(const QString &typed, bool gz, bool xz);
 
     bool open(const QString &path, Format format);
 

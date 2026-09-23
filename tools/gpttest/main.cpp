@@ -174,7 +174,44 @@ static Disk buildDisk(unsigned long long firstusable, unsigned long long imagese
     makeHeader(d + dk.imglast * SEC, dk.imglast, 1, dk.imgbackupentries,
                firstusable, imglastusable, ecrc);
     memcpy(d + dk.imgbackupentries * SEC, dk.entries.constData(), ENTRIES * ENTRYSIZE);
+
+    // Non-zero partition data, so a write or a zeroing that strays into it
+    // shows up in a whole-device comparison. Skipped when the partition is
+    // parked over the backup table, which would overwrite the table.
+    if (!partend)
+    {
+        // Through imglastusable: the sector right below the stale copy is the
+        // first one an off-by-one in its cleanup would hit.
+        for (unsigned long long s = firstusable; s <= imglastusable; ++s)
+        {
+            memset(d + s * SEC, (int)(0x40 + (s % 61)), SEC);
+        }
+    }
     return dk;
+}
+
+// Every sector outside the listed [first, last] ranges must be unchanged.
+struct SectorRange { unsigned long long first, last; };
+static bool unchangedOutside(const QByteArray &before, const QByteArray &after,
+                             const QList<SectorRange> &allowed)
+{
+    if (before.size() != after.size()) return false;
+    const unsigned long long sectors = (unsigned long long)before.size() / SEC;
+    for (unsigned long long s = 0; s < sectors; ++s)
+    {
+        bool isAllowed = false;
+        for (const SectorRange &r : allowed)
+        {
+            if (s >= r.first && s <= r.last) { isAllowed = true; break; }
+        }
+        if (!isAllowed && memcmp(before.constData() + s * SEC,
+                                 after.constData() + s * SEC, SEC) != 0)
+        {
+            printf("       sector %llu changed\n", s);
+            return false;
+        }
+    }
+    return true;
 }
 
 static const char *TESTFILE = "gpttest.img";
@@ -290,6 +327,14 @@ static void caseRelocate(const char *name, unsigned long long firstusable,
     check(rd32(a, 446 + 12) == (unsigned int)lastlba, "protective MBR spans the device");
     check(memcmp(a + 2 * SEC, dk.entries.constData(), ENTRIES * ENTRYSIZE) == 0,
           "primary entry array untouched");
+    check(rd32(b, 88) == crc32of(a + newentries * SEC, ENTRIES * ENTRYSIZE),
+          "backup header's entries checksum matches the backup array");
+    check(rd64(b, H_FIRSTUSABLE) == firstusable && rd64(b, H_LASTUSABLE) == newentries - 1,
+          "backup header's usable range matches the primary's");
+    check(unchangedOutside(dk.bytes, after,
+                           { {0, 1}, {dk.imgbackupentries, dk.imglast}, {newentries, lastlba} }),
+          "nothing but the MBR, the primary header, the stale copy and the new "
+          "backup was written -- partition data included");
     printf("\n");
 }
 
@@ -331,7 +376,9 @@ static void caseStaleUnderPartition()
 }
 
 // The stale backup overlaps where the new one goes, so the cleanup must not run:
-// zeroing the stale copy would erase the table just written over it.
+// zeroing the stale copy would erase the table just written over it. This
+// checks the outcome; the guard itself can't be isolated, because the new
+// table always overwrites a stale header sitting inside it.
 static void caseStaleOverlapsNewTable()
 {
     // 8160 puts the stale header exactly on the first sector of the new entry
@@ -349,8 +396,9 @@ static void caseStaleOverlapsNewTable()
 
     const unsigned long long lastlba = device - 1;
     const unsigned long long newentries = lastlba - ENTRYSECTORS;
-    check(dk.imglast >= newentries, "the two ranges really do overlap");
+    check(dk.imglast >= newentries, "fixture: the two ranges really do overlap");
     check(r == GPT_FIX_OK, "returned GPT_FIX_OK");
+    check(!detail.contains("cleared"), "no stale copy is reported cleared");
     // By checksum, the way a GPT reader validates it.
     check(crc32of(a + newentries * SEC, ENTRIES * ENTRYSIZE)
               == rd32(a + lastlba * SEC, 88),
@@ -399,6 +447,17 @@ static void damageEntriesCrc(unsigned char *d, unsigned long long)
     wr32(h, H_HEADERCRC, 0);
     wr32(h, H_HEADERCRC, crc32of(h, 92));
 }
+static void damagePartitionPastEnd(unsigned char *d, unsigned long long device)
+{
+    // A partition ending where the relocated backup would go. The primary
+    // header is re-signed so only the partition check can refuse it.
+    unsigned char *h = d + SEC;
+    unsigned char *e = d + 2 * SEC;
+    wr64(e, P_END, device - 2);
+    wr32(h, 88, crc32of(e, ENTRIES * ENTRYSIZE));
+    wr32(h, H_HEADERCRC, 0);
+    wr32(h, H_HEADERCRC, crc32of(h, 92));
+}
 static void damageAlreadyAtEnd(unsigned char *d, unsigned long long device)
 {
     // Claim the backup is already at the last LBA: nothing to relocate.
@@ -428,7 +487,7 @@ static void caseAfterTheFact(const char *name, unsigned long long firstusable,
     wr64(hdr, H_ENTRYLBA, firstusable - ENTRYSECTORS);
     wr32(hdr, H_HEADERCRC, 0);
     wr32(hdr, H_HEADERCRC, crc32of(hdr, 92));
-    check(headerCrcValid(hdr), "the mangled header still passes its own CRC");
+    check(headerCrcValid(hdr), "fixture: the mangled header is re-signed, as Windows leaves it");
 
     DeleteFileA(TESTFILE);
     HANDLE h = CreateFileA(TESTFILE, GENERIC_READ | GENERIC_WRITE, 0, NULL,
@@ -465,8 +524,12 @@ static void caseAfterTheFact(const char *name, unsigned long long firstusable,
         QByteArray after(device * SEC, 0);
         SetFilePointer(h, 0, NULL, FILE_BEGIN);
         DWORD got = 0;
-        ReadFile(h, after.data(), (DWORD)after.size(), &got, NULL);
+        check(ReadFile(h, after.data(), (DWORD)after.size(), &got, NULL)
+                  && got == (DWORD)after.size(),
+              "the repaired device was read back");
         const unsigned char *a = (const unsigned char *)after.constData();
+        check(unchangedOutside(dk.bytes, after, { {1, 1} }),
+              "only the primary header sector was written");
         check(rd64(a + SEC, H_ENTRYLBA) == 2, "PartitionEntryLBA points at LBA 2 again");
         check(headerCrcValid(a + SEC), "the repaired header CRC is valid");
         check(rd64(a + SEC, H_FIRSTUSABLE) == firstusable, "FirstUsableLBA untouched");
@@ -592,15 +655,17 @@ static void caseGptShrinkExclude()
 {
     printf("planGptShrink() with an excluded slot\n");
     const unsigned long long device = 2000, firstusable = 34;
+    // DROP is slot 2 but second on disk, so excluding by position instead of
+    // by slot would drop KEEP2 and still copy two partitions.
     QList<GptPart> parts = {
         {0, 100, 199, "KEEP1"},   // 100 sectors
-        {1, 300, 399, "DROP"},    // 100 sectors -- excluded
-        {2, 500, 599, "KEEP2"},   // 100 sectors
+        {1, 500, 599, "KEEP2"},   // 100 sectors
+        {2, 300, 399, "DROP"},    // 100 sectors -- excluded
     };
     HANDLE h = writeTestFile(buildMultiGptDisk(device, firstusable, parts));
     if (h == INVALID_HANDLE_VALUE) return;
 
-    QList<int> excludeSlots = {1};
+    QList<int> excludeSlots = {2};
     PartitionShrinkPlan plan;
     QString detail;
     bool ok = planGptShrink(h, SEC, device, /*alignsectors=*/1ull, &plan, &detail, &excludeSlots);
@@ -633,20 +698,29 @@ static void caseGptShrinkExclude()
     check(plan.totalsectors == backuphdr + 1, "totalsectors covers up to the backup header");
     check(plan.backupsectors == ENTRYSECTORS + 1, "backupsectors is the array plus its header");
 
+    check(plan.headersectors == firstusable
+              && (unsigned long long)plan.headerregion.size() == firstusable * SEC,
+          "the header region is everything below FirstUsableLBA");
+
     const unsigned char *region = (const unsigned char *)plan.headerregion.constData();
-    const unsigned char *entry1 = region + 2 * SEC + 1 * ENTRYSIZE;
+    const unsigned char *entry2 = region + 2 * SEC + 2 * ENTRYSIZE;
     QByteArray zero(ENTRYSIZE, 0);
-    check(memcmp(entry1, zero.constData(), ENTRYSIZE) == 0,
+    check(memcmp(entry2, zero.constData(), ENTRYSIZE) == 0,
           "the excluded slot's entry is zeroed in the primary table");
     const unsigned char *entry0 = region + 2 * SEC + 0 * ENTRYSIZE;
-    const unsigned char *entry2 = region + 2 * SEC + 2 * ENTRYSIZE;
+    const unsigned char *entry1 = region + 2 * SEC + 1 * ENTRYSIZE;
     check(rd64(entry0, P_START) == newKeep1First && rd64(entry0, P_END) == newKeep1First + 99,
           "KEEP1's entry points at its repacked location");
-    check(rd64(entry2, P_START) == newKeep2First && rd64(entry2, P_END) == newKeep2First + 99,
+    check(rd64(entry1, P_START) == newKeep2First && rd64(entry1, P_END) == newKeep2First + 99,
           "KEEP2's entry points at its repacked location");
 
     const unsigned char *hdr = region + SEC;
     check(headerCrcValid(hdr), "the primary header checksum was recomputed");
+    check(rd64(hdr, H_ALTLBA) == backuphdr, "primary AlternateLBA points at the new backup");
+    check(rd64(hdr, H_LASTUSABLE) == backupentries - 1,
+          "primary LastUsableLBA ends before the backup");
+    check(rd32(region, 446 + 12) == (unsigned int)backuphdr,
+          "protective MBR spans the shrunk image");
     check(rd32(hdr, 88) == crc32of(region + 2 * SEC, ENTRIES * ENTRYSIZE),
           "the entries checksum matches the patched table, exclusion included");
 
@@ -658,6 +732,8 @@ static void caseGptShrinkExclude()
     const unsigned char *backuphdrbytes = backupentriesbytes + ENTRYSECTORS * SEC;
     check(headerCrcValid(backuphdrbytes), "the backup header checksum is valid");
     check(rd64(backuphdrbytes, H_MYLBA) == backuphdr, "the backup header's own MyLBA matches its position");
+    check(rd64(backuphdrbytes, H_ALTLBA) == 1 && rd64(backuphdrbytes, H_ENTRYLBA) == backupentries,
+          "the backup header points back at LBA 1 and at its own entry array");
     printf("\n");
 }
 
@@ -720,15 +796,16 @@ static void caseMbrShrinkExclude()
 {
     printf("planMbrShrink() with an excluded slot\n");
     const unsigned long long device = 2000;
+    // As the GPT case: the excluded slot is not the one second in slot order.
     QList<MbrPart> parts = {
         {0, 100, 100, 0x0C},   // KEEP1
-        {1, 300, 100, 0x0C},   // DROP -- excluded
-        {2, 500, 100, 0x0C},   // KEEP2
+        {1, 500, 100, 0x0C},   // KEEP2
+        {2, 300, 100, 0x0C},   // DROP -- excluded
     };
     HANDLE h = writeTestFile(buildMultiMbrDisk(device, parts));
     if (h == INVALID_HANDLE_VALUE) return;
 
-    QList<int> excludeSlots = {1};
+    QList<int> excludeSlots = {2};
     PartitionShrinkPlan plan;
     QString detail;
     bool ok = planMbrShrink(h, SEC, device, /*alignsectors=*/1ull, &plan, &detail, &excludeSlots);
@@ -756,13 +833,14 @@ static void caseMbrShrinkExclude()
     }
     check(plan.backupsectors == 0ull && plan.backupregion.isEmpty(),
           "MBR has no backup table to build");
+    check(plan.totalsectors == newKeep2First + 100, "totalsectors ends right after KEEP2");
 
     const unsigned char *sector0 = (const unsigned char *)plan.headerregion.constData();
     QByteArray zero16(16, 0);
-    check(memcmp(sector0 + 446 + 16, zero16.constData(), 16) == 0,
+    check(memcmp(sector0 + 446 + 2 * 16, zero16.constData(), 16) == 0,
           "the excluded slot's entry is entirely zeroed, not just its type byte");
     check(rd32(sector0 + 446 + 0 * 16, 8) == newKeep1First, "KEEP1's start field was patched");
-    check(rd32(sector0 + 446 + 2 * 16, 8) == newKeep2First, "KEEP2's start field was patched");
+    check(rd32(sector0 + 446 + 1 * 16, 8) == newKeep2First, "KEEP2's start field was patched");
     printf("\n");
 }
 
@@ -794,6 +872,325 @@ static void caseMbrProtectiveEntrySkipped()
     printf("\n");
 }
 
+// ---------------------------------------------------------------------------
+// A shrink plan applied end to end: the image is assembled from the plan the
+// way Read writes it (header region, zero gaps, each range copied, backup
+// region at the end), then checked with the same readers that would meet it
+// on a card.
+// ---------------------------------------------------------------------------
+
+static const unsigned long long ALIGN_1MIB = 1048576 / SEC;   // 2048
+
+static void fillSectors(QByteArray &dev, unsigned long long first,
+                        unsigned long long count, char value)
+{
+    memset(dev.data() + first * SEC, value, (size_t)(count * SEC));
+}
+
+// Empty, with a failure recorded, if the plan's ranges overlap or run
+// backwards -- output this assembly would have to seek back for.
+static QByteArray applyPlan(const QByteArray &device, const PartitionShrinkPlan &plan)
+{
+    QByteArray out = plan.headerregion;
+    for (const ShrinkCopyRange &r : plan.ranges)
+    {
+        if ((unsigned long long)out.size() > r.dstfirst * SEC)
+        {
+            check(false, "plan ranges are in order and do not overlap");
+            return QByteArray();
+        }
+        out.append(QByteArray((int)(r.dstfirst * SEC - out.size()), 0));
+        out.append(device.mid((int)(r.srcfirst * SEC), (int)(r.length * SEC)));
+    }
+    const unsigned long long backupat = plan.totalsectors - plan.backupsectors;
+    if ((unsigned long long)out.size() > backupat * SEC)
+    {
+        check(false, "the backup region starts after the last range");
+        return QByteArray();
+    }
+    out.append(QByteArray((int)(backupat * SEC - out.size()), 0));
+    out.append(plan.backupregion);
+    return out;
+}
+
+// No whole sector in bytes is filled with value -- the excluded partition's
+// data must not reach the image anywhere.
+static bool noSectorFilledWith(const QByteArray &bytes, char value)
+{
+    QByteArray probe(SEC, value);
+    for (int off = 0; off + (int)SEC <= bytes.size(); off += (int)SEC)
+    {
+        if (memcmp(bytes.constData() + off, probe.constData(), SEC) == 0) return false;
+    }
+    return true;
+}
+
+struct KeptPart { unsigned long long sectors; char fill; };
+
+// The partitions listed in the image are the expected ones, in order, each
+// starting on a 1MiB boundary and holding its original data.
+static void checkImagePartitions(const QByteArray &img, const QList<PartitionInfo> &found,
+                                 const QList<KeptPart> &want)
+{
+    check(found.size() == want.size(), "the image lists exactly the kept partitions");
+    if (found.size() != want.size()) return;
+    bool aligned = true, sized = true, data = true;
+    for (int i = 0; i < found.size(); ++i)
+    {
+        aligned = aligned && (found[i].firstSector % ALIGN_1MIB) == 0;
+        sized = sized && found[i].sectors == want[i].sectors;
+        QByteArray expect((int)(want[i].sectors * SEC), want[i].fill);
+        data = data && (found[i].firstSector + found[i].sectors) * SEC <= (unsigned long long)img.size()
+               && img.mid((int)(found[i].firstSector * SEC), expect.size()) == expect;
+    }
+    check(aligned, "every partition starts on a 1MiB boundary");
+    check(sized, "every partition kept its size");
+    check(data, "every partition holds its original data");
+}
+
+static void caseGptShrinkEndToEnd(const char *name, const QList<int> &exclude)
+{
+    printf("%s\n", name);
+    const unsigned long long device = 40000, firstusable = 2048;
+    // C sits between A and B on disk but is in the last slot.
+    QList<GptPart> parts = {
+        {0,  4096,  6143, "A"},
+        {1, 20000, 20999, "B"},
+        {2, 10000, 10499, "C"},
+    };
+    QByteArray dev = buildMultiGptDisk(device, firstusable, parts);
+    fillSectors(dev, 4096, 2048, (char)0xA1);
+    fillSectors(dev, 20000, 1000, (char)0xB2);
+    fillSectors(dev, 10000, 500, (char)0xC3);
+
+    HANDLE h = writeTestFile(dev);
+    if (h == INVALID_HANDLE_VALUE) return;
+    PartitionShrinkPlan plan;
+    QString detail;
+    bool ok = planGptShrink(h, SEC, device, ALIGN_1MIB, &plan, &detail,
+                            exclude.isEmpty() ? NULL : &exclude);
+    CloseHandle(h);
+    check(ok, "planned");
+    if (!ok) { printf("  -> %s\n\n", detail.toLocal8Bit().constData()); return; }
+
+    QByteArray img = applyPlan(dev, plan);
+    if (img.isEmpty()) { printf("\n"); return; }
+    check((unsigned long long)img.size() == plan.totalsectors * SEC,
+          "the assembled image is totalsectors long");
+    check(plan.totalsectors < device, "the image is smaller than the device");
+
+    h = writeTestFile(img);
+    if (h == INVALID_HANDLE_VALUE) return;
+    check(gptPrimaryState(h, SEC, plan.totalsectors) == GPT_PRIMARY_OK,
+          "the image's primary GPT is consistent");
+    QString fixdetail;
+    check(relocateBackupGPT(h, SEC, plan.totalsectors, &fixdetail) == GPT_FIX_NOT_NEEDED,
+          "the backup GPT is already at the image's last LBA");
+    const unsigned char *b = (const unsigned char *)img.constData() + (plan.totalsectors - 1) * SEC;
+    check(memcmp(b, "EFI PART", 8) == 0 && headerCrcValid(b)
+              && rd32(b, 88) == crc32of(b - ENTRYSECTORS * SEC, ENTRIES * ENTRYSIZE),
+          "the backup header and its entry array are valid");
+    QList<PartitionInfo> found;
+    check(listGptPartitions(h, SEC, plan.totalsectors, &found, &detail), "the image's GPT lists");
+    CloseHandle(h);
+
+    QList<KeptPart> want = { {2048, (char)0xA1} };
+    if (!exclude.contains(2)) want.append({500, (char)0xC3});
+    want.append({1000, (char)0xB2});
+    checkImagePartitions(img, found, want);
+    if (exclude.contains(2))
+    {
+        check(noSectorFilledWith(img, (char)0xC3), "no sector of the excluded partition was copied");
+    }
+    printf("\n");
+}
+
+static void caseMbrShrinkEndToEnd(const char *name, const QList<int> &exclude)
+{
+    printf("%s\n", name);
+    const unsigned long long device = 40000;
+    QList<MbrPart> parts = {
+        {0,  4096, 2048, 0x83},
+        {1, 20000, 1000, 0x83},
+        {2, 10000,  500, 0x0C},
+    };
+    QByteArray dev = buildMultiMbrDisk(device, parts);
+    fillSectors(dev, 4096, 2048, (char)0xA1);
+    fillSectors(dev, 20000, 1000, (char)0xB2);
+    fillSectors(dev, 10000, 500, (char)0xC3);
+
+    HANDLE h = writeTestFile(dev);
+    if (h == INVALID_HANDLE_VALUE) return;
+    PartitionShrinkPlan plan;
+    QString detail;
+    bool ok = planMbrShrink(h, SEC, device, ALIGN_1MIB, &plan, &detail,
+                            exclude.isEmpty() ? NULL : &exclude);
+    CloseHandle(h);
+    check(ok, "planned");
+    if (!ok) { printf("  -> %s\n\n", detail.toLocal8Bit().constData()); return; }
+
+    QByteArray img = applyPlan(dev, plan);
+    if (img.isEmpty()) { printf("\n"); return; }
+    check((unsigned long long)img.size() == plan.totalsectors * SEC,
+          "the assembled image is totalsectors long");
+
+    h = writeTestFile(img);
+    if (h == INVALID_HANDLE_VALUE) return;
+    QList<PartitionInfo> found;
+    check(listMbrPartitions(h, SEC, plan.totalsectors, &found, &detail),
+          "the image's MBR lists, every entry within the image");
+    CloseHandle(h);
+
+    QList<KeptPart> want = { {2048, (char)0xA1} };
+    if (!exclude.contains(2)) want.append({500, (char)0xC3});
+    want.append({1000, (char)0xB2});
+    checkImagePartitions(img, found, want);
+    const unsigned char *m = (const unsigned char *)img.constData();
+    check(m[510] == 0x55 && m[511] == 0xAA, "the boot signature survived");
+    if (exclude.contains(2))
+    {
+        check(noSectorFilledWith(img, (char)0xC3), "no sector of the excluded partition was copied");
+    }
+    printf("\n");
+}
+
+// ---------------------------------------------------------------------------
+// The smaller helpers the write and verify paths depend on.
+// ---------------------------------------------------------------------------
+
+static void caseRewriteRisk()
+{
+    printf("gptRewriteRisk() / gptPrimaryState() classify the table\n");
+    struct { unsigned long long firstusable; GptRewriteRisk expect; const char *what; } cases[] = {
+        {  34, GPT_RISK_SAFE,     "FirstUsableLBA 34: the rewrite lands on the right value" },
+        {2048, GPT_RISK_AFFECTED, "space reserved ahead of the first partition: affected" },
+    };
+    for (const auto &c : cases)
+    {
+        HANDLE h = writeTestFile(buildDisk(c.firstusable, 4096, 16384).bytes);
+        if (h == INVALID_HANDLE_VALUE) return;
+        check(gptRewriteRisk(h, SEC) == c.expect, c.what);
+        CloseHandle(h);
+    }
+    Disk dk = buildDisk(34, 4096, 16384);
+    damageSignature((unsigned char *)dk.bytes.data(), 16384);
+    HANDLE h = writeTestFile(dk.bytes);
+    if (h == INVALID_HANDLE_VALUE) return;
+    check(gptRewriteRisk(h, SEC) == GPT_RISK_NO_GPT, "no GPT: nothing for Windows to rewrite");
+    check(gptPrimaryState(h, SEC, 16384) == GPT_PRIMARY_NO_GPT, "no GPT: reported as such");
+    CloseHandle(h);
+    printf("\n");
+}
+
+static void caseHasMbrTable()
+{
+    printf("deviceHasMbrTable() tells an MBR image from none\n");
+    const unsigned long long device = 2000;
+    HANDLE h = writeTestFile(buildMultiMbrDisk(device, { {1, 100, 100, 0x0C} }));
+    if (h == INVALID_HANDLE_VALUE) return;
+    check(deviceHasMbrTable(h, SEC), "an MBR with a real partition");
+    CloseHandle(h);
+
+    h = writeTestFile(buildMultiMbrDisk(device, { {0, 1, device - 1, 0xEE} }));
+    if (h == INVALID_HANDLE_VALUE) return;
+    check(!deviceHasMbrTable(h, SEC), "a protective MBR alone is not an MBR image");
+    CloseHandle(h);
+
+    QByteArray nosig = buildMultiMbrDisk(device, { {1, 100, 100, 0x0C} });
+    nosig[510] = 0;
+    h = writeTestFile(nosig);
+    if (h == INVALID_HANDLE_VALUE) return;
+    check(!deviceHasMbrTable(h, SEC), "no boot signature, no MBR");
+    CloseHandle(h);
+    printf("\n");
+}
+
+static void caseWipe()
+{
+    printf("wipePartitionTables() zeroes both ends and nothing else\n");
+    const unsigned long long device = 1000;
+    QByteArray before(device * SEC, 0);
+    for (unsigned long long s = 0; s < device; ++s) fillSectors(before, s, 1, (char)(1 + s % 250));
+    HANDLE h = writeTestFile(before);
+    if (h == INVALID_HANDLE_VALUE) return;
+    check(wipePartitionTables(h, SEC, device), "reported success");
+    QByteArray after(device * SEC, 0);
+    SetFilePointer(h, 0, NULL, FILE_BEGIN);
+    DWORD got = 0;
+    ReadFile(h, after.data(), (DWORD)after.size(), &got, NULL);
+    CloseHandle(h);
+    const unsigned char *a = (const unsigned char *)after.constData();
+    check(got == (DWORD)after.size() && rangeIsZero(a, 0, 33) && rangeIsZero(a, device - 34, device - 1),
+          "the first and last 34 sectors are zero");
+    check(unchangedOutside(before, after, { {0, 33}, {device - 34, device - 1} }),
+          "every sector in between is untouched");
+    printf("\n");
+}
+
+// Verify forgives exactly what the fix may rewrite: gptOwnedSectors() for the
+// tables and gptImageBackupRange() for the stale copy. Anything else the fix
+// changed would fail the verify of a good card.
+static void caseOwnedSectors()
+{
+    printf("gptOwnedSectors() covers everything the fix writes\n");
+    const unsigned long long device = 16384;
+    Disk dk = buildDisk(2048, 4096, device);
+    QByteArray after;
+    QString detail;
+    check(runRepair(dk, device, &after, &detail) == GPT_FIX_OK, "the fix ran");
+
+    HANDLE h = writeTestFile(after);
+    if (h == INVALID_HANDLE_VALUE) return;
+    unsigned long long frontend = 0, tailstart = 0;
+    bool ok = gptOwnedSectors(h, SEC, device, &frontend, &tailstart);
+    CloseHandle(h);
+    check(ok && frontend == 2 + ENTRYSECTORS && tailstart == device - 1 - ENTRYSECTORS,
+          "front is MBR + header + entries; tail is the backup array + header");
+    unsigned long long sfirst = 0, slast = 0;
+    bool stale = gptImageBackupRange((const unsigned char *)dk.bytes.constData() + SEC, SEC,
+                                     &sfirst, &slast);
+    check(ok && stale && unchangedOutside(dk.bytes, after,
+                                          { {0, frontend - 1}, {sfirst, slast}, {tailstart, device - 1} }),
+          "every sector the fix changed is one verify forgives");
+    printf("\n");
+}
+
+static void caseSectorIO()
+{
+    printf("readSectorDataFromHandle() / writeSectorDataToHandle() / getFileSizeInSectors()\n");
+    QByteArray before(20 * SEC, 0);
+    for (unsigned long long s = 0; s < 20; ++s) fillSectors(before, s, 1, (char)(0x10 + s));
+    before.append("half");   // 20 sectors and 4 bytes
+    HANDLE h = writeTestFile(before);
+    if (h == INVALID_HANDLE_VALUE) return;
+
+    check(getFileSizeInSectors(h, SEC) == 21, "a partial last sector counts as a sector");
+
+    QByteArray chunk(3 * SEC, (char)0xEE);
+    check(writeSectorDataToHandle(h, chunk.data(), 5, 3, SEC), "wrote 3 sectors at sector 5");
+    char *back = readSectorDataFromHandle(h, 5, 3, SEC);
+    check(back && memcmp(back, chunk.constData(), 3 * SEC) == 0, "read back what was written there");
+    delete[] back;
+
+    back = readSectorDataFromHandle(h, 4, 1, SEC);
+    check(back && memcmp(back, before.constData() + 4 * SEC, SEC) == 0,
+          "the sector before it is unchanged");
+    delete[] back;
+    back = readSectorDataFromHandle(h, 8, 1, SEC);
+    check(back && memcmp(back, before.constData() + 8 * SEC, SEC) == 0,
+          "the sector after it is unchanged");
+    delete[] back;
+
+    back = readSectorDataFromHandle(h, 20, 2, SEC);
+    QByteArray tail(2 * SEC, 0);
+    memcpy(tail.data(), "half", 4);
+    check(back && memcmp(back, tail.constData(), 2 * SEC) == 0,
+          "a read past the end of the file is zero-padded, not stale");
+    delete[] back;
+    CloseHandle(h);
+    printf("\n");
+}
+
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
@@ -820,6 +1217,8 @@ int main(int argc, char **argv)
     caseUntouched("backup already at the last LBA", GPT_FIX_NOT_NEEDED, damageAlreadyAtEnd);
     caseUntouched("primary header CRC invalid", GPT_FIX_BAD_GPT, damageCrc);
     caseUntouched("entry array checksum invalid", GPT_FIX_BAD_GPT, damageEntriesCrc);
+    caseUntouched("a partition runs past the new last usable LBA", GPT_FIX_FAILED,
+                  damagePartitionPastEnd);
 
     // After Windows has already mangled it, with "Fix GPT after write" off.
     caseAfterTheFact("windows rewrote the table (reserved-space layout)", 2048, true);
@@ -830,6 +1229,17 @@ int main(int argc, char **argv)
     caseListMbrOrder();
     caseMbrShrinkExclude();
     caseMbrProtectiveEntrySkipped();
+
+    caseGptShrinkEndToEnd("GPT shrink applied end to end", {});
+    caseGptShrinkEndToEnd("GPT shrink applied end to end, one partition excluded", {2});
+    caseMbrShrinkEndToEnd("MBR shrink applied end to end", {});
+    caseMbrShrinkEndToEnd("MBR shrink applied end to end, one partition excluded", {2});
+
+    caseRewriteRisk();
+    caseHasMbrTable();
+    caseWipe();
+    caseOwnedSectors();
+    caseSectorIO();
 
     DeleteFileA(TESTFILE);
     printf("%d checks, %d failures\n", checks, failures);
