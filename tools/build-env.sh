@@ -69,10 +69,16 @@ CROSS_SYSROOT="${CROSS_SYSROOT:-/usr/x86_64-w64-mingw32/sys-root/mingw}"
 CROSS_NATIVE_QT="${CROSS_NATIVE_QT:-/usr/lib64/cmake/Qt6/Qt6Config.cmake}"
 CROSS_NATIVE_QTSVG="${CROSS_NATIVE_QTSVG:-/usr/lib64/cmake/Qt6Svg/Qt6SvgConfig.cmake}"
 
+# tsflags= undoes the nodocs Fedora's container images set: some packages
+# (mingw64-bzip2) file their licence as %doc, and deploy_write_licenses needs
+# it on disk to ship it.
+CROSS_DNF_FLAGS="--setopt=tsflags="
+
 # The image tools/Containerfile.build produces. Override with IMAGE=...
-# The tag is a checksum of the base image and package list: container_run only
-# builds an image that does not exist yet, so a changed toolchain needs a new name.
-CROSS_IMAGE="${IMAGE:-w32di-build:$(printf '%s' "$CROSS_BASE_IMAGE$CROSS_PACKAGES" | cksum | cut -d' ' -f1)}"
+# The tag is a checksum of the base image, package list and install flags:
+# container_run only builds an image that does not exist yet, so a changed
+# toolchain needs a new name.
+CROSS_IMAGE="${IMAGE:-w32di-build:$(printf '%s' "$CROSS_BASE_IMAGE$CROSS_PACKAGES$CROSS_DNF_FLAGS" | cksum | cut -d' ' -f1)}"
 
 # Extra "podman run" arguments a caller wants, as an array.
 CONTAINER_ENV=()
@@ -92,7 +98,7 @@ cross_packages()
 cross_install()
 {
     # shellcheck disable=SC2046
-    dnf -y install $(cross_packages "${1:-}")
+    dnf -y install $CROSS_DNF_FLAGS $(cross_packages "${1:-}")
     cross_check
 }
 
@@ -446,6 +452,7 @@ deploy_write_licenses()
                  esac)
         if [ "$n" -eq 0 ]; then
             echo "error: package $pkg ships no licence file to include." >&2
+            [ "$backend" = rpm ] && echo "       If rpm -qd $pkg lists one, it was installed without docs (tsflags=nodocs)." >&2
             return 1
         fi
         {
