@@ -8,43 +8,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Cross-compile a win64 binary from Linux. Ubuntu has no MinGW Qt6 packages,
-  # so the job runs in a Fedora container, which does ship them.
+  # Cross-compile a win64 binary from Linux, exactly as a developer does with
+  # podman: the two scripts below build the Fedora image from
+  # tools/Containerfile.build (Ubuntu has no MinGW Qt6 packages; Fedora does)
+  # and run the build and the packaging inside it. The runner itself only
+  # needs podman, zip and gh, which ubuntu-latest has.
   windows-x86_64:
     runs-on: ubuntu-latest
-    # Keep in step with CROSS_BASE_IMAGE in tools/build-env.sh. It cannot be
-    # read from there: this is resolved before any step runs.
-    container: fedora:latest
     # Needed only by the release step, which creates a GitHub release.
     permissions:
       contents: write
 
     steps:
-      # git first and on its own: actions/checkout needs it, and the toolchain
-      # list it would otherwise come from is in the repository being checked out.
-      - name: Install git
-        run: dnf -y install git
-
       - uses: actions/checkout@v7
 
-      # "install ci" adds zip and gh for the release, and fails if the
-      # toolchain is not laid out the way the build expects.
-      - name: Install cross toolchain
-        run: bash tools/build-env.sh install ci
-
-      # The workspace is owned by a different UID than the user running these
-      # steps, so git (and gh, which shells out to it) fails with "detected
-      # dubious ownership" without this.
-      - name: Trust the workspace
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      # The same script developers run; fails if the result is not win64 PE.
+      # Builds the image on first use, then the exe; fails if it is not win64 PE.
       - name: Build
-        run: bash tools/build-cross.sh
+        run: bash tools/build-container.sh
 
-      # Directories and sysroot all default; see tools/build-env.sh.
       - name: Package
-        run: bash tools/deploy-cross.sh
+        run: bash tools/deploy-container.sh
 
       - uses: actions/upload-artifact@v7
         with:

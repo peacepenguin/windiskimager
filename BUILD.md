@@ -65,7 +65,8 @@ Everything that cross-builds reads **`tools/build-env.sh`** for the packages,
 toolchain paths, cmake flags and podman plumbing — including
 `tools/Containerfile.build` when it builds the image, and
 [.github/workflows/build.yml](.github/workflows/build.yml), which runs
-`tools/build-cross.sh` the same as anyone else.
+`tools/build-container.sh` and `tools/deploy-container.sh` the same as anyone
+with podman.
 
 ## Windows, natively
 
@@ -156,17 +157,18 @@ while it runs.
 ## Windows, cross-compiled from Linux
 
 It has to be Fedora: Debian and Ubuntu ship no MinGW Qt6 packages, so there is
-nothing to link against there. That is why CI runs `ubuntu-latest` but inside a
-Fedora container. Both use `fedora:latest`; locally it is named once, as
-`CROSS_BASE_IMAGE` in [tools/build-env.sh](tools/build-env.sh). A local
-container image keeps the Fedora release it was built from, so remove it to
-pick up a newer one.
+nothing to link against there. That is why CI runs `ubuntu-latest` and builds
+in a Fedora container, the same one `tools/build-container.sh` uses. The
+release is named once, as `CROSS_BASE_IMAGE` (`fedora:latest`) in
+[tools/build-env.sh](tools/build-env.sh). CI builds the image fresh every run;
+a local image keeps the Fedora release it was built from, so remove it to pick
+up a newer one.
 
 `tools/build-cross.sh` *is* the cross build. Run it on a Fedora host and it
-builds; `tools/build-container.sh` runs that same script inside the container;
-[.github/workflows/build.yml](.github/workflows/build.yml) runs it too. However
-this is built, it is built by that one script, with the toolchain and flags from
-`tools/build-env.sh`.
+builds; `tools/build-container.sh` runs that same script inside the container,
+and [.github/workflows/build.yml](.github/workflows/build.yml) runs
+`tools/build-container.sh`. However this is built, it is built by that one
+script, with the toolchain and flags from `tools/build-env.sh`.
 
 **On a Fedora host.** Install the toolchain once:
 
@@ -193,9 +195,8 @@ Those scripts are wrappers: each starts the container and runs `build-cross.sh`
 or `deploy-cross.sh` inside it, where the toolchain is already installed, so
 the host needs nothing but podman. `build-container.sh` and `build-cross.sh`
 take the same arguments — `clean` to start over, `test` for a no-elevation
-build — and both
-fail if what comes out is not a win64 PE binary, which is what a host compiler
-picked up by mistake would produce.
+build — and both fail if what comes out is not a win64 PE binary, which is what
+a host compiler picked up by mistake would produce.
 
 Either one before a push catches a broken cross build without waiting on the
 workflow. Everything they write is gitignored, so the build directory persists
@@ -383,7 +384,7 @@ CROSS_LUPDATE=/usr/bin/lupdate-qt6 tools/lupdate.sh
 ```
 
 ```
-tools/build-env.sh packages ci      # what CI installs
+tools/build-env.sh packages         # what the container and CI install
 tools/build-env.sh print SYSROOT    # where it expects the MinGW tree
 ```
 

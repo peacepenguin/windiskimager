@@ -18,7 +18,7 @@
 #   tools/build-env.sh install            # dnf install the toolchain
 #   tools/build-env.sh check              # assert the layout is as expected
 #   tools/build-env.sh configure SRC BUILD [extra cmake args...]
-#   tools/build-env.sh packages [ci]      # print the package list
+#   tools/build-env.sh packages           # print the package list
 #   tools/build-env.sh packages-msys2     # print the MSYS2 list, for a native build
 #   tools/build-env.sh print NAME         # print one value (SYSROOT, TOOLCHAIN, ...)
 #
@@ -27,9 +27,10 @@
 # ---------------------------------------------------------------- toolchain ---
 
 # Fedora is not a preference: Debian and Ubuntu ship no MinGW Qt6 packages, so
-# there is nothing to link against there. :latest to match CI, which cannot read
+# there is nothing to link against there. The container and CI both build from
 # this. A local image is cached under a tag derived from this string, so it
-# keeps the Fedora it was built from until it is removed and rebuilt.
+# keeps the Fedora it was built from until it is removed and rebuilt; CI builds
+# its image fresh each run.
 CROSS_BASE_IMAGE="fedora:latest"
 
 # qt6-linguist is the *native* Linguist: lrelease-qt6 compiles lang/*.ts for the
@@ -43,9 +44,6 @@ CROSS_PACKAGES="cmake ninja-build file findutils binutils
                 mingw64-zlib mingw64-xz
                 qt6-linguist
                 gcc-c++ qt6-qtbase-devel qt6-qtsvg-devel"
-
-# Only CI needs these: zip and gh to publish a release, git for the checkout.
-CROSS_CI_PACKAGES="git zip gh"
 
 # The MSYS2 UCRT64 packages for a native Windows build. Nothing here installs
 # them -- that is done by hand, once -- but the list belongs with the others.
@@ -89,17 +87,13 @@ CONTAINER_ENV=()
 cross_packages()
 {
     # shellcheck disable=SC2086   # deliberate word splitting: one per line
-    if [ "${1:-}" = "ci" ]; then
-        echo $CROSS_PACKAGES $CROSS_CI_PACKAGES
-    else
-        echo $CROSS_PACKAGES
-    fi
+    echo $CROSS_PACKAGES
 }
 
 cross_install()
 {
     # shellcheck disable=SC2046
-    dnf -y install $CROSS_DNF_FLAGS $(cross_packages "${1:-}")
+    dnf -y install $CROSS_DNF_FLAGS $(cross_packages)
     cross_check
 }
 
@@ -551,10 +545,10 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     cmd=${1:-}
     shift || true
     case "$cmd" in
-        install)         cross_install "${1:-}" ;;
+        install)         cross_install ;;
         check)           cross_check ;;
         configure)       cross_configure "$@" ;;
-        packages)        cross_packages "${1:-}" ;;
+        packages)        cross_packages ;;
         packages-msys2)  echo $MSYS2_PACKAGES ;;
         print)
             case "${1:-}" in
