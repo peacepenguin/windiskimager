@@ -13,7 +13,8 @@ Every build lands in `build/`, whichever route it took.
 - **`tools/build.sh`** → `build/`
   - cmake and ninja against the native Qt
 - **`tools/deploy.sh`** → `dist/`
-  - `windeployqt6`, then `objdump` for what it misses
+  - `windeployqt6`, then `objdump` for what it misses, then the licence of
+    every library it ships, from `pacman`
 - **`tools/gpttest.sh`** → pass or fail
   - builds the harness in `tools/gpttest/`, which links the real
     `src/disk.cpp`, and runs it
@@ -31,7 +32,8 @@ Every build lands in `build/`, whichever route it took.
 - **`tools/build-cross.sh`** → `build/`
   - cmake and ninja against the MinGW Qt
 - **`tools/deploy-cross.sh`** → `dist/`
-  - `objdump`, and the Qt plugins gathered by hand
+  - `objdump`, and the Qt plugins gathered by hand, then the licence of
+    every library it ships, from `rpm`
 
 **On Linux, without it** — the same build, one step further out:
 

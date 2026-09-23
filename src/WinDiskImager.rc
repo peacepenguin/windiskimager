@@ -88,7 +88,7 @@ BEGIN
             VALUE "FileDescription", "WinDiskImager"
             VALUE "FileVersion", RC_STR(VER_RAW)
             VALUE "InternalName", "WinDiskImager"
-            VALUE "LegalCopyright", "Copyright (C) 2009-2017 Windows ImageWriter Team; modifications Copyright (C) 2026 peacepenguin. GPL-2."
+            VALUE "LegalCopyright", "Copyright (C) 2009-2017 Windows ImageWriter Team; modifications Copyright (C) 2026 peacepenguin. GPL-2.0-or-later."
             VALUE "OriginalFilename", "WinDiskImager"
             VALUE "ProductName", "WinDiskImager"
             VALUE "ProductVersion", RC_STR(VER_RAW)

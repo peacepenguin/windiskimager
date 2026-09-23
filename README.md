@@ -135,13 +135,16 @@ repository, not to SourceForge.
 
 ## License
 
-Licensed under the GNU General Public License v2; see [GPL-2](GPL-2). The
+Licensed under the GNU General Public License, version 2 or (at your option)
+any later version; see [License.txt](License.txt) and [GPL-2](GPL-2). The
 changes in this fork are Copyright (C) 2026 peacepenguin under the same license,
 and each modified file says what changed.
 
-Binaries include the MinGW runtime and Qt, the latter under the LGPL
-([LGPL-2.1](LGPL-2.1)). Third-party components are listed in
-[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+The Windows package includes Qt 6, under the GNU LGPL version 3, and other
+open-source libraries under their own licences. Its copy of
+[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) lists every library it
+ships, with its version, licence and source, and its `licenses` folder holds
+their licence texts.
 
 Originally developed by Justin Davis <tuxdavis@gmail.com> and maintained by the
 ImageWriter developers (https://sourceforge.net/projects/win32diskimager).

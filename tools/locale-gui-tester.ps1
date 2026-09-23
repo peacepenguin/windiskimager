@@ -1,3 +1,5 @@
+# Copyright (C) 2026 peacepenguin, GPL-2.0-or-later.
+
 # Relative to the repo, not to wherever the script is run from.
 $exe = Join-Path $PSScriptRoot "..\dist\WinDiskImager.exe"
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 peacepenguin, GPL-2.0-or-later.
 """Decode the GPT (protective MBR, primary + backup header, entries) from a raw
 image file or a Windows physical device, e.g.
 

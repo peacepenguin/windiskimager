@@ -1,6 +1,13 @@
 Third-party material included in this program
 =============================================
 
+The released Windows package is built with Qt 6, which is licensed under the
+GNU Lesser General Public License version 3, and with other open-source
+libraries, each under its own licence. The copy of this file in the package
+ends with a list of every library it ships -- generated when the package is
+built, from the package manager that supplied them -- with each one's version,
+licence and source, and the package's licenses folder holds their licence texts.
+
 The wrench in the application icon (src/images/WinDiskImager.svg) is the
 "wrench" glyph from Feathericon, https://github.com/feathericon/feathericon,
 used under the MIT licence reproduced below.

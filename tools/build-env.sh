@@ -366,6 +366,97 @@ build_report()
 # Copy into DIST every DLL its binaries import that is in BINDIR and not yet in
 # DIST, repeating while a pass finds binaries not yet read (a copied DLL has
 # imports of its own). Windows' own DLLs are skipped by not being in BINDIR.
+# deploy_write_licenses pacman|rpm DIST BINDIR PLUGINDIR TRDIR
+#
+# Ship the licence of every third-party file in DIST, taken from the package
+# manager that installed it: each file is traced back to its package, the
+# package's licence files are copied into DIST/licenses/<package>/, and an
+# entry naming the package, version, licence and source is appended to
+# DIST/THIRD-PARTY-NOTICES.txt. BINDIR, PLUGINDIR and TRDIR are where the
+# deploy took the DLLs, Qt plugins and Qt translations from. Only the lookups
+# differ between the two backends, so both packages come out the same shape.
+# Fails if a file has no owning package or a package ships no licence file --
+# a package missing a licence must not be released.
+deploy_write_licenses()
+{
+    local backend=${1:?usage: deploy_write_licenses pacman|rpm DIST BINDIR PLUGINDIR TRDIR}
+    local dist=${2:?} bindir=${3:?} plugindir=${4:?} trdir=${5:?}
+    local notices="$dist/THIRD-PARTY-NOTICES.txt"
+    local rel src pkg
+    declare -A files_of=()
+
+    while IFS= read -r rel; do
+        case "$rel" in
+            translations/*) src="$trdir/${rel#translations/}" ;;
+            */*)            src="$plugindir/$rel" ;;
+            *)              src="$bindir/$rel" ;;
+        esac
+        case "$backend" in
+            pacman) pkg=$(pacman -Qqo "$src" 2>/dev/null || true) ;;
+            rpm)    pkg=$(rpm -qf --qf '%{NAME}\n' "$src" 2>/dev/null || true) ;;
+        esac
+        if [ -z "$pkg" ]; then
+            echo "error: no package owns $src, so its licence is unknown." >&2
+            return 1
+        fi
+        files_of[$pkg]="${files_of[$pkg]:+${files_of[$pkg]}, }$rel"
+    done < <(cd "$dist" && find . \( -name '*.dll' -o -name '*.qm' \) | sed 's|^\./||' | sort)
+
+    local mgr="MSYS2 (UCRT64)"
+    [ "$backend" = rpm ] && mgr="Fedora MinGW"
+    {
+        printf '\n\nLibraries shipped with this build\n'
+        printf '=================================\n\n'
+        printf 'Every DLL, Qt plugin and Qt translation in this folder comes from the\n'
+        printf '%s package named below. Each package'"'"'s licence files are in\n' "$mgr"
+        printf 'licenses/<package>/, and its source is at the address given. The\n'
+        printf 'program'"'"'s own source is at https://github.com/peacepenguin/windiskimager.\n'
+        printf '\nQt contains third-party code of its own, listed with its copyright notices\n'
+        printf 'in "Third-Party Code Used in Qt": https://doc.qt.io/qt-6/licenses-used-in-qt.html\n'
+    } >> "$notices"
+
+    local version licence url lf dest n
+    for pkg in $(printf '%s\n' "${!files_of[@]}" | sort); do
+        case "$backend" in
+            pacman)
+                version=$(pacman -Q "$pkg" | cut -d' ' -f2)
+                licence=$(pacman -Qi "$pkg" | sed -n 's/^Licenses *: //p')
+                url="https://packages.msys2.org/package/$pkg"
+                ;;
+            rpm)
+                version=$(rpm -q --qf '%{VERSION}-%{RELEASE}' "$pkg")
+                licence=$(rpm -q --qf '%{LICENSE}' "$pkg")
+                url="https://src.fedoraproject.org/rpms/$(rpm -q --qf '%{SOURCERPM}' "$pkg" | sed 's/-[^-]*-[^-]*\.src\.rpm$//')"
+                ;;
+        esac
+        n=0
+        while IFS= read -r lf; do
+            [ -f "$lf" ] || continue
+            case "$lf" in
+                */share/licenses/*) dest="$dist/licenses/$pkg/$(echo "$lf" | sed 's|.*/share/licenses/[^/]*/||')" ;;
+                *)                  dest="$dist/licenses/$pkg/${lf##*/}" ;;
+            esac
+            mkdir -p "$(dirname "$dest")"
+            cp "$lf" "$dest"
+            n=$((n + 1))
+        done < <(case "$backend" in
+                     pacman) pacman -Qlq "$pkg" | grep -E '/share/licenses/.+[^/]$|/(LICENSE|LICENCE|COPYING)[^/]*$' || true ;;
+                     # Some packages file their licence as %doc, not %license.
+                     rpm)    { rpm -qL "$pkg"; rpm -qd "$pkg" | grep -E '/(LICENSE|LICENCE|COPYING)[^/]*$'; } || true ;;
+                 esac)
+        if [ "$n" -eq 0 ]; then
+            echo "error: package $pkg ships no licence file to include." >&2
+            return 1
+        fi
+        {
+            printf '\n%s %s\n' "$pkg" "$version"
+            printf '  Licence: %s\n' "$licence"
+            printf '  Files:   %s\n' "${files_of[$pkg]}"
+            printf '  Source:  %s\n' "$url"
+        } >> "$notices"
+    done
+}
+
 # deploy_check_dist DIR
 #
 # Fail unless DIR holds what the exe cannot start or draw its icons without.
@@ -382,6 +473,19 @@ deploy_check_dist()
             missing=1
         fi
     done
+    # Licences: the program's, and the LGPL-3.0 Qt 6 is under -- found by
+    # content, since the two package managers name the file differently.
+    for f in License.txt GPL-2 THIRD-PARTY-NOTICES.txt; do
+        if [ ! -f "$dist/$f" ]; then
+            echo "error: $dist/$f is missing from the package." >&2
+            missing=1
+        fi
+    done
+    if ! grep -rlqs "GNU LESSER GENERAL PUBLIC LICENSE" "$dist/licenses" \
+         || ! grep -rlqs "Version 3, 29 June 2007" "$dist/licenses"; then
+        echo "error: no LGPL-3.0 text under $dist/licenses; Qt 6 requires it." >&2
+        missing=1
+    fi
     return $missing
 }
 

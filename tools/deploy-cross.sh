@@ -7,6 +7,8 @@
 # windeployqt is itself a Windows binary and cannot run on the build host, so
 # the Qt DLLs, plugins and translations are gathered by hand and the dependency
 # closure is resolved with objdump.
+#
+# Copyright (C) 2026 peacepenguin, GPL-2.0-or-later.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -33,7 +35,7 @@ fi
 rm -rf "$dist"
 mkdir -p "$dist"
 cp "$build/WinDiskImager.exe" "$dist/"
-cp "$root"/Changelog.txt "$root"/README.md "$root"/License.txt "$root"/THIRD-PARTY-NOTICES.txt "$root"/GPL-2 "$root"/LGPL-2.1 "$dist/"
+cp "$root"/Changelog.txt "$root"/README.md "$root"/License.txt "$root"/THIRD-PARTY-NOTICES.txt "$root"/GPL-2 "$dist/"
 
 # Qt plugins. Only the ones a widgets app on Windows actually loads.
 qtplugins="$sysroot/lib/qt6/plugins"
@@ -82,6 +84,8 @@ command -v "$objdump" >/dev/null 2>&1 || {
 }
 
 deploy_resolve_closure "$objdump" "$bin" "$dist"
+
+deploy_write_licenses rpm "$dist" "$bin" "$qtplugins" "$qttr"
 
 # Fedora ships its MinGW DLLs unstripped; libstdc++ alone is ~26 MB of debug
 # symbols. strip is checked for and its errors left visible, so a missing or

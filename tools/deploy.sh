@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Package build/WinDiskImager.exe into a self-contained dist/ folder.
 # Run in the MSYS2 UCRT64 shell.
+#
+# Copyright (C) 2026 peacepenguin, GPL-2.0-or-later.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -34,7 +36,7 @@ fi
 mkdir -p dist
 rm -rf dist/* dist/.[!.]* 2>/dev/null || true
 cp build/WinDiskImager.exe dist/
-cp Changelog.txt README.md License.txt THIRD-PARTY-NOTICES.txt GPL-2 LGPL-2.1 dist/
+cp Changelog.txt README.md License.txt THIRD-PARTY-NOTICES.txt GPL-2 dist/
 
 # Languages the app itself ships translations for; Qt's own translations are
 # trimmed to match instead of shipping all ~40 of them. Read from CMakeLists so
@@ -79,6 +81,9 @@ fi
 # windeployqt does not pull in the MinGW runtime or Qt's third-party
 # dependencies on MSYS2; see deploy_resolve_closure in tools/build-env.sh.
 deploy_resolve_closure objdump "$MSYS2_BIN" dist
+
+deploy_write_licenses pacman dist "$MSYS2_BIN" \
+    "$(dirname "$MSYS2_BIN")/share/qt6/plugins" "$(dirname "$MSYS2_BIN")/share/qt6/translations"
 
 deploy_check_dist dist
 

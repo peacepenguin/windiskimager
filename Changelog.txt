@@ -34,6 +34,10 @@ Drop an image file anywhere on the window to fill in the image field. Dropping
   onto the field never worked: Windows blocks Qt's drag and drop from Explorer
   into an elevated window, so it now uses the older mechanism Windows lets through
 Local cross-builds use fedora:latest, the same as CI
+The package now carries the licence of every library it ships: the notices
+  list each one's version, licence and source, taken from the package manager
+  that supplied it, and a package missing one fails to build. Qt 6 is
+  correctly described as LGPL-3.0, not LGPL-2.1
 Many more automated tests
 
 Release 1.8.0
