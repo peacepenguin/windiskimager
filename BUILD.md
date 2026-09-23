@@ -39,9 +39,11 @@ Every build lands in `build/`, whichever route it took.
 
 - **`tools/build-container.sh`** → `build/`
   - podman, which runs **`tools/build-cross.sh`** inside the image
+- **`tools/deploy-container.sh`** → `dist/`
+  - podman, which runs **`tools/deploy-cross.sh`** inside the image
 
-  You run this on the host; it is the *build* that happens in a container. The
-  script is a wrapper and nothing else.
+  You run these on the host; it is the *build* and the *packaging* that happen
+  in a container. The scripts are wrappers and nothing else.
 
 **On Windows or Linux:**
 
@@ -184,12 +186,14 @@ the toolchain. The image builds itself on first use:
 
 ```
 tools/build-container.sh
-tools/deploy-cross.sh
+tools/deploy-container.sh
 ```
 
-That script is a wrapper: it starts the container and runs `build-cross.sh`
-inside it, where the toolchain is already installed. Both take the same
-arguments — `clean` to start over, `test` for a no-elevation build — and both
+Those scripts are wrappers: each starts the container and runs `build-cross.sh`
+or `deploy-cross.sh` inside it, where the toolchain is already installed, so
+the host needs nothing but podman. `build-container.sh` and `build-cross.sh`
+take the same arguments — `clean` to start over, `test` for a no-elevation
+build — and both
 fail if what comes out is not a win64 PE binary, which is what a host compiler
 picked up by mistake would produce.
 

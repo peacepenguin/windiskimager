@@ -45,7 +45,10 @@ if ! file "$build/WinDiskImager.exe" | grep -q 'PE32+'; then
 fi
 file "$build/WinDiskImager.exe"
 
-if [ "$build" = "$REPO/build" ]; then
+if [ -n "${W32DI_IN_CONTAINER:-}" ]; then
+    # Run by tools/build-container.sh: the host has no toolchain to deploy with.
+    build_report "$build" "tools/deploy-container.sh"
+elif [ "$build" = "$REPO/build" ]; then
     build_report "$build" "tools/deploy-cross.sh"
 else
     # BUILD_DIR was overridden, so the defaults would not find this build.

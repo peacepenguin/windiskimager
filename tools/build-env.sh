@@ -4,7 +4,8 @@
 #
 # Everything that cross-builds reads this file, so none of it is written down
 # twice: tools/Containerfile.build, tools/build-cross.sh, tools/build-container.sh,
-# tools/lupdate.sh, tools/deploy-cross.sh and .github/workflows/build.yml.
+# tools/deploy-cross.sh, tools/deploy-container.sh, tools/lupdate.sh and
+# .github/workflows/build.yml.
 # BUILD.md points here rather than repeating the values.
 #
 # Use it either way. As a library:
