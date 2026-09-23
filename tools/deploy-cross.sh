@@ -61,7 +61,9 @@ rm -f "$dist/platforms/qminimal.dll" "$dist/platforms/qoffscreen.dll"
 rm -f "$dist/imageformats/qjpeg.dll" "$dist/imageformats/qgif.dll" "$dist/imageformats/qico.dll"
 
 # Qt's own translations, trimmed to the languages the app ships. Read from
-# CMakeLists so this list cannot drift from the one the build compiles.
+# CMakeLists so this list cannot drift from the one the build compiles. Only
+# qtbase_<lang>.qm: Fedora's qt_<lang>.qm is a stub naming qtbase and
+# qtmultimedia, which main.cpp never needs once qtbase has loaded.
 LANGUAGES=$(sed -n 's/^set(LANGUAGES \(.*\))$/\1/p' "$root/src/CMakeLists.txt")
 [ -n "$LANGUAGES" ] || { echo "error: no LANGUAGES in src/CMakeLists.txt" >&2; exit 1; }
 qttr="$sysroot/share/qt6/translations"
@@ -71,11 +73,10 @@ if [ ! -d "$qttr" ]; then
 fi
 mkdir -p "$dist/translations"
 for l in $LANGUAGES; do
-    cp "$qttr/qt_$l.qm" "$dist/translations/" 2>/dev/null || true
     cp "$qttr/qtbase_$l.qm" "$dist/translations/" 2>/dev/null || true
 done
 if [ -z "$(ls -A "$dist/translations")" ]; then
-    echo "error: $qttr contained none of the expected qt_*.qm files" >&2
+    echo "error: $qttr contained none of the expected qtbase_*.qm files" >&2
     exit 1
 fi
 

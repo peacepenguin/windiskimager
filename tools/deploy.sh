@@ -12,7 +12,7 @@ cd "$root"
 # windeployqt6 brings the Qt payload; objdump resolves everything it leaves out.
 # A missing objdump is silent: no runtime DLLs get copied and the folder is
 # reported ready around an executable that cannot start.
-need_msys2_tools windeployqt6 objdump
+need_msys2_tools windeployqt6 objdump strip
 
 # Qt's DLLs and the MinGW runtime sit beside the tools, so the prefix is asked
 # for rather than written down.
@@ -86,6 +86,10 @@ deploy_resolve_closure objdump "$MSYS2_BIN" dist
 
 deploy_write_licenses pacman dist "$MSYS2_BIN" \
     "$(dirname "$MSYS2_BIN")/share/qt6/plugins" "$(dirname "$MSYS2_BIN")/share/qt6/translations"
+
+# MSYS2's DLLs arrive stripped; the exe keeps its symbol table, about half its
+# size, unless stripped here. deploy-cross.sh strips the same way.
+strip --strip-unneeded dist/WinDiskImager.exe
 
 deploy_check_dist dist
 

@@ -31,11 +31,11 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setApplicationDisplayName(VER);
 
-    // Qt's own strings (QMessageBox buttons, the file dialog) come from
-    // translations/ next to the exe. tools/deploy-cross.sh copies Qt's
-    // qtbase_<lang>.qm (and qt_<lang>.qm where present); windeployqt, used by
-    // tools/deploy.sh, writes only a merged qt_<lang>.qm. Try qtbase first,
-    // then the merged file, or a native build shows Qt's strings in English.
+    // Qt's own strings (QMessageBox buttons) come from translations/ next to
+    // the exe. tools/deploy-cross.sh copies Qt's qtbase_<lang>.qm;
+    // windeployqt, used by tools/deploy.sh, writes only a merged qt_<lang>.qm.
+    // Try qtbase first, then the merged file, or a native build shows Qt's
+    // strings in English.
     QTranslator qttranslator;
     const QString qttrdir = QCoreApplication::applicationDirPath() + "/translations";
     if (qttranslator.load(QLocale::system(), "qtbase", "_", qttrdir)

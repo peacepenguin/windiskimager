@@ -473,12 +473,14 @@ deploy_write_licenses()
         esac
         # Licence files first. Failing those, the README: a public-domain
         # project has no licence file and says so there (win-iconv does).
-        # Failing both, a text kept in tools/licenses/<package>/ for a package
-        # that ships none at all (Fedora's mingw64-zlib).
+        # Then, always, any text kept in tools/licenses/<package>/: for a
+        # package that ships none (Fedora's mingw64-zlib), or whose licence
+        # file only points at one it leaves out (Fedora's icu, pcre2, ...).
         local kind want rest
         local -A made=()
         n=0
         for kind in licence readme repo; do
+            [ "$kind" = readme ] && [ "$n" -gt 0 ] && continue
             # Forks are slow on MSYS2, so the loop matches and names files
             # with bash itself; only cp runs per file.
             case "$kind" in
@@ -514,7 +516,6 @@ deploy_write_licenses()
                          rpm:readme)     rpm -qd "$pkg" | grep -iE '/README[^/]*$' || true ;;
                          *:repo)         find "$(dirname "${BASH_SOURCE[0]}")/licenses/$pkg" -type f 2>/dev/null || true ;;
                      esac)
-            [ "$n" -gt 0 ] && break
         done
         if [ "$n" -eq 0 ]; then
             echo "error: package $pkg ships no licence file or README to include." >&2

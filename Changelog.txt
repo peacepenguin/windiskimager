@@ -14,6 +14,12 @@ Faster Windows packaging: gathering the licences took about a minute on MSYS2,
 The package no longer ships Qt's networking library, TUIO touch-table plugin,
   or JPEG, GIF and ICO readers, none of which the program uses; it is 4 MB
   smaller
+The CI package carries the licence texts four of Fedora's packages only point
+  to: ICU's, FreeType's, PCRE2's, and the LGPL that covers libintl
+The native build's WinDiskImager.exe is stripped, as the cross build's already
+  was, halving its size
+The CI package no longer ships Qt's placeholder qt_<lang>.qm files, which the
+  program never loads
 
 Release 1.9.0
 =============
