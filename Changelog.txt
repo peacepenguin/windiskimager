@@ -1,3 +1,17 @@
+Release 1.9.1
+=============
+The package now carries the licence of every library it ships: the notices
+  list each one's version, licence and source, taken from the package manager
+  that supplied it, and a package missing one fails to build. Qt 6 is
+  correctly described as LGPL-3.0, not LGPL-2.1. Packages up to 1.9.0 left
+  these out, so their downloads have been withdrawn; use this one or later
+License.txt and the version information state the program's licence,
+  GPL-2.0-or-later, and its copyright holders
+CI builds and packages in the same Fedora container as tools/build-container.sh;
+  tools/deploy-container.sh packages a container build locally
+Faster Windows packaging: gathering the licences took about a minute on MSYS2,
+  now a second or two
+
 Release 1.9.0
 =============
 Fix a small .img.gz made of more than one gzip member being only partly
@@ -34,10 +48,6 @@ Drop an image file anywhere on the window to fill in the image field. Dropping
   onto the field never worked: Windows blocks Qt's drag and drop from Explorer
   into an elevated window, so it now uses the older mechanism Windows lets through
 Local cross-builds use fedora:latest, the same as CI
-The package now carries the licence of every library it ships: the notices
-  list each one's version, licence and source, taken from the package manager
-  that supplied it, and a package missing one fails to build. Qt 6 is
-  correctly described as LGPL-3.0, not LGPL-2.1
 Many more automated tests
 
 Release 1.8.0
