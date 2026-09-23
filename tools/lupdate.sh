@@ -4,15 +4,8 @@
 #   tools/lupdate.sh           # update every .ts in src/lang
 #   tools/lupdate.sh de fr     # only those languages
 #
-# Runs anywhere: it uses whichever Qt 6 lupdate the host has -- plain "lupdate"
-# in MSYS2 UCRT64, "lupdate-qt6" from Fedora's qt6-linguist -- and falls back to
-# running itself in the Fedora container when the host has neither. Only version
-# 6 is accepted; a Qt 5 lupdate writes .ts files the Qt 6 build then has to
-# interpret.
-#
-# lupdate is a *native* tool, from qt6-linguist, the same package that provides
-# the lrelease the cross build uses. It is not part of the MinGW Qt: Qt6::lupdate
-# from mingw64-qt6-qttools is a Windows .exe and cannot run on the build host.
+# Uses the host's Qt 6 lupdate (see lupdate_path in tools/build-env.sh), or
+# runs itself in the Fedora container when there is none.
 #
 # Unlike the build, this rewrites files that are tracked in git. New strings
 # arrive untranslated, and strings that no longer appear in the source are
@@ -40,8 +33,6 @@ if ! LUPDATE=$(lupdate_path); then
         echo "       Rebuild it: podman build -t $CROSS_IMAGE -f tools/Containerfile.build ." >&2
         exit 1
     fi
-    # Nothing local, so try the container. On Windows there is none, and the
-    # tool is one package away.
     if ! command -v podman >/dev/null 2>&1; then
         echo "error: no Qt 6 lupdate on this host." >&2
         echo "       MSYS2 UCRT64:  pacman -S --needed mingw-w64-ucrt-x86_64-qt6-tools" >&2
@@ -67,18 +58,8 @@ fi
 # Run from src/ so the source files are found by the plain names below.
 cd "$REPO/src"
 
-# -locations none: the .ts files record no line numbers.
-#
-# They are only ever read by a person in Linguist, to see where a string comes
-# from. Nothing in the build wants them: lrelease ignores them, and a .ts
-# stripped of every <location> compiles to a byte-identical .qm. What they cost
-# is the history -- adding one string moved the line numbers under every string
-# after it, so a one-line change arrived as a hundred-line diff in each of
-# twelve files and the real change had to be hunted for.
-#
-# Matching is by context and source text, not by position, so existing
-# translations survive the change and later runs still find them.
-#
-# Anyone who does want the source references can have them for a look without
-# committing them:  lupdate -locations relative *.cpp *.h *.ui -ts lang/foo.ts
+# -locations none: line numbers do not affect the .qm, and recording them turns
+# every added string into a large diff in each .ts file. Translations match by
+# context and source text, so nothing is lost. For a local look at the
+# references:  lupdate -locations relative *.cpp *.h *.ui -ts lang/foo.ts
 "$LUPDATE" -locations none *.cpp *.h *.ui -ts "${TSFILES[@]}"

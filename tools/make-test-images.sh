@@ -9,14 +9,13 @@
 # of the device should carry the marker, which together show the whole image was
 # written and not just the front of it.
 #
-# The exception is the GPT pair -- test-gpt-affected.img and test-gpt-safe.img --
-# which carry a partition table and nothing else. They differ only in
-# FirstUsableLBA, which is the field the Windows GPT rewrite bug turns on. See
-# TESTING-GPT-BUG.md.
+# The exceptions are the GPT pair (test-gpt-*.img: a partition table only,
+# differing in FirstUsableLBA; see TESTING-GPT-BUG.md) and the shrink-on-read
+# set (test-shrink-*.img), described where they are built.
 #
 # Run on Fedora as a normal user (no root, no loop devices needed):
 #
-#   sudo dnf install util-linux dosfstools mtools xz gzip
+#   sudo dnf install util-linux dosfstools mtools xz gzip python3
 #   tools/make-test-images.sh -o ~/diskimager-test-images
 #
 # Copyright (C) 2026 peacepenguin, GPL-2.0-or-later.
@@ -264,11 +263,8 @@ first-lba: $firstlba
 start=32768, size=46875, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name="TESTPART1"
 start=79872, size=13812, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name="TESTPART2"
 EOF
-    # Confirm the field under test really is what was asked for. sfdisk aligns
-    # things quietly, and an image that claims to be the affected one while
-    # holding 34 would make the whole test meaningless. Read it back out of the
-    # header rather than out of sfdisk's own dump, which omits first-lba when it
-    # is the default.
+    # Confirm the field under test, since sfdisk aligns things quietly. Read
+    # from the header: sfdisk's own dump omits first-lba when it is the default.
     local got
     got=$(python3 "$REPO/tools/gptdump.py" "$path" \
           | sed -n 's/^ *FirstUsableLBA *//p' | head -1)
@@ -284,16 +280,10 @@ make_gpt_image 34   "$OUTDIR/test-gpt-safe.img"
 
 # -------------------------------------------------- "Shrink image on Read" ---
 #
-# Every image below puts a recognizable ASCII tag in each region that matters,
-# rather than leaving it zero: a region "Shrink image on Read" must drop and
-# one it must instead preserve would otherwise both read back the same way if
-# the shrink got it wrong. Comparing the shrunk output against these tags
-# (not just its size) is what actually catches a gap left in, or -- worse --
-# real data left out.
-#
-# None of these are also built as .gz/.xz: they are the *device* content for a
-# Write, then a Read back with the box checked, not an image opened straight
-# by ImageSource the way the raw/gz/xz sets above are.
+# Each region that matters carries its own ASCII tag rather than zeros, so a
+# gap left in or data left out shows up in the shrunk output, not just in its
+# size. Raw only: these are device content to Write and then Read back with the
+# box checked, not images for ImageSource.
 
 # fill_pattern PATH OFFSET_BYTES LEN_BYTES TAG
 fill_pattern() {
@@ -321,8 +311,7 @@ write_fat_part() {
     dd if="$blob" of="$disk" bs=512 seek="$off" conv=notrunc status=none
 }
 
-# check_firstusablelba PATH WANT -- same check make_gpt_image() does, read
-# back out of the header rather than trusted from what was asked for.
+# check_firstusablelba PATH WANT -- the same check make_gpt_image() does.
 check_firstusablelba() {
     local path=$1 want=$2 got
     got=$(python3 "$REPO/tools/gptdump.py" "$path" \
@@ -335,15 +324,10 @@ check_firstusablelba() {
 
 # make_shrink_mbr_image PATH
 #
-# 200 MB MBR disk: 50 MB unpartitioned, a 100 MB FAT partition, then another
-# 50 MB unpartitioned. An MBR has no FirstUsableLBA field the way GPT does,
-# but the boot sector alone marks exactly the same amount of the device as
-# reserved -- one sector -- so "Shrink image on Read" repacks an MBR device
-# the same way it does a GPT one: both gaps here must be gone, and the
-# partition moved right after the boot sector. The 50/100/50 MB split lands
-# the partition on a 1MiB boundary either way, so unlike the -multi image
-# below, this one does not exercise the alignment rounding itself -- only
-# gap removal.
+# 200 MB MBR disk: 50 MB gap, a 100 MB FAT partition, 50 MB gap. Only the boot
+# sector is reserved, so both gaps must go and the partition move right after
+# it. The partition starts on a 1MiB boundary, so unlike -multi this tests gap
+# removal only, not alignment rounding.
 make_shrink_mbr_image() {
     local path=$1
     local sector=512
@@ -370,12 +354,9 @@ EOF
 
 # make_shrink_mbr_tight_image PATH
 #
-# One MBR partition already running from the sector right after the boot
-# sector to the very last sector of the device: there is no gap anywhere for
-# "Shrink image on Read" to remove. Checking the box against this image
-# should read it back in full, byte for byte, exactly as if it had been left
-# unchecked -- the negative case for test-shrink-mbr.img and
-# test-shrink-mbr-multi.img.
+# One MBR partition from sector 1 to the last sector: no gap anywhere, so a
+# shrink must read it back byte for byte. The negative case for the other
+# MBR images.
 make_shrink_mbr_tight_image() {
     local path=$1
     local sector=512
@@ -394,13 +375,7 @@ EOF
 
 # make_shrink_mbr_multi_image PATH
 #
-# Three MBR primary partitions rather than one, with a gap ahead of each of
-# the first two and none after the last -- "between partitions", which
-# test-shrink-mbr.img's single partition cannot exercise, and the MBR
-# counterpart to test-shrink-gpt-multi.img. No start is a multiple of 2048
-# sectors (1MiB), so this also exercises the alignment rounding, not just
-# gap removal. Geometry only, no filesystems: each partition gets its own stamp
-# instead, the same as the GPT multi-partition image.
+# The MBR counterpart of make_shrink_gpt_multi_image, with the same geometry.
 make_shrink_mbr_multi_image() {
     local path=$1
     local sector=512
@@ -430,12 +405,9 @@ EOF
 
 # make_shrink_gpt_image PATH
 #
-# 200-ish MB GPT disk, default FirstUsableLBA (34): a 50 MB gap, a 100 MB FAT
-# partition, then another 50 MB gap before the backup GPT. Both gaps must be
-# gone, and the backup GPT relocated right after the partition, once "Shrink
-# image on Read" has run. The partition start (102434) is not a multiple of
-# 2048 sectors (1MiB), so this also exercises the alignment repacking, not
-# just gap removal.
+# ~200 MB GPT disk, FirstUsableLBA 34: 50 MB gap, a 100 MB FAT partition, 50 MB
+# gap, backup GPT. Both gaps must go and the backup GPT follow the partition.
+# The start (102434) is not 1MiB-aligned, so alignment is exercised too.
 make_shrink_gpt_image() {
     local path=$1
     local sector=512
@@ -466,14 +438,9 @@ EOF
 
 # make_shrink_gpt_reserved_image PATH
 #
-# Same idea, but FirstUsableLBA is raised to 65536 (32 MiB), the way rk3588
-# and similar boards reserve room for idbloader/U-Boot ahead of the first
-# partition (see the GPT pair above). That reserved span is stamped and must
-# survive a shrink completely unchanged -- it is not a gap, and nothing here
-# should treat it like one. A further 20 MB gap between the reserved span and
-# the partition, and another 20 MB before the backup GPT, must both still be
-# dropped: an elevated FirstUsableLBA does not make the ordinary gaps around
-# it any less removable.
+# FirstUsableLBA 65536 (32 MiB), as rk3588 and similar boards reserve for
+# idbloader/U-Boot. The reserved span must survive a shrink unchanged; the
+# 20 MB gaps after it and before the backup GPT must still be dropped.
 make_shrink_gpt_reserved_image() {
     local path=$1
     local sector=512
@@ -509,11 +476,8 @@ EOF
 
 # make_shrink_gpt_tight_image PATH
 #
-# Default FirstUsableLBA, one partition that already runs from FirstUsableLBA
-# to the sector before the backup GPT: there is no gap anywhere left to
-# remove. Checking "Shrink image on Read" against this image should read it
-# in full, byte for byte, exactly as if the box had been left unchecked --
-# the negative case for the two GPT images above.
+# One partition from FirstUsableLBA to just before the backup GPT: no gap, so
+# a shrink must read it back byte for byte. The negative case for the GPT images.
 make_shrink_gpt_tight_image() {
     local path=$1
     local sector=512
@@ -537,14 +501,10 @@ EOF
 
 # make_shrink_gpt_multi_image PATH
 #
-# Three partitions rather than one, with a gap ahead of each of the first two
-# and none after the last (the trailing case is already covered above) --
-# "between partitions" is what a single-partition image cannot exercise.
-# Every start is deliberately not a multiple of 2048 sectors (1MiB), so a
-# repack that failed to realign a partition would still move the right bytes
-# to the right place while landing it on the wrong boundary. No filesystems:
-# with three partitions and three gaps this is about the repacking math, so
-# each region gets its own stamp instead.
+# Three partitions with a gap ahead of each of the first two, to exercise gaps
+# between partitions. No start is 1MiB-aligned, so a repack that failed to
+# realign would still be caught. No filesystems: each region gets its own
+# stamp instead.
 make_shrink_gpt_multi_image() {
     local path=$1
     local sector=512
@@ -602,9 +562,8 @@ fi
 # ------------------------------------------------------------- manifest -----
 
 if [ "$KEEP_RAW" = 0 ]; then
-    # Only the raw images that also exist compressed. The GPT pair is raw-only
-    # -- there is no test-gpt-affected.img.gz -- so a blanket *.img would throw
-    # away the two images the GPT repair is tested with.
+    # Only the raw images that also exist compressed: the GPT pair and the
+    # shrink set are raw-only, and a blanket *.img would throw them away.
     for img in "$OUTDIR"/*.img; do
         [ -e "$img" ] || continue
         if [ -e "$img.gz" ] || [ -e "$img.xz" ]; then

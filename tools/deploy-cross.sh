@@ -10,11 +10,8 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-# Toolchain paths shared with the build scripts, CI and the container image.
 . "$root/tools/build-env.sh"
 
-# The same two directories every build script uses, so the common case needs no
-# arguments. They are still overridable, positionally, for a build kept aside.
 build=${1:-$root/build}
 dist=${2:-$root/dist}
 sysroot=${3:-$CROSS_SYSROOT}
@@ -26,9 +23,7 @@ bin="$sysroot/bin"
     exit 1
 }
 
-# A build made with -DTEST_NO_ADMIN=ON asks for no elevation and cannot open a
-# device for writing. It is for looking at the GUI, never for shipping, and the
-# difference is invisible once the exe is in a folder of its own.
+# A TEST_NO_ADMIN build cannot write to a device and must never ship.
 if grep -aq 'level="asInvoker"' "$build/WinDiskImager.exe"; then
     echo "error: $build/WinDiskImager.exe was built with TEST_NO_ADMIN=ON and" >&2
     echo "       cannot write to a device. Reconfigure without it before packaging." >&2
@@ -78,27 +73,19 @@ if [ -z "$(ls -A "$dist/translations")" ]; then
     exit 1
 fi
 
-# Checked rather than assumed, for the reason the strip check below gives: a
-# missing lister is silent. The closure would find nothing, no runtime DLL
-# would be copied, and the folder would be reported ready around an executable
-# that cannot start.
+# A missing objdump is silent: no runtime DLLs get copied and the folder is
+# reported ready around an executable that cannot start.
 command -v "$objdump" >/dev/null 2>&1 || {
     echo "error: $objdump not found, so the DLLs the build depends on could not" >&2
     echo "       be resolved. It comes with binutils; see tools/build-env.sh." >&2
     exit 1
 }
 
-# Resolve the DLL closure: scan every binary already in dist, copy in anything
-# it imports that exists in the sysroot, and repeat until nothing new appears.
-# Shared with the native build; see deploy_resolve_closure in tools/build-env.sh.
 deploy_resolve_closure "$objdump" "$bin" "$dist"
 
 # Fedora ships its MinGW DLLs unstripped; libstdc++ alone is ~26 MB of debug
-# symbols that do nothing in a shipped build.
-#
-# The tool is checked for rather than assumed: hiding a missing strip behind
-# 2>/dev/null shipped the symbols anyway while this comment claimed they were
-# gone. Errors from individual files stay visible now, for the same reason.
+# symbols. strip is checked for and its errors left visible, so a missing or
+# failing strip cannot quietly ship them.
 strip_tool=${STRIP:-x86_64-w64-mingw32-strip}
 command -v "$strip_tool" >/dev/null 2>&1 || {
     echo "error: $strip_tool not found, so the package would ship its debug" >&2

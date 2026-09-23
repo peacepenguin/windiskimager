@@ -23,17 +23,9 @@
 #include <QtWidgets>
 #include <QComboBox>
 
-// The device list, which rescans as it is opened rather than on a timer.
-//
-// Scanning asks every disk for its geometry, and a disk that has spun down
-// answers only once it is turning again. On a timer that kept the machine's
-// disks awake around the clock to maintain a list nobody was looking at; done
-// here it happens when somebody is about to read the list, which is the only
-// moment it has to be right.
-//
-// showPopup() rather than a click handler: the list also opens from the
-// keyboard, with F4 and Alt+Down, and a handler watching for mouse presses
-// would quietly not rescan for anyone who works that way.
+// Device list that rescans as it opens rather than on a timer, since scanning
+// spins up sleeping disks (see MainWindow's connect to aboutToShowPopup).
+// Hooked on showPopup() rather than a click so F4 and Alt+Down rescan too.
 class DeviceComboBox : public QComboBox
 {
     Q_OBJECT
@@ -44,8 +36,8 @@ public:
     void showPopup() override;
 
 signals:
-    // Emitted before the list drops down, while there is still time to change
-    // what it contains. Connected slots run to completion first.
+    // Emitted before the list drops down; same-thread (direct) slots finish
+    // before the popup is built.
     void aboutToShowPopup();
 };
 

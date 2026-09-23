@@ -39,9 +39,8 @@ int ElapsedTimer::ms()
     return(timer->elapsed());
 }
 
-// this uses a parameter to store the results rather than a return value in
-//	order to avoid mallocing the struct every time this function is called
-//  (which, potentially, is frequently).
+// Sets hour and min only when nonzero, relying on timeStruct_t's zero
+// initializers for the rest.
 void ElapsedTimer::secsToHMS(unsigned int secs, timeStruct_t *hms)
 {
 	unsigned int mins = 0;
@@ -63,17 +62,15 @@ void ElapsedTimer::update(unsigned long long progress, unsigned long long total)
     timeStruct_t tTime, eTime;
 
     unsigned int baseSecs = timer->elapsed() / MS_PER_SEC;
-    // The first update can land before a single sector has gone through, and
-    // dividing by that leaves an infinity to cast to unsigned int.
+    // progress can be 0 on the first update; casting the resulting infinity
+    // to unsigned int is undefined.
     unsigned int totalSecs = (progress > 0ull)
         ? (unsigned int)((float)baseSecs * ( (float)total/(float)progress ))
         : 0u;
 
-    // convert seconds to hours:minues:seconds
     secsToHMS(baseSecs, &eTime);
 	secsToHMS(totalSecs, &tTime);
 
-    // build the display string
     const QChar & fillChar = QLatin1Char( '0' );
     QString qs = QString("%1:%2/").arg(eTime.min, 2, 10, fillChar).arg(eTime.sec, 2, 10, fillChar);
     if (eTime.hour > 0)
@@ -85,11 +82,8 @@ void ElapsedTimer::update(unsigned long long progress, unsigned long long total)
         qs += (QString("%1:").arg(tTime.hour, 2, 10, fillChar));
     }
     qs += (QString("%1:%2 ").arg(tTime.min, 2, 10, fillChar).arg(tTime.sec, 2, 10, fillChar));
-        // added a space following the times to separate the text slightly from the right edge of the status bar...
-        // there's probably a more "QT-correct" way to do that (like, margins or something),
-        // but this was simple and effective.
+        // The trailing space keeps the text off the status bar's right edge.
 
-    // display
     setText(qs);
 }
 

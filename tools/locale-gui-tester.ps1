@@ -27,12 +27,10 @@ try {
         Write-Host " Testing culture: $culture" -ForegroundColor Yellow
         Write-Host "========================================" -ForegroundColor Yellow
 
-        # Set Windows culture
         Set-Culture -CultureInfo $culture
 
         Write-Host "Launching WinDiskImager..." -ForegroundColor Green
 
-        # Launch application and wait until it exits
         Start-Process -FilePath $exe -Wait
 
         Write-Host "WinDiskImager closed." -ForegroundColor DarkGray

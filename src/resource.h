@@ -3,9 +3,8 @@
 // Used by WinDiskImager.rc
 //
 
-// The application icon. Without this the .rc names the resource with a string
-// rather than an integer id, which is not what the "lowest ID value" comment
-// beside it in WinDiskImager.rc assumes.
+// Application icon. Without this define the .rc would name the resource by
+// string instead of integer id, defeating the "lowest ID value" ordering.
 #define IDI_ICON1 101
 
 // Next default values for new objects

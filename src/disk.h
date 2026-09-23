@@ -58,31 +58,30 @@ typedef struct _SET_DISK_ATTRIBUTES
 // IOCTL control code
 #define IOCTL_STORAGE_QUERY_PROPERTY   CTL_CODE(IOCTL_STORAGE_BASE, 0x0500, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-// One physical disk, as offered in the device list. Enumeration goes through
-// \\.\PhysicalDriveN rather than through drive letters: a card holding a Linux
-// image has no filesystem Windows can mount, so it gets no letter and a
-// letter-based scan never sees it at all.
+// One physical disk, as offered in the device list. Enumerated by
+// \\.\PhysicalDriveN, not drive letter: a card holding a Linux image has no
+// filesystem Windows can mount, so it gets no letter.
 struct PhysicalDevice
 {
     ULONG deviceNumber;             // N in \\.\PhysicalDriveN
     QString description;            // vendor + product, as the device reports it
     QString letters;                // "E:, F:", empty when nothing is mounted
     unsigned long long sizeBytes;
-    bool removable;                 // removable media, or on the USB/SD/MMC bus
+    bool removable;                 // non-SATA removable media, or on the USB/SD/MMC bus
 };
 
-// Every physical disk that could plausibly be a target. Removable and
-// USB/SD/MMC devices are always listed; the rest only when includeFixed is
-// set, for internal card readers that present the card as a fixed disk. The
-// disk holding the running Windows installation is never listed.
+// Every physical disk that could plausibly be a target. Removable devices are
+// always listed; the rest only when includeFixed is set (internal card readers
+// can present the card as a fixed disk). Never lists the Windows system disk
+// or a device reporting no size (e.g. an empty card reader).
 QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed);
 
 // Mounted volumes on physical disk deviceID as "E:, F:"; empty when none.
 QString driveLettersOnDevice(ULONG deviceID);
 
-// True if path (which need not exist yet) is on a volume with any part on
-// physical disk deviceID. Goes by the volume the path's mount point belongs
-// to, so a partition mounted as a folder is found, not just a drive letter.
+// True if path (which need not exist yet) is on a volume with any extent on
+// physical disk deviceID. Resolved through the path's mount point, so a
+// partition mounted as a folder is found too.
 bool pathIsOnDisk(const QString &path, ULONG deviceID);
 
 HANDLE getHandleOnFile(LPCWSTR filelocation, DWORD access);
@@ -90,15 +89,14 @@ HANDLE getHandleOnDevice(int device, DWORD access);
 bool removeLockOnVolume(HANDLE handle);
 bool unmountVolume(HANDLE handle);
 
-// A physical disk usually carries more than one volume. Locking only the one
-// the user picked leaves the other filesystem drivers live, free to flush
-// cached metadata over the image while it is being written.
+// Locks every volume on a disk, not just one: any volume left unlocked keeps
+// its filesystem driver live, free to flush cached metadata over the image.
 class LockedVolumes
 {
 public:
     LockedVolumes() {}
     ~LockedVolumes() { release(); }
-    // Lock and dismount every volume that lives on physical disk deviceID.
+    // Lock and dismount every volume with an extent on physical disk deviceID.
     bool lockAll(DWORD deviceID);
     void release();
 private:
@@ -108,26 +106,18 @@ private:
 // ---------------------------------------------------------------------------
 // GPT
 //
-// Writing an image smaller than the device leaves the image's backup GPT
-// stranded where the image ends rather than at the end of the disk. Windows
-// does not leave that alone: whenever it rescans such a disk it rewrites the
-// partition table to match the device. Most of that rewrite is what "sgdisk -e"
-// would do and is welcome, but it also recomputes the primary header's
-// PartitionEntryLBA as FirstUsableLBA minus the length of the entry array,
-// rather than leaving it pointing at the entry array, which has not moved. On
-// the ordinary layout -- FirstUsableLBA 34, a 32-sector array at LBA 2 -- the
-// wrong formula arrives at the right answer and nothing breaks. On an image
-// that reserves space ahead of its first partition, as ARM board images do, it
-// points at empty space and the primary table is corrupt.
-//
-// The functions below either keep that rewrite from being provoked, report
-// whether it would do harm, or undo it after the fact. README.md tells the
-// whole story; the comments here assume it.
+// When a disk's backup GPT is not at its last LBA, Windows rewrites the table
+// on rescan and sets PartitionEntryLBA to FirstUsableLBA minus the entry-array
+// length. That is only correct when the array ends right at FirstUsableLBA
+// (the ordinary layout); on images that reserve space ahead of the first
+// partition (ARM boards) it corrupts the primary table. See README.md and
+// TESTING-GPT-BUG.md. The functions below avoid provoking that rewrite,
+// predict its harm, or undo it.
 // ---------------------------------------------------------------------------
 
-// Erase any existing partition tables before writing an image, so a previous
-// larger image's backup GPT cannot survive at the end of the device and be
-// reconciled against the new one. Zeroing both ends removes the trace.
+// Zero both ends of the device before writing an image, so a previous larger
+// image's backup GPT cannot survive at the end and be reconciled against the
+// new one.
 bool wipePartitionTables(HANDLE hRawDisk, unsigned long long sectorsize,
                          unsigned long long devicesectors);
 
@@ -139,18 +129,19 @@ enum GptFixResult
     GPT_FIX_DISABLED,    // not attempted; "Fix GPT after write" is unchecked
     GPT_FIX_NO_GPT,      // the device holds no GPT at all; nothing to repair
     GPT_FIX_BAD_GPT,     // a GPT is present but malformed; nothing was touched
-    GPT_FIX_FAILED       // an I/O error occurred
+    GPT_FIX_FAILED       // I/O error, or the table cannot be fitted to the device
 };
 
-// Move the backup GPT to the true last LBA of the device and update
-// AlternateLBA/LastUsableLBA to match, the way "sgdisk -e" does. Making the
-// table consistent with the device ourselves leaves Windows nothing to rewrite.
+// Move the backup GPT to the device's last LBA and update AlternateLBA,
+// LastUsableLBA and the protective MBR to match, as "sgdisk -e" does, then
+// clear the image's stale backup copy. A table already consistent with the
+// device leaves Windows nothing to rewrite.
 GptFixResult relocateBackupGPT(HANDLE hRawDisk, unsigned long long sectorsize,
                                unsigned long long devicesectors, QString *detail);
 
-// True when sector 0 carries an MBR boot signature and at least one partition
-// entry with a type. Used only to tell "this image is MBR" from "this image has
-// no partition table at all" when reporting that there is no GPT to repair.
+// True when sector 0 has an MBR boot signature and at least one entry whose
+// type is neither empty nor 0xEE (GPT protective). Used only to tell an MBR
+// image from one with no partition table when there is no GPT to repair.
 bool deviceHasMbrTable(HANDLE hRawDisk, unsigned long long sectorsize);
 
 // Whether this table would survive the rewrite.
@@ -163,9 +154,7 @@ enum GptRewriteRisk
 };
 
 // Compare the real PartitionEntryLBA against the value Windows would compute
-// for it. They differ exactly when the image reserves space ahead of its first
-// partition, which is what makes ARM board images vulnerable and ordinary ones
-// immune.
+// for it.
 GptRewriteRisk gptRewriteRisk(HANDLE hRawDisk, unsigned long long sectorsize);
 
 // What state the device's primary GPT is in, judged against itself.
@@ -177,35 +166,31 @@ enum GptPrimaryState
     GPT_PRIMARY_BROKEN    // the header checks out but points at the wrong entries
 };
 
-// Detect a primary table that has been left pointing somewhere the partition
-// entries are not. Windows recomputes the header checksum over the value it
-// wrote, so the header passes its own CRC while PartitionEntryArrayCRC32 no
-// longer describes what it points at. Nothing reading the table will accept it.
+// Detect the rewrite's damage: Windows recomputes the header CRC over the
+// pointer it wrote, so the header passes its own check while
+// PartitionEntryArrayCRC32 no longer matches what PartitionEntryLBA points at.
 GptPrimaryState gptPrimaryState(HANDLE hRawDisk, unsigned long long sectorsize,
                                 unsigned long long devicesectors);
 
-// Point the primary header back at the partition entries. The rewrite moves
-// the pointer but leaves PartitionEntryArrayCRC32 alone, so the header still
-// records what the real entries hash to -- that checksum is what finds them
-// again. No data sector is touched. Returns false, with the reason in *detail,
-// when the damage is not this shape.
+// Point PartitionEntryLBA back at LBA 2 and rebuild the header CRC. The
+// rewrite leaves PartitionEntryArrayCRC32 alone, so it is used to confirm the
+// real entries are at LBA 2 first. Only the header sector is written. Returns
+// false, with the reason in *detail, when the damage is not this shape.
 bool repairPrimaryGpt(HANDLE hRawDisk, unsigned long long sectorsize,
                       unsigned long long devicesectors, QString *detail);
 
-// Where the image's own backup GPT sits, read from the image's header rather
-// than the device. The fix zeroes that stale copy after relocating it, so those
-// sectors differ from the image by design -- and once it has run, the device no
-// longer records where the copy used to be. lba1 is the image's sector 1.
-// Returns false if the image holds no usable GPT.
+// Where the image's own backup GPT sits, read from the image's sector 1
+// (lba1) because the device no longer records it once the fix has zeroed that
+// copy. A verify expects those sectors to differ. Returns false if the image
+// holds no usable GPT.
 bool gptImageBackupRange(const unsigned char *lba1, unsigned long long sectorsize,
                          unsigned long long *first, unsigned long long *last);
 
-// Report the sectors that "Fix GPT after write" may rewrite, so a verify can
-// tell a deliberate GPT rewrite apart from a bad card. The front range
-// [0, *frontend) covers the protective MBR, the primary header and the primary
-// entry array; the tail range [*tailstart, devicesectors) covers the relocated
-// backup entry array and header. Returns false if the device holds no usable
-// GPT, in which case neither output is set.
+// Sectors "Fix GPT after write" may rewrite, so a verify can tell them from a
+// bad card: front [0, *frontend) is the protective MBR, primary header and an
+// entry array at LBA 2; tail [*tailstart, devicesectors) is the relocated
+// backup array and header. Returns false, setting neither, if the device holds
+// no usable GPT.
 bool gptOwnedSectors(HANDLE hRawDisk, unsigned long long sectorsize,
                      unsigned long long devicesectors,
                      unsigned long long *frontend, unsigned long long *tailstart);
@@ -220,80 +205,57 @@ struct ShrinkCopyRange
     unsigned long long length;
 };
 
-// A "Shrink image on Read" plan, from either planGptShrink() or
-// planMbrShrink() -- the two only differ in what goes into headerregion and
-// whether there is a backupregion at all, so callers drive both the same way.
+// A "Shrink image on Read" plan from planGptShrink() or planMbrShrink(); both
+// are driven the same way. The image is headerregion, then each range at its
+// dstfirst, then backupregion, totalsectors long.
 struct PartitionShrinkPlan
 {
-    // Sectors [0, headersectors) of the image, verbatim except for the
-    // partition table itself, which is patched here to describe the repacked
-    // partitions below. For GPT this covers the protective MBR, the primary
-    // header and entry array, and whatever reserved space (e.g. an ARM
-    // board's U-Boot) an image keeps ahead of FirstUsableLBA; for MBR it is
-    // just the boot sector. Either way, nothing here is repacked, only the
-    // table entries describing what comes after it.
+    // Sectors [0, headersectors), verbatim except for the table, which is
+    // patched to describe the repacked partitions. For GPT this runs up to
+    // FirstUsableLBA, so reserved space (e.g. U-Boot) is kept; for MBR it is
+    // the boot sector alone.
     QByteArray headerregion;
     unsigned long long headersectors;
-    // Every in-use partition, packed back-to-back right after headerregion
-    // with no gaps, each aligned to the caller's alignsectors, in the order
-    // it originally started on the device. Between headerregion and the
-    // first range, and between two ranges, alignment may leave a gap that
-    // has to be written as explicit zero sectors -- there is no partition
-    // data to read for it, and unlike a plain contiguous read there is no
-    // guarantee the caller's output is a sparse file that zero-fills a
-    // skipped-over region on its own.
+    // The kept partitions in on-disk order, each aligned to alignsectors.
+    // Alignment gaps must be written as explicit zeros: the output may not be
+    // a sparse file that zero-fills skipped regions.
     QList<ShrinkCopyRange> ranges;
-    // Sectors [totalsectors - backupsectors, totalsectors) of the image: a
-    // fresh backup entry array and header, already computed against the
-    // repacked layout above. Written once every range has actually been
-    // copied that short, this is what makes the primary header (already
-    // patched into headerregion) correct -- no read-modify-write against the
-    // device or the image is needed afterward, which is what lets this work
-    // for a compressed output stream and not just a raw file. Empty, with
-    // backupsectors 0, for an MBR plan: there is no backup table to build.
+    // Sectors [totalsectors - backupsectors, totalsectors): the backup entry
+    // array and header for the repacked layout, precomputed so the image is
+    // written strictly in order with no read-modify-write afterward, which a
+    // compressed output stream requires. Empty, with backupsectors 0, for MBR.
     QByteArray backupregion;
     unsigned long long backupsectors;
-    // The size, in sectors, the image should be read to.
     unsigned long long totalsectors;
 };
 
-// Plan a "Shrink image on Read" that removes every unpartitioned gap on a GPT
-// device -- between FirstUsableLBA and the first partition, between
-// partitions, and after the last one -- rather than only the trailing one.
-// Partitions are repacked in their original order and each is aligned to
-// alignsectors (pass 1048576 / sectorsize, so an image made from a 512-byte-
-// sector device still starts every partition on a 1MiB boundary -- the same
-// default Windows, parted and sgdisk all align to, and comfortably a multiple
-// of any real sector or erase-block size, 4Kn included). Returns false, with
-// *plan untouched, if the device holds no usable GPT, a partition's range
-// makes no sense, or there is nothing to gain by repacking.
-// excludeSlots, when given, is the set of partition slots (GPT entry index,
-// or MBR primary entry index 0-3) to leave out of the repacked image
-// entirely -- its table entry is zeroed and its data is not copied, exactly
-// as if that space had never been partitioned. Passing NULL keeps every
-// in-use partition, matching the old behavior.
+// Plan a GPT "Shrink image on Read" that removes every unpartitioned gap:
+// after FirstUsableLBA, between partitions and after the last. Pass
+// alignsectors = 1048576 / sectorsize so every partition starts on a 1MiB
+// boundary (the Windows/parted/sgdisk default, a multiple of any real sector
+// or erase-block size). Returns false, with *plan untouched, if the device
+// holds no usable GPT, a partition's range makes no sense, no partitions
+// remain, or there is nothing to gain.
+// excludeSlots, if non-NULL, lists slots (GPT entry index, or MBR primary
+// entry index 0-3) to drop: the table entry is zeroed and the data not
+// copied.
 bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
                    unsigned long long devicesectors, unsigned long long alignsectors,
                    PartitionShrinkPlan *plan, QString *detail,
                    const QList<int> *excludeSlots = NULL);
 
-// The same idea for a legacy MBR: every unpartitioned gap goes -- after the
-// boot sector and before the first partition, between partitions, and after
-// the last one -- packed and aligned exactly as planGptShrink() does. Only
-// the four primary entries are walked; extended/logical partitions are not.
-// There being no backup table to build, plan->backupregion is left empty and
-// plan->backupsectors 0. Returns false, with *plan untouched, if the device
-// holds no MBR, an entry describes an impossible range, or there is nothing
-// to gain by repacking. See planGptShrink() for excludeSlots.
+// planGptShrink() for a legacy MBR, packing after the boot sector. Only the
+// four primary entries are walked; extended/logical partitions are not.
+// Returns false, with *plan untouched, if the device holds no MBR, an entry
+// describes an impossible range, a repacked start exceeds 32 bits, no
+// partitions remain, or there is nothing to gain.
 bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
                    unsigned long long devicesectors, unsigned long long alignsectors,
                    PartitionShrinkPlan *plan, QString *detail,
                    const QList<int> *excludeSlots = NULL);
 
-// One partition as offered to the user for "choose partitions to read":
-// its slot (GPT entry index, or MBR primary entry index 0-3, matching
-// excludeSlots above), its starting sector and size, and its name where the
-// table format carries one (GPT only; empty for MBR).
+// One partition as offered for "choose partitions to read". slot matches
+// excludeSlots above; name is empty for MBR.
 struct PartitionInfo
 {
     int slot;
@@ -302,31 +264,21 @@ struct PartitionInfo
     QString name;
 };
 
-// Drive letters currently mounted on physical disk deviceID, keyed by each
-// volume's starting byte offset on the disk. A partition is only known by
-// this code as a table entry -- its own starting sector, not a volume --
-// so matching it back to the letter Windows mounted it as means going
-// through the one thing both share: where it starts on the disk. Uses the
-// same IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS driveLettersOnDevice() already
-// reads, just keeping the offset instead of discarding it.
+// Drive letters mounted on physical disk deviceID, keyed by the starting byte
+// offset of each volume's first extent -- the only link between a mounted
+// volume and a partition table entry.
 QMap<unsigned long long, QString> driveLettersByOffset(ULONG deviceID);
 
-// The partition number Windows itself assigns each partition on the device
-// -- the same one diskpart's "Partition ###" column shows -- keyed by
-// starting sector. This is *not* the same thing as a GPT entry's slot in
-// the table: this program numbers by raw slot index, one-based, but a
-// partition Windows created out of table order (say, into a slot freed by
-// an earlier deletion) keeps whatever number it was given, which can
-// disagree with its slot. Reading it back from Windows rather than
-// guessing from the table is what makes the two match. Returns false if
-// the device's layout cannot be read this way, in which case the caller's
-// own slot-based numbering is the only option left.
+// Windows' own partition numbers (diskpart's "Partition ###"), keyed by
+// starting sector. These can differ from slot + 1: a partition created into a
+// slot freed by an earlier deletion keeps the number it was given. Returns
+// false if the drive layout cannot be read.
 bool diskPartitionNumbers(HANDLE hRawDisk, unsigned long long sectorsize,
                           QMap<unsigned long long, int> *numbersBySector);
 
-// List every in-use partition on a GPT device, in table order (not sorted
-// by start LBA, so the slot the user picks lines up with excludeSlots).
-// Returns false if the device holds no usable GPT.
+// List every in-use partition on a GPT device, sorted by starting sector
+// (diskpart's order; slot order is unrelated to position on disk). Returns
+// false if the device holds no usable GPT.
 bool listGptPartitions(HANDLE hRawDisk, unsigned long long sectorsize,
                        unsigned long long devicesectors,
                        QList<PartitionInfo> *partitions, QString *detail);
@@ -343,16 +295,12 @@ bool ejectDevice(HANDLE handle);
 char *readSectorDataFromHandle(HANDLE handle, unsigned long long startsector, unsigned long long numsectors, unsigned long long sectorsize);
 bool writeSectorDataToHandle(HANDLE handle, char *data, unsigned long long startsector, unsigned long long numsectors, unsigned long long sectorsize);
 // Sectors on the device, or 0. *reported is set when the failure has already
-// been put in front of the user, so the caller can stay quiet rather than
-// explain it a second time and differently.
+// been shown to the user, so the caller need not report it again.
 unsigned long long getNumberOfSectors(HANDLE handle, unsigned long long *sectorsize,
                                       bool *reported = NULL);
 unsigned long long getFileSizeInSectors(HANDLE handle, unsigned long long sectorsize);
-// Free space on the volume that holds `location`, which is a directory. Taken
-// as a QString and asked over the wide API: an image sitting under a user
-// directory whose name is not ASCII cannot be named in the ANSI code page, and
-// the check would quietly be skipped for everyone whose name is spelled that
-// way.
+// Whether the volume holding directory `location` has spaceneeded bytes free;
+// true if that cannot be determined. Uses the wide API so non-ASCII paths work.
 bool spaceAvailable(const QString &location, unsigned long long spaceneeded);
 
 #endif // DISK_H

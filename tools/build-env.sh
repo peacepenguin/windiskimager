@@ -29,15 +29,11 @@
 # there is nothing to link against there.
 CROSS_BASE_IMAGE="fedora:44"
 
-# qt6-linguist is the *native* Linguist build, and carries both halves of the
-# translation workflow: lrelease-qt6, which the build runs to compile lang/*.ts
-# into the .qm files translations.qrc embeds, and lupdate-qt6, which
-# tools/lupdate.sh runs to refresh those .ts files from the sources.
-# Neither can come from mingw64-qt6-qttools: those are Windows .exe files.
-# gcc-c++ and the native qt6 -devel packages are not for the application, which
-# is built entirely with the mingw64- ones. They are for tools/mkicon, which
-# renders the application icon during the build and therefore has to run on this
-# machine rather than on the Windows machine being built for.
+# qt6-linguist is the *native* Linguist: lrelease-qt6 compiles lang/*.ts for the
+# build, lupdate-qt6 serves tools/lupdate.sh. The mingw64-qt6-qttools copies are
+# Windows .exe files and cannot run here. gcc-c++ and the native qt6 -devel
+# packages are only for tools/mkicon, which renders the icon during the build
+# and so must run on the build host.
 CROSS_PACKAGES="cmake ninja-build file findutils binutils
                 mingw64-gcc-c++ mingw64-qt6-qtbase mingw64-qt6-qttools
                 mingw64-qt6-qttranslations mingw64-qt6-qtsvg
@@ -60,27 +56,20 @@ MSYS2_PACKAGES="mingw-w64-ucrt-x86_64-gcc
                 mingw-w64-ucrt-x86_64-zlib
                 mingw-w64-ucrt-x86_64-xz"
 
-# Where Fedora's mingw64 packages put things. Overridable for a host that lays
-# them out differently, and so a single piece can be pointed elsewhere without
-# editing this file.
+# Where Fedora's mingw64 packages put things; each can be overridden from the
+# environment.
 CROSS_TOOLCHAIN="${CROSS_TOOLCHAIN:-/usr/share/mingw/toolchain-mingw64.cmake}"
 CROSS_LRELEASE="${CROSS_LRELEASE:-/usr/bin/lrelease-qt6}"
 CROSS_LUPDATE="${CROSS_LUPDATE:-/usr/bin/lupdate-qt6}"
 CROSS_SYSROOT="${CROSS_SYSROOT:-/usr/x86_64-w64-mingw32/sys-root/mingw}"
 
-# tools/mkicon renders the application icon during the build, so it runs on this
-# machine and is built against the host's own Qt rather than the cross one.
-# These are where Fedora puts that Qt's cmake packages.
+# The host Qt's cmake packages, which tools/mkicon builds against.
 CROSS_NATIVE_QT="${CROSS_NATIVE_QT:-/usr/lib64/cmake/Qt6/Qt6Config.cmake}"
 CROSS_NATIVE_QTSVG="${CROSS_NATIVE_QTSVG:-/usr/lib64/cmake/Qt6Svg/Qt6SvgConfig.cmake}"
 
 # The image tools/Containerfile.build produces. Override with IMAGE=...
-#
-# The tag carries a checksum of the base image and the package list, because
-# container_run only
-# builds the image when one by that name does not already exist. Without this a
-# machine that had built the image once would keep the old toolchain for ever,
-# and adding a package, or moving to a new Fedora, would appear to do nothing.
+# The tag is a checksum of the base image and package list: container_run only
+# builds an image that does not exist yet, so a changed toolchain needs a new name.
 CROSS_IMAGE="${IMAGE:-w32di-build:$(printf '%s' "$CROSS_BASE_IMAGE$CROSS_PACKAGES" | cksum | cut -d' ' -f1)}"
 
 # Extra "podman run" arguments a caller wants, as an array.
@@ -113,7 +102,6 @@ cross_check()
     [ -x "$CROSS_LRELEASE" ]  || { echo "missing $CROSS_LRELEASE" >&2; bad=1; }
     [ -x "$CROSS_LUPDATE" ]   || { echo "missing $CROSS_LUPDATE" >&2; bad=1; }
     [ -d "$CROSS_SYSROOT" ]   || { echo "missing $CROSS_SYSROOT" >&2; bad=1; }
-    # Native, not cross: tools/mkicon has to run on this machine.
     [ -f "$CROSS_NATIVE_QT" ] || {
         echo "missing $CROSS_NATIVE_QT (qt6-qtbase-devel), which tools/mkicon needs" >&2; bad=1; }
     [ -f "$CROSS_NATIVE_QTSVG" ] || {
@@ -163,11 +151,10 @@ lupdate_path()
 
 # drop_foreign_cache BUILDDIR [EXPECTED_TOOLCHAIN]
 #
-# Everything builds into build/: the native build, the cross build, and the
-# container, which sees this tree as /src. A cmake cache is tied to the absolute
-# path it was generated for and to the toolchain it was generated with, so a
-# cache left by a different one of those cannot be reused. Drop it and say why,
-# rather than letting cmake fail with a message about a moved directory.
+# build/ is shared by the native build, the cross build and the container (which
+# sees this tree as /src). A cmake cache is tied to the absolute path and the
+# toolchain it was generated with, so drop one left by another route and say
+# why, rather than letting cmake fail with a message about a moved directory.
 drop_foreign_cache()
 {
     local build=$1 want=${2:-}
@@ -203,12 +190,10 @@ drop_foreign_cache()
 # container_run REPO COMMAND...
 #
 # Runs COMMAND in the Fedora image with REPO mounted at /src, building the image
-# first if it is not there yet. The one copy of the podman plumbing: everything
-# that needs a container goes through here.
+# first if it is not there yet.
 #
-# W32DI_IN_CONTAINER lets the script on the inside tell where it is, so a script
-# that falls back to the container cannot end up calling itself forever when the
-# image is missing something.
+# W32DI_IN_CONTAINER tells the script inside where it is, so one that falls back
+# to the container cannot recurse forever when the image is missing something.
 container_run()
 {
     local repo=${1:?usage: container_run REPO COMMAND...}
@@ -233,15 +218,12 @@ container_run()
 
 # ------------------------------------------------------------------- build ---
 
-# The steps the native and the cross build do identically. They are here rather
-# than in each script because a build step that exists twice is a build step
-# somebody eventually changes once.
+# Steps the native and the cross build share.
 
 # need_msys2_tools TOOL...
 #
 # Assert the native Windows toolchain is on the path, and say how to get it if
-# it is not. Written once because build.sh and both test harnesses ask the same
-# question and should give the same answer.
+# it is not.
 need_msys2_tools()
 {
     local tool
@@ -257,14 +239,14 @@ need_msys2_tools()
 
 # harness_run REPO NAME [clean]
 #
-# Build and run the standalone test harness in tools/NAME/, which compiles a
-# real source file from src/ against a harness that drives it -- no card, no VM,
-# no UAC prompt. MSYS2 UCRT64 only: it is Win32 code.
+# Build and run the standalone test harness in tools/NAME/. Each harness
+# compiles the real source file from src/ (so the code under test is the
+# shipped code, not a copy) and drives it against a plain file -- no card, no
+# VM, no UAC prompt. MSYS2 UCRT64 only: it is Win32 code.
 #
-# Each gets its own build directory rather than build/, because it is a separate
-# cmake project and would otherwise fight the application's cache. It is run
-# from that directory, since it writes scratch files into the working directory
-# and those belong next to the binary rather than in the repo root.
+# Each gets its own build-NAME/ directory, being a separate cmake project that
+# would otherwise fight the application's cache, and runs from there because it
+# writes scratch files into the working directory.
 harness_run()
 {
     local repo=${1:?usage: harness_run REPO NAME [clean]}
@@ -315,9 +297,7 @@ build_parse_args()
 
 # build_prepare BUILDDIR [TOOLCHAIN]
 #
-# Honour "clean", then drop a cache generated somewhere else. build/ is shared
-# by the native build, the cross build and the container, which sees this tree
-# as /src; a cache from any one of those is no use to the others.
+# Honour "clean", then drop_foreign_cache.
 build_prepare()
 {
     local build=${1:?usage: build_prepare BUILDDIR [TOOLCHAIN]}
@@ -330,9 +310,8 @@ build_prepare()
 
 # native_configure SRCDIR BUILDDIR [cmake args...]
 #
-# The first configure for a build with the host's own compiler. cross_configure
-# above is its opposite number; between them they are the only part of the two
-# builds that genuinely differs.
+# The first configure with the host's own compiler; cross_configure's
+# counterpart.
 native_configure()
 {
     local src=${1:?usage: native_configure SRCDIR BUILDDIR [cmake args...]}
@@ -379,31 +358,15 @@ build_report()
 
 # deploy_resolve_closure OBJDUMP BINDIR DIST
 #
-# Copy into DIST every DLL its binaries import that is not there already and can
-# be found in BINDIR, repeating until a pass adds nothing: a DLL copied in has
-# imports of its own. Windows' own DLLs are left alone by not being in BINDIR,
-# which is the whole of the filter.
+# Copy into DIST every DLL its binaries import that is in BINDIR and not yet in
+# DIST, repeating while a pass finds binaries not yet read (a copied DLL has
+# imports of its own). Windows' own DLLs are skipped by not being in BINDIR.
+# Both deploy scripts use this so what a finished folder contains cannot drift
+# between them, whatever else differs in how they gather the Qt payload.
 #
-# Both deploy scripts use this, which is the point of it being here. They differ
-# in everything around it -- one has windeployqt to pick the Qt payload and the
-# other assembles it by hand -- but what a finished folder must contain is not a
-# platform opinion, and when the two drifted the difference was invisible until
-# something failed to start.
-#
-# objdump rather than ntldd, which this used natively: ntldd is itself a Windows
-# executable, so it cannot run on the machine doing a cross build, and it is not
-# in the package list this project tells people to install. objdump arrives with
-# the compiler on both sides, so it is the only lister the two can share.
-#
-# One objdump for a whole pass rather than one per binary, and each binary read
-# only once however many passes it takes. Nearly all the cost is in starting
-# objdump, so per binary a pass costs 0.8 s each; and re-reading everything on
-# every pass cost 24 s of a 30 s package for answers already known. Scanning
-# only what arrived since the last pass makes the total one read per file.
-#
-# The set of scanned files is also what ends the loop: when a pass turns up no
-# binary that has not been read, there is nothing left that could name a new
-# dependency.
+# objdump because it comes with the compiler on both hosts; ntldd is a Windows
+# executable and cannot run in a cross build. One objdump call per pass, over
+# only the binaries not yet read: starting objdump is nearly all the cost.
 deploy_resolve_closure()
 {
     local objdump=${1:?usage: deploy_resolve_closure OBJDUMP BINDIR DIST}

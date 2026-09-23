@@ -25,12 +25,11 @@
 #include <zlib.h>
 #include <lzma.h>
 
-// Compressed bytes handed to the decoder at a time. Large enough that the read
-// syscalls are not what limits throughput, small enough to stay out of the way.
+// Compressed bytes read per ReadFile: large enough that syscalls do not limit
+// throughput.
 static const unsigned long INPUT_CHUNK = 1024ul * 1024ul;
 
-// Bytes as whole sectors, rounding up. Written out six times before, which is
-// six chances to get the rounding the wrong way round.
+// Bytes as whole sectors, rounding up.
 static inline unsigned long long sectorsFor(unsigned long long bytes,
                                             unsigned long long sectorsize)
 {
@@ -38,8 +37,8 @@ static inline unsigned long long sectorsFor(unsigned long long bytes,
 }
 
 
-// The most DEFLATE can expand: a 258-byte match encoded in the shortest
-// possible way. Used to decide whether a gzip stream could have passed 4 GiB.
+// DEFLATE's maximum expansion (a 258-byte match in its shortest encoding);
+// bounds whether a gzip stream could have passed 4 GiB.
 static const unsigned long long MAX_DEFLATE_RATIO = 1032ull;
 
 ImageSource::ImageSource()
@@ -160,11 +159,9 @@ bool ImageSource::open(const QString &path, unsigned long long sectorsize)
 
     if (myFormat == FORMAT_RAW)
     {
-        // Raw images keep the old behaviour, random access included.
         mySectors = sectorsFor(myCompressedSize, mySectorSize);
         mySizeKnown = true;
-        // No rewind: the raw path seeks to the sector it wants before every
-        // read, so where the magic-byte read left the pointer never matters.
+        // No rewind: raw read() seeks before every read.
         return true;
     }
 
@@ -196,9 +193,8 @@ bool ImageSource::open(const QString &path, unsigned long long sectorsize)
     return true;
 }
 
-// Every caller computes an offset it has already checked to be inside the file,
-// so a failure here is a real I/O problem rather than a fact about the format,
-// and is recorded as one.
+// Callers only pass ranges already checked to lie inside the file, so any
+// failure here is real I/O trouble and sets myError.
 bool ImageSource::readAt(unsigned long long offset, void *buf, DWORD len)
 {
     LARGE_INTEGER pos;
@@ -219,21 +215,15 @@ bool ImageSource::readAt(unsigned long long offset, void *buf, DWORD len)
     return true;
 }
 
-// gzip stores the uncompressed size in the last four bytes of the file, but
-// only modulo 4 GiB, and only for the last member of a multi-member file. That
-// makes it a lower bound, not a size: a 6 GiB image records 2 GiB, and a value
-// smaller than the compressed file records nothing usable at all.
+// gzip's trailing ISIZE is the uncompressed size mod 4 GiB, and of the last
+// member only, so a 6 GiB image records 2 GiB. It is exact only when even a
+// 1032:1 expansion keeps the image under 4 GiB (about 4 MiB compressed, so no
+// real disk image); otherwise it is kept as a progress estimate and the size
+// reported unknown, so the write runs to the end of the stream rather than
+// stopping at a wrapped value.
 //
-// The stored value is exact only when the image cannot have reached 4 GiB in
-// the first place. DEFLATE cannot expand by more than 1032:1, so once even that
-// ratio keeps the file under 4 GiB there is nothing to wrap around -- which
-// covers a few megabytes of compressed data and no real disk image. Everything
-// larger is kept as an estimate for the progress bar, with the size reported as
-// unknown so the write runs until the stream ends instead of stopping at a
-// wrapped value and calling a third of an image a complete one.
-//
-// Returns true only when the size is exact. mySectors is set whenever the value
-// is worth anything as an estimate.
+// Returns true only when exact; mySectors is set whenever the value is usable
+// as an estimate.
 bool ImageSource::readGzipSize(unsigned long long filesize)
 {
     if (filesize < 18ull)
@@ -252,19 +242,18 @@ bool ImageSource::readGzipSize(unsigned long long filesize)
                               ((unsigned long long)isize[3] << 24);
     if (size < filesize)
     {
-        // Below the compressed size the value has certainly wrapped, and there
-        // is no telling how many times. Not even an estimate.
+        // Smaller than the compressed file: wrapped an unknown number of times,
+        // or incompressible data. Either way, not even an estimate.
         return false;
     }
     mySectors = sectorsFor(size, mySectorSize);
     return filesize * MAX_DEFLATE_RATIO < 0x100000000ull;
 }
 
-// xz carries an index of every block, so the uncompressed size is exact. The
-// file is walked backwards stream by stream: footer, then index, then on to the
-// stream before it, which is what xz --list does. (liblzma's own
-// lzma_file_info_decode would do this, but it is not in every version we build
-// against.)
+// xz indexes every block, so the size is exact when the index can be read.
+// Walks the file backwards stream by stream (footer, index, previous stream),
+// as xz --list does. liblzma's lzma_file_info_decoder would do this but is
+// not in every version we build against.
 bool ImageSource::readXzSize(unsigned long long filesize)
 {
     unsigned long long pos = filesize;
@@ -307,7 +296,7 @@ bool ImageSource::readXzSize(unsigned long long filesize)
             return false;
         }
         if (flags.backward_size > pos - LZMA_STREAM_HEADER_SIZE ||
-            flags.backward_size > (1ull << 26))   // an index this large is not an image we wrote
+            flags.backward_size > (1ull << 26))   // 64 MiB sanity cap on the index
         {
             return false;
         }
@@ -383,13 +372,8 @@ bool ImageSource::initDecoder()
     return true;
 }
 
-// Looks at the two bytes after the member that just ended, refilling the input
-// buffer if it holds fewer than that, and says whether they are a gzip header.
-// Returns false only on a read error; a file that simply ran out reports that
-// no member follows.
-// Refill the compressed-input buffer, keeping `kept` bytes already sitting at
-// its front. nextMemberFollows() and fill() had a copy of this each, including
-// a copy of the error it reports.
+// Reads into the input buffer after the first `kept` bytes, which the caller
+// has already placed at its front. Sets myError on failure.
 bool ImageSource::refillInput(size_t kept, DWORD *got)
 {
     *got = 0;
@@ -402,6 +386,9 @@ bool ImageSource::refillInput(size_t kept, DWORD *got)
     return true;
 }
 
+// gzip: sets *follows when the two bytes after the member that just ended are
+// a gzip header, refilling the input if needed. Returns false only on a read
+// error; running out of file means no member follows.
 bool ImageSource::nextMemberFollows(bool *follows)
 {
     *follows = false;
@@ -442,10 +429,9 @@ bool ImageSource::fill(char *buf, unsigned long long len, unsigned long long *pr
             }
             if (got == 0)
             {
-                // The file has run out. A gzip stream announces its own end, so
-                // reaching this without one means the file stops in the middle
-                // of the compressed data; xz in concatenated mode has to be
-                // told the input ended before it will say so.
+                // End of file. gzip signals its own end, so this means it is
+                // truncated; xz in LZMA_CONCATENATED mode must be told via
+                // LZMA_FINISH before it reports the end.
                 if (myFormat != FORMAT_XZ)
                 {
                     myError = QObject::tr("The image file ends in the middle of the "
@@ -477,13 +463,10 @@ bool ImageSource::fill(char *buf, unsigned long long len, unsigned long long *pr
             myNextIn = (unsigned char *)zs->next_in;
             if (ret == Z_STREAM_END)
             {
-                // Members can be concatenated, so another one may follow -- but
-                // so may padding. A writer working in fixed-size blocks leaves
-                // zero bytes after the last member, and anything that is not a
-                // gzip header is not ours to decode either way. Feeding that to
-                // the decoder would report a perfectly written image as damaged
-                // once the whole of it had already gone to the device, so the
-                // image ends here unless a real member header follows.
+                // Another member may follow, or trailing padding (e.g. zeros
+                // from a block-oriented writer). Decoding padding would call a
+                // fully written image damaged, so the image ends here unless a
+                // real member header follows.
                 bool another = false;
                 if (!nextMemberFollows(&another))
                 {
@@ -571,8 +554,7 @@ bool ImageSource::skipTo(unsigned long long startsector)
     return true;
 }
 
-// Compressed output handed to WriteFile at a time. Same reasoning as
-// INPUT_CHUNK above, just on the writing side.
+// Compressed bytes per WriteFile; see INPUT_CHUNK.
 static const size_t OUTPUT_CHUNK = 1024ul * 1024ul;
 
 ImageSink::ImageSink()
@@ -662,10 +644,9 @@ bool ImageSink::open(const QString &path, Format format)
     return true;
 }
 
-// Runs the encoder over whatever input is set on it, writing out every full
-// buffer of compressed output produced along the way. Shared by write(),
-// which stops once the input is consumed, and finish(), which keeps calling
-// it with no input until the encoder says the stream has ended.
+// Runs the encoder over the input set on it and writes out all output
+// produced. Without finishing, returns once the input is consumed and nothing
+// more comes out; with finishing, loops until the encoder ends the stream.
 bool ImageSink::drain(bool finishing)
 {
     for (;;)
@@ -720,9 +701,6 @@ bool ImageSink::drain(bool finishing)
         }
         if (!finishing && produced == 0)
         {
-            // Not finishing, and the encoder used all its input without
-            // needing to produce anything yet -- normal, and the caller has
-            // nothing left to feed it either way.
             bool inputleft = (myFormat == FORMAT_GZIP)
                 ? ((z_stream *)myEncoder)->avail_in != 0
                 : ((lzma_stream *)myEncoder)->avail_in != 0;
@@ -739,17 +717,14 @@ bool ImageSink::write(const char *data, unsigned long long len)
     myError.clear();
     if (myEncoder == NULL)
     {
-        // No open() since the last finish()/abort(), or a second call after
-        // one of them: nothing to write to, and no encoder left to feed.
+        // Not opened, or already finished/aborted.
         myError = QObject::tr("The image file is not open for writing.");
         return false;
     }
     const unsigned char *in = (const unsigned char *)data;
     while (len > 0ull)
     {
-        // avail_in is 32-bit in zlib; lzma's is size_t, but the chunk is kept
-        // the same for both rather than giving lzma a different-sized bite
-        // for no reason.
+        // zlib's avail_in is 32-bit; lzma uses the same chunk for simplicity.
         size_t chunk = (len > 0xffffffffull) ? 0xffffffffu : (size_t)len;
         if (myFormat == FORMAT_GZIP)
         {
@@ -778,9 +753,8 @@ bool ImageSink::finish()
     myError.clear();
     if (myEncoder == NULL)
     {
-        // Already finished, or never opened: nothing left to flush. Calling
-        // this twice must not be a second dereference of what abort() (which
-        // finish() itself calls on success) already freed and nulled out.
+        // Not opened, or already finished/aborted (finish() ends in abort(),
+        // which frees the encoder).
         myError = QObject::tr("The image file is not open for writing.");
         return false;
     }
@@ -861,8 +835,6 @@ char *ImageSource::read(unsigned long long startsector, unsigned long long count
     }
     if (produced < mySectorSize * count)
     {
-        // Pad the tail of the image out to a whole sector; the device is
-        // written a sector at a time either way.
         memset(data + produced, 0, (size_t)(mySectorSize * count - produced));
     }
     unsigned long long full = sectorsFor(produced, mySectorSize);

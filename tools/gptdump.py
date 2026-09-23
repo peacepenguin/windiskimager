@@ -78,7 +78,8 @@ def find_entry_array(f, pcrc, pnum, psize, last):
     """Where the entry array the header describes actually lives.
 
     A header whose EntriesCRC does not match the sectors PartEntryLBA points at
-    is the signature of this bug: the table looks self-consistent to a checker
+    is the signature of the Windows GPT rewrite bug (TESTING-GPT-BUG.md): the
+    table looks self-consistent to a checker
     that only validates the header, while the array it names is somewhere else.
     Knowing where it really is says whether the array moved or the pointer did.
     """

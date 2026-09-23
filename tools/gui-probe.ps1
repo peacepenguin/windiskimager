@@ -14,9 +14,7 @@
 # margin around it, which is where tooltips end up.
 #
 # Positions come from the application itself over UI Automation, which Qt speaks
-# on Windows, and are read again before every move. Working them out from a
-# screenshot instead leaves the pointer landing on the desktop as soon as the
-# window moves, which is exactly how this script came to be written.
+# on Windows, and are read again before every move, so a moved window is fine.
 #
 # The measured width is the point. A tooltip is clipped when its box is narrower
 # than its text needs, and no screenshot tells you that to the pixel. Naming
@@ -36,7 +34,8 @@ param(
     [string]$Shot = "",
     # List the widgets and stop.
     [switch]$List,
-    # Milliseconds to rest on each widget, and on the last one before measuring.
+    # Milliseconds to rest on each widget (Dwell), and on the last one before
+    # measuring (Hop).
     [int]$Dwell = 1400,
     [int]$Hop = 2000,
     # Somewhere with no tooltip of its own to start from, so the first widget in
@@ -93,10 +92,8 @@ function Get-Widgets {
         $map[($id -split '\.')[-1]] = $e.Current
     }
     if ($map.Count -eq 0) {
-        # An ordinary build asks for elevation, and a script that is not itself
-        # elevated cannot read the interface of one that got it: the tree comes
-        # back empty rather than refused, which looks like nothing at all went
-        # wrong. That is the usual reason by far, so say so.
+        # A non-elevated script reading an elevated build gets an empty tree
+        # rather than an error. That is by far the usual cause.
         [Console]::Error.WriteLine(
             "error: $Process shows no widgets. Most likely it is an ordinary build, " +
             "which runs elevated, and this script is not. Build the test one with " +

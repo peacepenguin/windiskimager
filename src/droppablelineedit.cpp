@@ -38,9 +38,8 @@ void DroppableLineEdit::dragEnterEvent(QDragEnterEvent *event)
 
 void DroppableLineEdit::dragMoveEvent(QDragMoveEvent *event)
 {
-    // The same formats dragEnterEvent lets in. QLineEdit's own dragMoveEvent
-    // only takes plain text, so a file dragged from Explorer would be waved in
-    // at the edge and then refused as it moved across the widget.
+    // Must match dragEnterEvent: QLineEdit's own dragMoveEvent accepts only
+    // plain text and would refuse a file dragged from Explorer.
     if ( (event->mimeData()->hasFormat("text/uri-list")) ||
          (event->mimeData()->hasFormat("text/plain")) )
     {
@@ -57,8 +56,7 @@ void DroppableLineEdit::dropEvent(QDropEvent *event)
 
     if (data->hasUrls())
     {
-        urlList = data->urls(); // returns list of QUrls
-        // if just text was dropped, urlList is empty (size == 0)
+        urlList = data->urls(); // empty if only text was dropped
 
         if ( urlList.size() > 0) // if at least one QUrl is present in list
         {
@@ -67,14 +65,11 @@ void DroppableLineEdit::dropEvent(QDropEvent *event)
             if ( info.isFile() )
             {
                 setText( fName );
-                // setText alone changes nothing else: the window reacts to
-                // editingFinished, which is what selects the hash type, fixes
-                // the separators and enables the buttons. Without this a
-                // dropped image sits in the box with Write still greyed out.
+                // setText does not emit editingFinished, which is what makes
+                // the window pick up the new file and enable its buttons.
                 emit editingFinished();
                 event->acceptProposedAction();
             } else {
-//				setText("has url but Cannot drop");
                 event->ignore();
             }
         }

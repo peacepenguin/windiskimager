@@ -1,12 +1,9 @@
-# Standalone build of the image-decoder harness. Self-contained: point cmake at
-# this directory and it finds the sources next door.
+# Standalone build of the image-decoder harness, not part of the application
+# build. Usually run via tools/imgtest.sh; by hand:
 #
 #   cmake -S tools/imgtest -B build-imgtest -G Ninja
 #   cmake --build build-imgtest
 #   ./build-imgtest/imgtest.exe
-#
-# Not part of the application build. imagesource.cpp is compiled straight into
-# the harness so the code under test is the shipped code, not a copy.
 cmake_minimum_required(VERSION 3.21)
 project(imgtest LANGUAGES CXX)
 
@@ -33,5 +30,5 @@ target_compile_definitions(imgtest PRIVATE
 )
 target_link_libraries(imgtest PRIVATE Qt6::Core ZLIB::ZLIB LibLZMA::LibLZMA)
 
-# imagesource.cpp uses the ANSI Win32 API; Qt6 turns UNICODE on by default.
+# Match the application build, which turns off Qt6's default UNICODE defines.
 qt6_disable_unicode_defines(imgtest)

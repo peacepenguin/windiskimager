@@ -27,8 +27,6 @@ DeviceComboBox::DeviceComboBox(QWidget *parent)
 
 void DeviceComboBox::showPopup()
 {
-    // Direct connection, so the rescan has finished and the list has been
-    // rebuilt by the time the popup is put together from it.
     emit aboutToShowPopup();
     QComboBox::showPopup();
 }

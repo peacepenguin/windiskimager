@@ -47,13 +47,11 @@
 
 MainWindow* MainWindow::instance = NULL;
 
-// Sectors moved per pass through a transfer loop, and the step the progress
-// bar advances by. Named once so read, write and verify cannot drift apart.
+// Sectors moved per pass of every transfer loop.
 static const unsigned long long TRANSFER_SECTORS = 1024ull;
 
-// QProgressBar counts in int, and a multi-terabyte disk has more sectors than
-// an int holds -- which "Show all devices" makes reachable. Progress is
-// reported shifted right by this much so the bar does not wrap negative.
+// QProgressBar counts in int, which a multi-terabyte disk's sector count
+// overflows; progress is shifted right by this much so the bar cannot wrap.
 static int progressShift(unsigned long long total)
 {
     int shift = 0;
@@ -64,9 +62,8 @@ static int progressShift(unsigned long long total)
     return shift;
 }
 
-// How far the bar should count. The loop runs to the device size when the image
-// size is only an estimate, but the bar tracks the estimate: it then describes
-// the image rather than the card.
+// With only an estimated image size the loop runs to the device size, but the
+// bar tracks the estimate so it describes the image rather than the card.
 static unsigned long long progressTotalFor(const ImageSource &image,
                                            unsigned long long numsectors)
 {
@@ -78,22 +75,11 @@ static unsigned long long progressTotalFor(const ImageSource &image,
     return numsectors;
 }
 
-// Qt turns word wrap on for a tooltip only when the text looks like rich text
-// (Qt::mightBeRichText). A long plain tooltip therefore becomes one enormous
-// line, which Qt then clamps against the edges of the screen: the beginning and
-// the end are both cut off.
-//
-// So break the text into lines here and leave it as plain text. The obvious
-// alternative, wrapping it in a little HTML table to turn Qt's own wrapping on,
-// costs more than it looks: the cell needs a width in pixels, which is a made-up
-// number that every tooltip over the threshold then gets padded out to whether
-// it needs it or not, and rich text makes Qt size the label through a
-// QTextDocument. Plain text with newlines in it sizes to its widest line and
-// nothing else.
-//
-// Applied here rather than in the .ui so the translated strings are wrapped
-// too -- a translation is often longer than the English -- and so the strings
-// the translators work from stay free of markup.
+// Qt word-wraps a tooltip only if it looks like rich text, so a long plain one
+// becomes a single line clipped at both screen edges. Break it into lines here
+// and keep it plain: an HTML wrapper needs a fixed pixel width that every long
+// tooltip gets padded to. Done at runtime so translations are wrapped too and
+// the strings translators see stay free of markup.
 static QString wrapToolTipText(const QString &tip, int maxWidthPx, const QFontMetrics &fm)
 {
     QStringList out;
@@ -103,8 +89,7 @@ static QString wrapToolTipText(const QString &tip, int maxWidthPx, const QFontMe
     for (const QString &word : words)
     {
         const QString candidate = line.isEmpty() ? word : line + QChar(' ') + word;
-        // A single word wider than the budget still goes on its own line: a
-        // tooltip a little too wide beats one with a word broken in half.
+        // A word wider than the budget gets its own line rather than a break.
         if (!line.isEmpty() && fm.horizontalAdvance(candidate) > maxWidthPx)
         {
             out.append(line);
@@ -124,9 +109,7 @@ static QString wrapToolTipText(const QString &tip, int maxWidthPx, const QFontMe
 
 static void wrapLongToolTips(QWidget *root)
 {
-    // Wide enough to read a sentence across without the eye losing its place,
-    // narrow enough to sit beside the window rather than across it. Nothing is
-    // padded out to this: it is a ceiling, not a width.
+    // A ceiling, not a width: nothing is padded out to it.
     const int maxWidthPx = 380;
     const QFontMetrics fm(QToolTip::font());
 
@@ -134,8 +117,7 @@ static void wrapLongToolTips(QWidget *root)
     for (QWidget *w : widgets)
     {
         const QString tip = w->toolTip();
-        // Anything that already fits needs no help, and anything already marked
-        // up is the author's business.
+        // Leave tips that already fit, and ones already marked up.
         if (tip.isEmpty() || Qt::mightBeRichText(tip)
             || fm.horizontalAdvance(tip) <= maxWidthPx)
         {
@@ -145,10 +127,8 @@ static void wrapLongToolTips(QWidget *root)
     }
 }
 
-// Point the bar at a run of total sectors, start the clocks, and reset the
-// marker showThroughput() measures from. Returns the shift the loop has to
-// apply before calling setValue(), since the bar counts in int and the sector
-// count does not.
+// Sets the bar up for a run of total sectors, starts the clocks and resets
+// showThroughput()'s marker. Returns the shift to apply before setValue().
 int MainWindow::beginProgress(unsigned long long total, unsigned long long *lastsector)
 {
     const int shift = progressShift(total);
@@ -159,42 +139,35 @@ int MainWindow::beginProgress(unsigned long long total, unsigned long long *last
     return shift;
 }
 
-// An idle progress bar is a line that means nothing, so the bar is hidden until
-// something is running. The group it sits in stays where it is, and the bar goes
-// on reserving its space while hidden, so the window neither empties out nor
-// shifts when an operation starts.
+// The bar is hidden while idle but keeps its space (see the constructor), so
+// the window does not shift when a run starts.
 void MainWindow::showProgress(bool show)
 {
     progressbar->reset();
     progressbar->setVisible(show);
 }
 
-// Take the device and open the image, which write and verify both have to do
-// before they can start. On failure it has already reported, cleaned up and
-// put the window back to idle, so the caller only returns.
+// Locks and opens the device, then opens the image, for write and verify. On
+// failure it has already reported, cleaned up and called endRun().
 //
-// Every failure path below closes the disk before releasing the volume locks,
-// the same order the successful write uses and for the same reason: unlocking
-// lets mountmgr rescan the disk at once, and a rescan is what triggers the
-// Windows GPT "repair" this program exists to avoid. It matters most on the
-// paths taken after sectors have already been written.
+// Every run closes the disk handle before releasing the volume locks: unlocking
+// lets mountmgr rescan the disk at once, and a rescan triggers the Windows GPT
+// "repair" this program exists to avoid.
 bool MainWindow::acquireDeviceAndImage(int deviceID, LockedVolumes &locked,
                                        ImageSource &image,
                                        unsigned long long *devicesectors,
                                        const QString &errorTitle,
                                        const QString &failedMessage)
 {
-    // Leaving the other volumes mounted lets their filesystem drivers flush
-    // cached metadata into the middle of the run.
+    // Every volume on the disk is locked so no filesystem driver flushes
+    // cached metadata into the middle of a run.
     if (!locked.lockAll(deviceID))
     {
         endRun(failedMessage);
         return false;
     }
-    // The device goes first: the image reader needs its sector size to hand out
-    // whole sectors, compressed or not. Read-write either way -- the GPT fix
-    // reads the table back, and verify needs write access to offline the disk
-    // when it is done.
+    // Device first: the image reader needs its sector size. Read-write for
+    // verify too, which may repair the GPT and offlines the disk when done.
     hRawDisk = getHandleOnDevice(deviceID, GENERIC_READ | GENERIC_WRITE);
     if (hRawDisk == INVALID_HANDLE_VALUE)
     {
@@ -226,8 +199,6 @@ bool MainWindow::acquireDeviceAndImage(int deviceID, LockedVolumes &locked,
         endRun(failedMessage);
         return false;
     }
-    // A .img.gz or .img.xz is decompressed as it goes, so the machine never
-    // needs room for the expanded image.
     if (!image.open(leFile->text(), sectorsize))
     {
         QMessageBox::critical(this, errorTitle, image.errorString());
@@ -240,11 +211,9 @@ bool MainWindow::acquireDeviceAndImage(int deviceID, LockedVolumes &locked,
     return true;
 }
 
-// Does the part of the image that will not fit hold anything but zeros? Write
-// and verify both ask before offering to go ahead with a truncated run.
-// A compressed image is read forwards only, so examining its tail would mean
-// decompressing the whole image first; that case returns false for "not
-// examined" and leaves *datafound alone.
+// Whether the part of the image past the device end holds anything but zeros.
+// A compressed image is forward-only, so its tail is not examined: that case
+// returns false with *datafound false.
 bool MainWindow::imageTailHasData(ImageSource &image, unsigned long long from,
                                   unsigned long long to, bool *datafound)
 {
@@ -279,9 +248,7 @@ bool MainWindow::imageTailHasData(ImageSource &image, unsigned long long from,
     return true;
 }
 
-// The throughput line, at most once a second. All three transfer loops report
-// the same figure the same way; written out separately they had drifted into
-// two spellings of "MB/s".
+// Transfer rate, at most once a second.
 void MainWindow::showThroughput(unsigned long long sector, unsigned long long total,
                                 unsigned long long *lastsector)
 {
@@ -298,9 +265,7 @@ void MainWindow::showThroughput(unsigned long long sector, unsigned long long to
     *lastsector = sector;
 }
 
-// Every run that stops -- failed, cancelled or done -- ends the same way. It
-// was written out at all 25 exits before, so a new one only had to forget a
-// line to leave the buttons disabled or the progress bar up.
+// Returns the window to idle after a run that fails or is cancelled early.
 void MainWindow::endRun(const QString &message)
 {
     status = STATUS_IDLE;
@@ -310,13 +275,8 @@ void MainWindow::endRun(const QString &message)
     setReadWriteButtonState();
 }
 
-// The status bar carries a message most of the time, but when it is empty it
-// reads as blank space rather than as a part of the window with a job. A shade
-// off the window colour and a hairline above it give it an edge to sit in.
-//
-// The shade is taken from the palette rather than written down, so it follows
-// the system theme: a touch darker on a light background, a touch lighter on a
-// dark one.
+// An empty status bar reads as blank space; a shade off the window colour and
+// a hairline above give it an edge. Taken from the palette to follow the theme.
 static void shadeStatusBar(QStatusBar *bar)
 {
     const QColor window = bar->palette().color(QPalette::Window);
@@ -328,17 +288,10 @@ static void shadeStatusBar(QStatusBar *bar)
                            .arg(fill.name(), line.name()));
 }
 
-// This style says "pressed" by dimming the button's label. A button whose only
-// label is an icon has nothing to dim -- QIcon draws the same pixmap whether the
-// button is down or not -- so the browse button looked dead when held. Its
-// background does change, from #F6F6F6 to #F5F5F5: one level out of 255, which
-// nobody can see. Give it a fill a clear step beyond the one hover uses.
-//
-// Shaded from the palette like the status bar above, so it follows a dark
-// desktop instead of turning into a light patch on one. The rule names the
-// button's own class so that it cannot leak into anything else -- an
-// unscoped rule here is inherited by the widget's tooltip, which is how two
-// other buttons ended up with padded tooltips and no pressed state at all.
+// The style shows "pressed" by dimming the label, which an icon-only button
+// lacks, and its background shifts by one level out of 255. Give it a visible
+// pressed fill from the palette. The selector names the button's own class:
+// an unscoped rule would be inherited by its tooltip.
 static void shadePressedIconButton(QAbstractButton *button)
 {
     const QColor base = button->palette().color(QPalette::Button);
@@ -377,54 +330,33 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
         // user reading their own path expects the separator they type.
         leFile->setText(QDir::toNativeSeparators(fileInfo.absoluteFilePath()));
     }
-    // Add supported hash types.
     cboxHashType->addItem("MD5",QVariant(QCryptographicHash::Md5));
     cboxHashType->addItem("SHA1",QVariant(QCryptographicHash::Sha1));
     cboxHashType->addItem("SHA256",QVariant(QCryptographicHash::Sha256));
     connect(this->cboxHashType, SIGNAL(currentIndexChanged(int)), SLOT(on_cboxHashType_IdxChg()));
-    // An image named on the command line counts as a selection too. After the
-    // list is filled, or there would be nothing to select.
+    // A command-line image counts as a selection; after the hash list is
+    // filled, since this defaults the hash type.
     imageFileChanged();
     sectorData = NULL;
     sectorData2 = NULL;
     sectorsize = 0ul;
 
-    // Nothing is remembered between runs: the program writes no settings
-    // anywhere, so a copy of it leaves nothing behind on the machine.
-    //
-    // Both boxes start off the same way every time, and for the same reason in
-    // each case. Unchecking the GPT fix once, for one card, would otherwise
-    // leave every later write open to the rewrite this program exists to
-    // prevent; and starting with only removable devices listed means a fixed
-    // disk is never preselected from a previous session.
+    // No settings are persisted. The GPT fix always starts on, so unchecking
+    // it once cannot expose later writes, and only removable devices are
+    // listed at first, so a fixed disk is never preselected.
     fixGptCheckBox->setChecked(true);
     shrinkOnReadCheckBox->setChecked(false);
     readGzCheckBox->setChecked(false);
     readXzCheckBox->setChecked(false);
     choosePartitionsCheckBox->setChecked(false);
     showAllDevicesCheckBox->setChecked(false);
-    // After the "show all devices" state is set, which the filter reads.
-    //
-    // Deferred rather than called here. The scan asks every disk for its
-    // geometry, and a disk that has spun down does not answer until it is
-    // turning again -- eleven seconds, measured, on a machine with sleeping
-    // platters. From the constructor that wait falls before main() reaches
-    // show(), so the program sits there owning no window at all and looks to
-    // the user like it failed to start.
-    //
-    // A zero-millisecond timer fires once the window system's queue has been
-    // emptied, which is to say once the window has been shown and painted. The
-    // scan still blocks the interface while it runs -- same work, same thread
-    // -- but it does it behind a window that is up and says what it is doing.
+    // After showAllDevicesCheckBox is set, which the scan reads. Deferred
+    // until the window is shown: a spun-down disk can take seconds to report
+    // its geometry, and from here that wait comes before any window appears.
     QTimer::singleShot(0, this, [this]() { rescanDevices(); });
-    // Inserting a card into a reader that presents no volume produces no
-    // WM_DEVICECHANGE broadcast, so arrival cannot be left to that alone. The
-    // list used to be polled every two seconds, which asked every disk on the
-    // machine for its geometry around the clock -- enough to keep spinning
-    // disks from ever sleeping, and to do it for a list that is empty by
-    // default. Rescanning as the list is opened covers the same case at the
-    // one moment the contents have to be right, and leaves the machine alone
-    // the rest of the time.
+    // A card inserted into a reader that presents no volume sends no
+    // WM_DEVICECHANGE, so the list is also rescanned as it opens. Do not poll
+    // instead: querying every disk periodically keeps spinning disks awake.
     connect(cboxDevice, &DeviceComboBox::aboutToShowPopup,
             this, &MainWindow::rescanDevices);
 
@@ -434,20 +366,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
                    << tr("Compressed Disk Images (*.img.gz *.img.xz *.gz *.xz)")
                    << "*.*";
 
-    // Last, once every string the window will show has been set: the size the
-    // layout needs depends on the words in it, and the words depend on the
-    // language.
-    //
-    // mainwindow.ui is drawn at 520x355, sized for whatever the widest layout
-    // happened to be at the time it was last arranged by hand -- not a floor
-    // anything actually needs. sizeHint() is the layout's real answer for the
-    // language and controls in front of it right now, so the window opens at
-    // that size outright rather than only ever growing from the .ui's fixed
-    // geometry: a language needing more than 520 gets it (a QCheckBox does not
-    // elide -- it just draws its label with the end missing, which is what
-    // Tamil looked like at a size too small for it), and English, after a
-    // layout change that needs less than 520x355, is no longer stuck at a
-    // size the current controls do not fill.
+    // Last, once every string is set: the size needed depends on the
+    // language. Use sizeHint() rather than the .ui's arbitrary 520x355; a
+    // QCheckBox does not elide, so too small a window cuts labels off.
     resize(sizeHint());
 }
 
@@ -487,9 +408,6 @@ MainWindow::~MainWindow()
 
 void MainWindow::initializeHomeDir()
 {
-    // Straight to the downloads directory. Nothing reads myHomeDir before the
-    // end of this function, so working out a home directory first and then
-    // overwriting it unconditionally achieved nothing.
     QString downloadPath = qgetenv("DiskImagesDir");
     if (downloadPath.isEmpty()) {
         PWSTR pPath = NULL;
@@ -511,9 +429,9 @@ void MainWindow::initializeHomeDir()
 
 void MainWindow::setReadWriteButtonState()
 {
-    // The image field and the device list stay live during a run, and both
-    // end up here. Re-enabling the buttons then would let a second run start
-    // inside the first from one of its processEvents() calls.
+    // The image field and device list stay live during a run and both end up
+    // here; re-enabling the buttons would let a second run start inside the
+    // first from one of its processEvents() calls.
     if (status != STATUS_IDLE)
     {
         bRead->setEnabled(false);
@@ -526,7 +444,6 @@ void MainWindow::setReadWriteButtonState()
     bool deviceSelected = (cboxDevice->count() > 0);
     QFileInfo fi(leFile->text());
 
-    // set read and write buttons according to status of file/device
     bRead->setEnabled(deviceSelected && fileSelected && (fi.exists() ? fi.isWritable() : true));
     bWrite->setEnabled(deviceSelected && fileSelected && fi.isReadable());
     bVerify->setEnabled(deviceSelected && fileSelected && fi.isReadable());
@@ -536,10 +453,8 @@ void MainWindow::setReadWriteButtonState()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    // The three running states ask the same question about different stakes.
-    // The sentences stay whole rather than being assembled from parts: a
-    // translator needs the whole sentence, and splitting them would throw away
-    // the translations these already have.
+    // Whole sentences per state, not assembled from parts, so each translates
+    // as a unit.
     QString atstake;
     if (status == STATUS_READING)
     {
@@ -585,7 +500,6 @@ void MainWindow::on_tbBrowse_clicked()
         fileTypesList.move(index, 0);
     }
 
-    // create a generic FileDialog
     QFileDialog dialog(this, tr("Select a disk image"));
     dialog.setNameFilters(fileTypesList);
     dialog.setFileMode(QFileDialog::AnyFile);
@@ -601,8 +515,6 @@ void MainWindow::on_tbBrowse_clicked()
 
     if (dialog.exec())
     {
-        // selectedFiles returns a QStringList - we just want 1 filename,
-        //	so use the zero'th element from that list as the filename
         fileLocation = (dialog.selectedFiles())[0];
         myFileType = dialog.selectedNameFilter();
 
@@ -625,7 +537,6 @@ void MainWindow::on_bHashCopy_clicked()
     }
 }
 
-// generates the hash
 void MainWindow::generateHash(const QString &filename, int hashish)
 {
     hashLabel->setText(tr("Generating..."));
@@ -661,14 +572,13 @@ void MainWindow::generateHash(const QString &filename, int hashish)
 
     hashLabel->setText(filehash.result().toHex());
     bHashCopy->setEnabled(true);
-    // redisplay the normal cursor
     QApplication::restoreOverrideCursor();
 }
 
 
-// Tell the user the table is broken and put it right if they say so. `lead`
-// opens the sentence, because a verify and a check on its own meet the damage
-// in different circumstances. Returns true if the table was repaired.
+// Offers to repair a broken primary GPT. `lead` opens the message, since
+// verify and the standalone check meet the damage in different circumstances.
+// Returns true if the table was repaired.
 bool MainWindow::offerGptRepair(HANDLE hDisk, unsigned long long disksectorsize,
                                 unsigned long long devicesectors, const QString &lead)
 {
@@ -700,8 +610,8 @@ bool MainWindow::offerGptRepair(HANDLE hDisk, unsigned long long disksectorsize,
 // image sector for sector, so the table is the only place the damage shows.
 void MainWindow::on_bCheckGpt_clicked()
 {
-    // The transfer loops pump events, so this is reachable mid-run. It would
-    // lock and possibly rewrite another disk under a running transfer.
+    // Reachable mid-run via processEvents(); must not lock or rewrite a disk
+    // under a running transfer.
     if (status != STATUS_IDLE)
     {
         return;
@@ -713,8 +623,8 @@ void MainWindow::on_bCheckGpt_clicked()
         return;
     }
 
-    // Locked for the reason a verify locks: nothing else may write to the disk
-    // while the table is being read, still less while it is being repaired.
+    // Locked so nothing else writes the disk while the table is read or
+    // repaired.
     LockedVolumes locked;
     if (!locked.lockAll(deviceID))
     {
@@ -728,8 +638,7 @@ void MainWindow::on_bCheckGpt_clicked()
         statusbar->showMessage(tr("Could not open the device."));
         return;
     }
-    // Its own, not the sectorsize member every transfer runs on: a check of a
-    // different disk must not change the sector size anything else uses.
+    // Not the sectorsize member: checking another disk must not change it.
     unsigned long long disksectorsize = 0ull;
     unsigned long long devicesectors = getNumberOfSectors(hDisk, &disksectorsize);
     if (!devicesectors)
@@ -779,12 +688,9 @@ void MainWindow::on_bCheckGpt_clicked()
     locked.release();
 }
 
-// SHA256 is what image publishers overwhelmingly quote, so selecting an image
-// arms the checksum most people are about to compare against. Only when the
-// image actually changes: the field emits editingFinished whenever it loses
-// focus, and resetting the type every time would undo a deliberate choice of
-// MD5 or SHA1. Looked up by name rather than index so the order of the list is
-// free to change.
+// Defaults to SHA256, the checksum publishers most often quote, but only when
+// the image changes: editingFinished fires on every focus loss, and resetting
+// each time would undo a hand-picked type.
 void MainWindow::defaultHashTypeForFile()
 {
     const QString file = leFile->text();
@@ -802,9 +708,8 @@ void MainWindow::defaultHashTypeForFile()
 
 void MainWindow::on_leFile_editingFinished()
 {
-    // A pasted path may use either separator; show it the way the rest of
-    // Windows would. Qt and the Win32 API take both, so this is presentation
-    // only -- and setText does not re-emit this signal.
+    // Presentation only (Qt and Win32 accept both separators); setText does
+    // not re-emit this signal.
     const QString typed = leFile->text();
     const QString native = QDir::toNativeSeparators(typed);
     if (native != typed)
@@ -839,9 +744,9 @@ void MainWindow::on_bCancel_clicked()
 
 void MainWindow::on_bWrite_clicked()
 {
-    // Reachable mid-run through the processEvents() calls in the transfer
-    // loops; a second run started inside the first would share its
-    // handles, buffers and status.
+    // Reachable mid-run through the transfer loops' processEvents() calls;
+    // a second run inside the first would share its handles, buffers and
+    // status. The same guard opens on_bRead_clicked()/on_bVerify_clicked().
     if (status != STATUS_IDLE)
     {
         return;
@@ -904,18 +809,15 @@ void MainWindow::on_bWrite_clicked()
             {
                 return;
             }
-            // gzip only records the uncompressed size modulo 4 GiB, so for any
-            // real image it is a lower bound rather than a size. The write then
-            // runs until the stream ends, with the device size as the loop
-            // bound, and the leftover check below says whether it all fitted.
+            // Without an exact size (ImageSource::sizeKnown()) the loop runs
+            // to the device size until the stream ends; the leftover check
+            // after the loop says whether it all fitted.
             const bool sizeisestimate = !image.sizeKnown();
             const unsigned long long imagesectors = image.sizeInSectors();
             numsectors = sizeisestimate ? availablesectors : imagesectors;
             if (!numsectors)
             {
-                // The image, not the device: an empty file, or a compressed
-                // one whose stream holds nothing. The card-reader comment
-                // this used to carry belongs on the device-size check.
+                // An empty file, or a compressed stream holding nothing.
                 QMessageBox::critical(this, tr("File Error"),
                                       tr("The specified file contains no data."));
                 CloseHandle(hRawDisk);
@@ -924,10 +826,8 @@ void MainWindow::on_bWrite_clicked()
                 endRun(tr("Write failed."));
                 return;
             }
-            // An estimated size is only a lower bound, but a lower bound that
-            // already exceeds the device is enough to say the image will not
-            // fit. Saying so here beats finding out at the end of the card,
-            // which is the only other moment it can be detected.
+            // A lower bound that already exceeds the device is reason to warn
+            // now rather than at the end of the card.
             if (sizeisestimate && imagesectors > availablesectors)
             {
                 QString msg = tr("The image is larger than the device:\n"
@@ -951,9 +851,8 @@ void MainWindow::on_bWrite_clicked()
                 bool datafound = false;
                 bool tailchecked = imageTailHasData(image, availablesectors,
                                                     numsectors, &datafound);
-                // Built from whole translatable sentences. Assembling the text
-                // first and passing it through tr() would look up a string that
-                // only exists at runtime, so nothing is ever translated.
+                // Whole translatable sentences: tr() on text assembled at
+                // runtime would never find a translation.
                 QString msg = (!tailchecked)
                     ? tr("More space required than is available:\n  Required: %1 sectors\n"
                          "  Available: %2 sectors\n  Sector Size: %3\n\n"
@@ -983,9 +882,7 @@ void MainWindow::on_bWrite_clicked()
                 }
             }
 
-            // Clear any partition table left over from a previous image before
-            // laying down the new one, so no stale backup GPT survives at the
-            // end of the device for Windows to reconcile against.
+            // So no stale backup GPT survives at the end of the device.
             statusbar->showMessage(tr("Clearing old partition tables..."));
             QCoreApplication::processEvents();
             if (!wipePartitionTables(hRawDisk, sectorsize, availablesectors))
@@ -1003,8 +900,8 @@ void MainWindow::on_bWrite_clicked()
 
             const unsigned long long progresstotal = progressTotalFor(image, numsectors);
             const int progshift = beginProgress(progresstotal, &lasti);
-            // Until the first throughput figure a second from now, the status
-            // bar would otherwise still read "Clearing old partition tables".
+            // Otherwise "Clearing old partition tables" stays up until the
+            // first throughput figure.
             statusbar->showMessage(tr("Writing..."));
             bool imagetruncated = false;
             for (i = 0ul; i < numsectors && status == STATUS_WRITING; i += TRANSFER_SECTORS)
@@ -1060,16 +957,14 @@ void MainWindow::on_bWrite_clicked()
                 }
                 QCoreApplication::processEvents();
                 showThroughput(i, progresstotal, &lasti);
-                // i is where this chunk started; the bar tracks what is done,
-                // which is the end of it.
+                // i is where this chunk started; the bar tracks its end.
                 unsigned long long written = i + chunk;
                 progressbar->setValue(
                     (int)((written > progresstotal ? progresstotal : written) >> progshift));
                 QCoreApplication::processEvents();
             }
-            // Without an exact size the loop bound came from the device, not
-            // from the image, so it may have stopped with image still to come.
-            // Ask the stream rather than trusting the size that set the bound.
+            // With an estimated size the loop may have stopped at the device
+            // end with image still to come; ask the stream.
             if (!image.sizeKnown() && status == STATUS_WRITING)
             {
                 unsigned long long leftover = 0ull;
@@ -1077,28 +972,21 @@ void MainWindow::on_bWrite_clicked()
                 delete[] extra;
                 imagetruncated = (leftover > 0ull);
             }
-            // Order matters. Flush and close the raw disk first: unlocking the
-            // volumes lets mountmgr rescan the disk immediately, and a rescan
-            // is what triggers Windows' automatic GPT "repair".
+            // Everything up to CloseHandle() below runs with the volumes still
+            // locked; see acquireDeviceAndImage().
             flushDevice(hRawDisk);
             image.close();
 
-            // Make the table consistent with the device before anything can
-            // rescan it, so Windows finds nothing to "repair".
             GptFixResult gptfix = GPT_FIX_DISABLED;
             QString gptdetail;
             // Ask before fixing anything: the fix rewrites the very header this
             // reads, so afterwards every image would look unaffected.
             GptRewriteRisk gptrisk = gptRewriteRisk(hRawDisk, sectorsize);
-            // Only to word the message: with no GPT, say whether what was
-            // written is an MBR image or has no table at all. Read here while
-            // the handle is still open.
+            // Only for wording the no-GPT message; read while the handle is open.
             bool mbr = deviceHasMbrTable(hRawDisk, sectorsize);
-            // STATUS_WRITING only survives the loop when it ran to the end;
-            // Cancel and closing the window both change it. Testing for
-            // STATUS_CANCELED alone treated a window close mid-write as a
-            // completed write, "fixed" the GPT of a half-written card and
-            // reported success.
+            // STATUS_WRITING survives the loop only if it completed: Cancel
+            // and closing the window both change it. Do not test for
+            // STATUS_CANCELED alone, which misses STATUS_EXIT.
             if (fixGptCheckBox->isChecked() && status == STATUS_WRITING)
             {
                 statusbar->showMessage(tr("Fixing GPT..."));
@@ -1107,9 +995,8 @@ void MainWindow::on_bWrite_clicked()
                 flushDevice(hRawDisk);
             }
 
-            // Take the disk offline before releasing the locks so nothing is
-            // remounted, then eject it. The card should be pulled without ever
-            // being re-enumerated by Windows.
+            // Offline before releasing the locks so nothing is remounted, then
+            // eject: the card should come out without Windows re-enumerating it.
             bool offline = setDiskOffline(hRawDisk, true);
             bool ejected = ejectDevice(hRawDisk);
             CloseHandle(hRawDisk);
@@ -1128,11 +1015,9 @@ void MainWindow::on_bWrite_clicked()
             else if (status != STATUS_WRITING){
                 passfail = false;
             }
-            // No GPT means nothing for Windows to "repair", whether or not the
-            // fix was asked for: the write already zeroed the first and last 34
-            // sectors, so no stale backup GPT from an earlier image survives.
-            // Reporting that as a risk, purely because the checkbox was off,
-            // warned about a bug the image cannot have.
+            // No GPT means nothing for Windows to "repair", fix or no fix:
+            // wipePartitionTables() zeroed the first and last 34 sectors, so
+            // no stale backup GPT survives.
             else if (gptfix == GPT_FIX_OK || gptfix == GPT_FIX_NOT_NEEDED
                      || gptfix == GPT_FIX_NO_GPT
                      || (gptrisk == GPT_RISK_NO_GPT && gptfix == GPT_FIX_DISABLED))
@@ -1232,19 +1117,14 @@ void MainWindow::on_bWrite_clicked()
         close();
     }
     status = STATUS_IDLE;
-    // Only now: setReadWriteButtonState() keeps everything disabled while
-    // a run is active, which status still said until the line above.
+    // Only after the reset: setReadWriteButtonState() keeps everything
+    // disabled while a run is active.
     setReadWriteButtonState();
     elapsed_timer->stop();
 }
 
-// The directory GetDiskFreeSpaceEx should be asked about: the one the image is
-// being written into. The first three characters of the path used to stand in
-// for it, which assumed a drive letter -- a UNC destination asked about "\\s"
-// instead, and the check was skipped with an error nobody could act on.
-//
-// The directory is known to exist by the time this is called: the image file
-// has already been created in it.
+// The image's directory, for GetDiskFreeSpaceEx; works for UNC paths as well
+// as drive letters. It exists: the image file has already been created in it.
 static QString volumeDirectoryFor(const QString &file)
 {
     QString dir = QDir::toNativeSeparators(QFileInfo(file).absolutePath());
@@ -1275,24 +1155,14 @@ static QString formatDeviceSize(unsigned long long bytes)
     return QString("%1 %2").arg(value, 0, 'f', (value < 10.0) ? 1 : 0).arg(units[unit]);
 }
 
-// Lists the device's partitions with a checkbox per entry, defaulting to all
-// checked, and lets the user uncheck the ones to leave out of the image.
-// Loops on an empty result rather than accepting it, since an image with no
-// partitions at all is never what "choose partitions" was for. Returns false
-// if the user cancels instead.
+// Lists the partitions, all checked, for the user to uncheck the ones to leave
+// out; an empty selection is refused. Returns false if the user cancels.
 bool MainWindow::choosePartitionsDialog(const QList<PartitionInfo> &partitions,
                                         unsigned long long sectorsize, int deviceID,
                                         QList<int> *excluded)
 {
-    // Keyed by starting byte offset, the one thing a mounted volume and a
-    // partition table entry both agree on -- there is no other link between
-    // "this is drive D:" and "this is GPT entry 3" to follow.
     QMap<unsigned long long, QString> driveLetters = driveLettersByOffset((ULONG)deviceID);
-    // The number Windows itself gave each partition, read back rather than
-    // assumed from its table slot -- a partition created into a slot freed
-    // by an earlier deletion keeps the number it was given, which does not
-    // always match "slot + 1". Falls back to the slot-based guess if the
-    // ioctl fails, which is what this program used before it could ask.
+    // Windows' own partition numbers, falling back to slot + 1.
     QMap<unsigned long long, int> partitionNumbers;
     bool haveRealNumbers = diskPartitionNumbers(hRawDisk, sectorsize, &partitionNumbers);
 
@@ -1301,31 +1171,22 @@ bool MainWindow::choosePartitionsDialog(const QList<PartitionInfo> &partitions,
     QVBoxLayout *layout = new QVBoxLayout(&dialog);
     QLabel *label = new QLabel(
         tr("Select partitions to include in the Image."), &dialog);
-    // Without word wrap, QLabel sizes itself to fit the whole sentence on
-    // one line, which is what was stretching the dialog far wider than the
-    // partition list actually needs.
+    // Otherwise the label stretches the dialog to fit the sentence on one line.
     label->setWordWrap(true);
     layout->addWidget(label);
     dialog.setMinimumWidth(300);
 
     QListWidget *list = new QListWidget(&dialog);
-    // partitions is already in on-disk position order (see
-    // listGptPartitions()/listMbrPartitions()), which is what diskpart's own
-    // listing sorts by too -- but diskpart's "Partition N" number is a
-    // stable identity, not tied to that display order, so a partition
-    // created out of position still keeps the number it was given (e.g.
-    // "Partition 4" sitting second on the disk). Only the row order here
-    // follows position; the number shown comes from Windows when available.
+    // Rows are in disk-position order, as listGptPartitions()/listMbrPartitions()
+    // return them; the number shown is Windows' own (diskpart's) when available,
+    // which need not follow that order.
     for (const PartitionInfo &p : partitions)
     {
         int number = haveRealNumbers ? partitionNumbers.value(p.firstSector, p.slot + 1)
                                       : p.slot + 1;
         QString sizeStr = formatDeviceSize(p.sectors * sectorsize);
-        // A drive letter identifies the partition to the user better than
-        // its GPT name ever does -- "D:" is what they see in Explorer,
-        // while a name is often blank (always, for MBR) or a generic
-        // "Basic data partition" left over from whatever formatted it. Only
-        // fall back to the name when nothing is mounted there at all.
+        // A drive letter identifies a partition better than its name, which
+        // is often blank (always, for MBR) or generic.
         QString label3 = driveLetters.value(p.firstSector * sectorsize, p.name);
         QString text = label3.isEmpty()
             ? tr("Partition %1 -- %2").arg(number).arg(sizeStr)
@@ -1376,9 +1237,7 @@ bool MainWindow::choosePartitionsDialog(const QList<PartitionInfo> &partitions,
 
 void MainWindow::on_bRead_clicked()
 {
-    // Reachable mid-run through the processEvents() calls in the transfer
-    // loops; a second run started inside the first would share its
-    // handles, buffers and status.
+    // Re-entrancy guard; see on_bWrite_clicked().
     if (status != STATUS_IDLE)
     {
         return;
@@ -1390,23 +1249,13 @@ void MainWindow::on_bRead_clicked()
         QFileInfo fileinfo(myFile);
         if (fileinfo.path()=="."){
             myFile = QDir::toNativeSeparators(QDir(myHomeDir).filePath(leFile->text()));
-            // fileinfo has to follow, or the overwrite prompt below asks about
-            // a file in the working directory while getHandleOnFile opens the
-            // one in the image directory with CREATE_ALWAYS and truncates it
-            // without ever asking.
+            // Keep fileinfo in step, or the overwrite prompt checks a different
+            // file from the one getHandleOnFile truncates.
             fileinfo.setFile(myFile);
         }
-        // Whatever name the user typed, the file actually written ends in
-        // .img, .img.gz or .img.xz, matching "Read to .img.gz" / "Read to
-        // .img.xz" -- so nothing else that looks at the name is misled about
-        // what is inside it. An exact match on that ending is left alone. A
-        // name already ending in plain .img only needs the compression suffix
-        // added, so that is all that goes on; anything else -- no extension,
-        // a different one, even a whole .img.gz already on a name the user
-        // now picks .img.xz for -- gets the full correct ending appended
-        // instead. Either way this only ever adds to the name typed in, never
-        // strips or rewrites part of it: it is the user's to decide, not this
-        // program's to second-guess.
+        // Make the name end in .img, .img.gz or .img.xz to match the chosen
+        // format, only ever appending to what the user typed: ".gz"/".xz"
+        // after a plain .img, otherwise the full ending.
         bool compressGz = readGzCheckBox->isChecked();
         bool compressXz = readXzCheckBox->isChecked();
         QString wantExtension = compressGz ? ".img.gz" : compressXz ? ".img.xz" : ".img";
@@ -1426,9 +1275,8 @@ void MainWindow::on_bRead_clicked()
         }
         if (renamedFile)
         {
-            // So the overwrite prompt, and anything after this run that reads
-            // the field back -- Verify, the hash controls -- see the name the
-            // file was actually given rather than the one typed in.
+            // So later readers of the field (Verify, the hash controls) see
+            // the name actually written.
             leFile->setText(myFile);
         }
         // Without compression, reading writes a raw image, and a raw image
@@ -1471,20 +1319,16 @@ void MainWindow::on_bRead_clicked()
         status = STATUS_READING;
         showProgress(true);
         unsigned long long i, lasti, numsectors, filesize, spaceneeded = 0ull;
-        // Lock and dismount every volume on the source disk, so no filesystem
-        // driver writes cached metadata into the middle of the image we read.
-        // A disk with no mounted volume at all locks nothing and is fine.
+        // Locked as in acquireDeviceAndImage().
         LockedVolumes locked;
         if (!locked.lockAll(deviceID))
         {
             endRun(tr("Read failed."));
             return;
         }
-        // The device is opened first, and its size checked, before the image
-        // file is touched at all: getHandleOnFile opens for writing with
-        // CREATE_ALWAYS, which truncates. Opening it first would empty the
-        // file the user already has and only then discover that the device
-        // cannot be read, leaving them with neither.
+        // Open and size the device before the image file: getHandleOnFile
+        // uses CREATE_ALWAYS, which would truncate the user's existing file
+        // even if the device then proved unreadable.
         hRawDisk = getHandleOnDevice(deviceID, GENERIC_READ);
         if (hRawDisk == INVALID_HANDLE_VALUE)
         {
@@ -1495,9 +1339,7 @@ void MainWindow::on_bRead_clicked()
         numsectors = getNumberOfSectors(hRawDisk, &sectorsize);
         if (!numsectors)
         {
-            // A card reader whose card has been pulled stays present and
-            // reports zero. Reading it would write a 0-byte image over
-            // whatever was there.
+            // A card pulled from its reader reports zero.
             CloseHandle(hRawDisk);
             hRawDisk = INVALID_HANDLE_VALUE;
             locked.release();
@@ -1507,16 +1349,9 @@ void MainWindow::on_bRead_clicked()
             endRun(tr("Read failed."));
             return;
         }
-        // Shrink the read to just the partition table and the partitions
-        // themselves, when asked to and the device's table allows it. Every
-        // unpartitioned gap is closed -- ahead of the first partition,
-        // between partitions, and after the last one -- by repacking each
-        // partition 1MiB-aligned, the same way for GPT and MBR alike and the
-        // same default every mainstream partitioning tool (Windows, parted,
-        // sgdisk) uses; a GPT plan additionally rebuilds the backup table,
-        // which MBR has none of. A device with no usable table, or already
-        // this tight, is read in full instead -- silently, since neither is
-        // an error.
+        // Shrink to the table and partitions, repacked 1MiB-aligned (see
+        // planGptShrink()). No usable table, or nothing to gain, means a full
+        // read, silently: neither is an error.
         bool shrinkPlanned = false;
         PartitionShrinkPlan shrinkPlan;
         if (shrinkOnReadCheckBox->isChecked() || choosePartitionsCheckBox->isChecked())
@@ -1528,10 +1363,8 @@ void MainWindow::on_bRead_clicked()
                 alignsectors = 1ull;
             }
 
-            // Choosing partitions always implies repacking, whether or not
-            // "Shrink image on Read" is separately checked: excluding a
-            // partition has to remove it from the image, and the only
-            // machinery that does that is the shrink plan's exclude filter.
+            // Choosing partitions implies shrinking: only the shrink plan's
+            // exclude filter can leave a partition out.
             QList<int> excludeSlots;
             bool haveSelection = false;
             bool selectionIsGpt = false;
@@ -1565,11 +1398,8 @@ void MainWindow::on_bRead_clicked()
                 }
             }
 
-            // Once a selection has been made, only the table type it was
-            // listed from is tried: excludeSlots is indexed by that table's
-            // own slot numbering, and falling through to the other table
-            // type on an unexpected failure would apply it against the
-            // wrong entries.
+            // With a selection, plan only against the table type it was
+            // listed from: excludeSlots indexes that table's slots.
             bool planned = haveSelection
                 ? (selectionIsGpt
                        ? planGptShrink(hRawDisk, sectorsize, numsectors, alignsectors, &shrinkPlan, &detail, &excludeSlots)
@@ -1583,13 +1413,8 @@ void MainWindow::on_bRead_clicked()
             }
             else if (haveSelection)
             {
-                // Unlike a plain "Shrink image on Read" failing -- where
-                // falling back to a full read is harmless, since nothing
-                // was promised to be left out -- the user explicitly chose
-                // to exclude a partition here. Reading the whole device
-                // anyway would put that partition's data in the image
-                // silently, which is exactly what this feature exists to
-                // prevent.
+                // Unlike a plain shrink, falling back to a full read would
+                // silently include partitions the user excluded.
                 CloseHandle(hRawDisk);
                 hRawDisk = INVALID_HANDLE_VALUE;
                 locked.release();
@@ -1600,9 +1425,7 @@ void MainWindow::on_bRead_clicked()
         }
         bool compressing = compressGz || compressXz;
         ImageSink sink;
-        // Shared by every failure path below, whichever backend is open: the
-        // repeated four lines every earlier version of this loop had to spell
-        // out at each of them, once for a HANDLE and once for an ImageSink.
+        // Failure cleanup for either output backend.
         auto failRead = [&]()
         {
             CloseHandle(hRawDisk);
@@ -1632,10 +1455,8 @@ void MainWindow::on_bRead_clicked()
                 endRun(tr("Read failed."));
                 return;
             }
-            // How well the data compresses is not known ahead of time, so the
-            // check asks for the same room a raw image this size would need.
-            // Overshooting is safe; stopping partway through a compressed
-            // stream because the estimate undershot is not.
+            // Compressed size is unknown up front, so ask for the raw size:
+            // running out of space mid-stream is the failure to avoid.
             spaceneeded = numsectors * sectorsize;
         }
         else
@@ -1662,12 +1483,9 @@ void MainWindow::on_bRead_clicked()
         }
         statusbar->showMessage(tr("Reading..."));
         const int progshift = beginProgress(numsectors, &lasti);
-        // dstpos is how far into the image the next write starts. A raw write
-        // just seeks there; a compressed one has no seek at all, so every
-        // write, including the zero-filled ones writeZeros() makes for a gap
-        // left by alignment, has to happen in this exact order with
-        // nothing skipped -- which planGptShrink() guarantees, and a plain
-        // contiguous read never even has to ask for.
+        // dstpos: image sector the next write starts at. A compressed sink
+        // cannot seek, so every write, alignment-gap zeros included, must come
+        // in image order, as the shrink plans' ranges are.
         unsigned long long dstpos = 0ull;
         auto writeOut = [&](const char *data, unsigned long long sectors) -> bool
         {
@@ -1686,15 +1504,9 @@ void MainWindow::on_bRead_clicked()
             QByteArray zeros((size_t)(sectors * sectorsize), 0);
             return writeOut(zeros.constData(), sectors);
         };
-        // headerregion and backupregion are, unlike a data range, written in
-        // one piece below rather than read in chunks first -- but writeOut()
-        // still ends up handing sectorsize * sectors to ReadFile/WriteFile's
-        // DWORD length parameter, so a region large enough to overflow that
-        // (over 4GiB, which headerregion can in principle reach: it is
-        // bounded only by devicesectors / 2) would silently truncate. Chunked
-        // the same TRANSFER_SECTORS-at-a-time way the data ranges already
-        // are, so no single writeOut() call is ever asked to move more than
-        // that regardless of how large the region is.
+        // For the header and backup regions, which come as one buffer: a raw
+        // write's length goes through WriteFile's DWORD, and headerregion can
+        // exceed 4GiB (it is bounded only by devicesectors / 2).
         auto writeOutChunked = [&](const char *data, unsigned long long sectors) -> bool
         {
             for (unsigned long long i = 0ull; i < sectors; i += TRANSFER_SECTORS)
@@ -1755,12 +1567,8 @@ void MainWindow::on_bRead_clicked()
         }
         if (shrinkPlanned && status == STATUS_READING && shrinkPlan.backupsectors > 0ull)
         {
-            // Every range, and every gap between them, is behind us now, so
-            // this is where relocateBackupGPT() would read the data back from
-            // and patch it in on a raw file. Written here instead, already
-            // computed by planGptShrink(), it works the same way whether the
-            // backend behind writeOut() can be seeked back into afterward or
-            // not. An MBR plan has no backup table, so this is skipped there.
+            // Precomputed by planGptShrink() and written in sequence, so it
+            // works for a non-seekable sink. MBR plans have none.
             if (!writeOutChunked(shrinkPlan.backupregion.constData(), shrinkPlan.backupsectors))
             {
                 failRead();
@@ -1779,9 +1587,8 @@ void MainWindow::on_bRead_clicked()
                 endRun(tr("Read failed."));
                 return;
             }
-            // A no-op once finish() has already closed everything; the path
-            // that matters here is canceled or failed, where finish() was
-            // never called and this is what actually closes the file.
+            // Closes the file on the canceled path, where finish() was not
+            // called; a no-op after finish().
             sink.abort();
         }
         else
@@ -1795,9 +1602,8 @@ void MainWindow::on_bRead_clicked()
         showProgress(false);
         statusbar->showMessage(tr("Done."));
         bCancel->setEnabled(false);
-        // Closing the window mid-read stops the loop too, and leaves an
-        // incomplete image (a compressed one never gets its stream finished),
-        // so anything but a read that ran to the end is a canceled one.
+        // Cancel or window close (see on_bWrite_clicked()): the image is
+        // incomplete, and a compressed one was never finished.
         if (status != STATUS_READING){
             QMessageBox::information(this, tr("Complete"), tr("Read Canceled."));
         } else {
@@ -1815,8 +1621,7 @@ void MainWindow::on_bRead_clicked()
         close();
     }
     status = STATUS_IDLE;
-    // Only now: setReadWriteButtonState() keeps everything disabled while
-    // a run is active, which status still said until the line above.
+    // After the reset; see on_bWrite_clicked().
     setReadWriteButtonState();
     elapsed_timer->stop();
 }
@@ -1824,9 +1629,7 @@ void MainWindow::on_bRead_clicked()
 // Verify image with device
 void MainWindow::on_bVerify_clicked()
 {
-    // Reachable mid-run through the processEvents() calls in the transfer
-    // loops; a second run started inside the first would share its
-    // handles, buffers and status.
+    // Re-entrancy guard; see on_bWrite_clicked().
     if (status != STATUS_IDLE)
     {
         return;
@@ -1865,17 +1668,13 @@ void MainWindow::on_bVerify_clicked()
             {
                 return;
             }
-            // gzip only records the uncompressed size modulo 4 GiB, so for any
-            // real image it is a lower bound; the comparison then runs to the
-            // device size and stops when the stream ends.
+            // Size estimate handled as in on_bWrite_clicked().
             const bool sizeisestimate = !image.sizeKnown();
             const unsigned long long imagesectors = image.sizeInSectors();
             numsectors = sizeisestimate ? availablesectors : imagesectors;
             if (!numsectors)
             {
-                // The image, not the device: an empty file, or a compressed
-                // one whose stream holds nothing. The card-reader comment
-                // this used to carry belongs on the device-size check.
+                // An empty file, or a compressed stream holding nothing.
                 QMessageBox::critical(this, tr("File Error"),
                                       tr("The specified file contains no data."));
                 CloseHandle(hRawDisk);
@@ -1884,10 +1683,6 @@ void MainWindow::on_bVerify_clicked()
                 endRun(tr("Verify failed."));
                 return;
             }
-            // An estimated size is only a lower bound, but a lower bound that
-            // already exceeds the device is enough to say the image will not
-            // fit. Saying so here beats finding out at the end of the card,
-            // which is the only other moment it can be detected.
             if (sizeisestimate && imagesectors > availablesectors)
             {
                 QString msg = tr("The image is larger than the device:\n"
@@ -1939,16 +1734,13 @@ void MainWindow::on_bVerify_clicked()
                     return;
                 }
             }
-            // "Fix GPT after write" deliberately rewrites the protective MBR,
-            // the primary header and the entry array, all of which sit inside
-            // the image's own range. Those sectors differing is expected, not a
-            // bad card, so they are checked against the ranges the fix owns.
+            // "Fix GPT after write" rewrites sectors at both ends by design
+            // (see gptOwnedSectors()); differences there are not failures.
             unsigned long long gptfrontend = 0ull, gpttailstart = 0ull;
             bool gptknown = gptOwnedSectors(hRawDisk, sectorsize, availablesectors,
                                             &gptfrontend, &gpttailstart);
-            // The fix also zeroes the stale backup GPT the image left mid-device,
-            // which is in neither range above. Its location comes from the
-            // image's own header, read out of the first chunk below.
+            // It also zeroes the image's stale backup GPT, located from the
+            // image's own header in the first chunk.
             unsigned long long stalefirst = 0ull, stalelast = 0ull;
             bool staleknown = false;
             bool gptonly = false;
@@ -2048,9 +1840,8 @@ void MainWindow::on_bVerify_clicked()
                     (int)((checked > progresstotal ? progresstotal : checked) >> progshift));
                 QCoreApplication::processEvents();
             }
-            // Same reasoning as the write path: without an exact size the loop
-            // stops at the end of the device, and comparing only the part that
-            // fits is not a successful verify.
+            // As after a write; comparing only the part that fits is not a
+            // successful verify.
             bool imageunchecked = false;
             if (!image.sizeKnown() && status == STATUS_VERIFYING && passfail)
             {
@@ -2059,11 +1850,9 @@ void MainWindow::on_bVerify_clicked()
                 delete[] extra;
                 imageunchecked = (leftover > 0ull);
             }
-            // Every data sector can match the image while the partition table is
-            // still ruined: Windows repairs a stranded backup GPT by itself and
-            // gets the primary header wrong doing it, and the comparison above
-            // forgives GPT sectors by design. So look at the table itself, while
-            // the device is still held.
+            // Data can match while the table is ruined: a Windows rescan gets
+            // the primary header wrong, and the compare forgives GPT sectors.
+            // Check the table while the device is still held.
             if (status == STATUS_VERIFYING && passfail)
             {
                 gptstate = gptPrimaryState(hRawDisk, sectorsize, availablesectors);
@@ -2081,10 +1870,8 @@ void MainWindow::on_bVerify_clicked()
                     gptleftdamaged = true;
                 }
             }
-            // Mirror the write path: take the disk offline and eject it before
-            // the volume lock is released, so Windows cannot rescan the card
-            // and "repair" a GPT that deliberately is not at the end of the
-            // device. Verifying must not undo what the write protected.
+            // Offline and eject before unlocking, as after a write, so a
+            // verify cannot provoke the rescan the write avoided.
             bool offline = setDiskOffline(hRawDisk, true);
             bool ejected = ejectDevice(hRawDisk);
             CloseHandle(hRawDisk);
@@ -2177,66 +1964,40 @@ void MainWindow::on_bVerify_clicked()
         close();
     }
     status = STATUS_IDLE;
-    // Only now: setReadWriteButtonState() keeps everything disabled while
-    // a run is active, which status still said until the line above.
+    // After the reset; see on_bWrite_clicked().
     setReadWriteButtonState();
     elapsed_timer->stop();
 }
 
-// How long the interface is left running before a scan started by clicking
-// something blocks it. Long enough for the control to finish drawing itself;
-// see on_showAllDevicesCheckBox_toggled().
+// Delay before a click-triggered scan blocks the UI, so the control can finish
+// drawing; see on_showAllDevicesCheckBox_toggled().
 static const int SCAN_SETTLE_MS = 250;
 
-// Rescan behind a status message. Every rescan anyone waits on comes through
-// here: the one after the window appears, the one the device list runs as it
-// is opened, and the one that follows "Show all devices" being ticked or
-// unticked.
-//
-// The message lasts exactly as long as the scan. A scan of disks that are
-// already awake finishes in milliseconds and the message is gone again before
-// it can be read, which is the point: there was nothing to wait for.
+// Rescan behind a status message and wait cursor: after the window appears,
+// as the device list opens, and when "Show all devices" changes.
 void MainWindow::rescanDevices()
 {
-    // Never while something is running. getLogicalDrives() rebuilds the list
-    // and finishes by putting the buttons back the way an idle window has
-    // them, which in the middle of a write would re-enable the very buttons
-    // the write disabled -- and the device list stays clickable throughout a
-    // run, so this is reachable. The two-second poll this replaced took the
-    // same precaution, and the device-arrival broadcast still does.
+    // Never mid-run (the device list stays clickable during one): the scan
+    // queries every disk and blocks the transfer loop while it does.
     if (status != STATUS_IDLE)
     {
         return;
     }
     statusbar->showMessage(tr("Scanning disks..."));
-    // A wait cursor as well as the message. A scan that has to spin a disk up
-    // takes twelve seconds, and for every one of them the window is frozen --
-    // it does not repaint and does not answer. The message says what is
-    // happening; the cursor says it where the pointer already is, over the
-    // control that was just clicked.
+    // Spinning a disk up can freeze the window for seconds.
     QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 
-    // Painted before the scan rather than left in the queue behind it. This
-    // flushes the message, the cursor, and the repaint still pending on
-    // whatever was clicked to get here -- getLogicalDrives() blocks this
-    // thread, so anything merely posted would not reach the screen until the
-    // wait it explains was already over, and a checkbox would sit there drawn
-    // in the state it was clicked in looking like a hung program.
+    // Paint the message, cursor and the clicked control now: getLogicalDrives()
+    // blocks this thread, so anything merely posted would appear only after.
     QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 
     getLogicalDrives();
     QApplication::restoreOverrideCursor();
-    // Emptied rather than replaced with something. The status bar says what
-    // is happening or what just happened; with nothing running it has nothing
-    // to say, and shadeStatusBar() gives it an edge so that an empty one still
-    // reads as part of the window rather than as a gap in it.
     statusbar->clearMessage();
 }
 
-// getLogicalDrives fills cboxDevice from the physical disks attached to the
-// machine. Enumerating physical disks rather than drive letters is what lets a
-// card with no Windows-readable filesystem — a written Linux image, or a card
-// Windows has not mounted for any other reason — still appear in the list.
+// Fills cboxDevice from physical disks rather than drive letters, so a card
+// with no volume Windows has mounted still appears.
 void MainWindow::getLogicalDrives()
 {
     // Keep the user's selection across a refresh, since device arrival and the
@@ -2245,8 +2006,8 @@ void MainWindow::getLogicalDrives()
 
     QList<PhysicalDevice> devices = enumeratePhysicalDevices(showAllDevicesCheckBox->isChecked());
 
-    // Rebuilding the list closes an open dropdown and resets the selection, so
-    // the poll below only goes through with it when something actually changed.
+    // Rebuilding closes an open dropdown and resets the selection, so skip it
+    // when nothing changed.
     QString signature;
     for (int i = 0; i < devices.size(); ++i)
     {
@@ -2263,15 +2024,9 @@ void MainWindow::getLogicalDrives()
     for (int i = 0; i < devices.size(); ++i)
     {
         const PhysicalDevice &dev = devices.at(i);
-        // The disk number always, because it is what names the device in Disk
-        // Management and in \.\PhysicalDriveN, and it is the same number
-        // whether or not Windows happened to mount anything off the device.
-        // The drive letters follow it when there are any.
-        //
-        // Two bracketed parts rather than one string reading "[Disk 1: E:]":
-        // this way it is assembled out of the two pieces of text that already
-        // exist, and no new translatable string arrives untranslated in eleven
-        // languages for the sake of a separator.
+        // The disk number always (it names the device in Disk Management and
+        // \\.\PhysicalDriveN), then any drive letters, as a separate bracket
+        // so no new translatable string is needed.
         QString label = tr("[Disk %1]").arg(dev.deviceNumber);
         if (!dev.letters.isEmpty())
         {
@@ -2325,20 +2080,10 @@ bool MainWindow::fileIsOnSelectedDevice(const QString &file)
 
 void MainWindow::on_showAllDevicesCheckBox_toggled(bool)
 {
-    // Through rescanDevices(), not straight to getLogicalDrives(). Ticking
-    // this box is what asks for the fixed disks, which are the ones that may
-    // be spun down -- so of the three places a scan starts, this is the one
-    // most likely to take twelve seconds, and it was the one that showed
-    // nothing at all while it did.
-    //
-    // Deferred, and deliberately not by zero. The tick is animated by the
-    // Windows style, and an animation advances only while the event loop is
-    // running: a single pass of processEvents draws its first frame, which is
-    // an empty box. Scanning straight from this slot therefore left the
-    // checkbox drawn unticked for the whole wait, next to a status bar saying
-    // it was scanning -- which reads as the click having been ignored, and was
-    // measured doing exactly that four seconds into a stalled scan. Letting
-    // the loop run first costs a quarter second against a wait of twelve.
+    // Via rescanDevices(): this is the scan most likely to hit spun-down
+    // fixed disks. Delayed by SCAN_SETTLE_MS, not 0: the Windows style
+    // animates the tick only while the event loop runs, so an immediate scan
+    // leaves the box drawn unticked for the whole wait.
     QTimer::singleShot(SCAN_SETTLE_MS, this, [this]() { rescanDevices(); });
 }
 
@@ -2360,15 +2105,14 @@ void MainWindow::on_readXzCheckBox_toggled(bool checked)
 
 void MainWindow::on_choosePartitionsCheckBox_toggled(bool checked)
 {
-    // Any partition selection implies repacking, so this always forces
-    // "Shrink image on Read" on too, and locks it there so the user cannot
-    // uncheck it out from under the selection they just made.
+    // A partition selection needs the shrink plan, so force "Shrink image on
+    // Read" on and lock it while this is checked.
     shrinkOnReadCheckBox->setChecked(checked || shrinkOnReadCheckBox->isChecked());
     shrinkOnReadCheckBox->setEnabled(!checked);
 }
 
-// register to receive notifications when USB devices are inserted or removed
-// adapted from http://www.known-issues.net/qt/qt-detect-event-windows.html
+// Rebuilds the device list on WM_DEVICECHANGE arrival/removal.
+// Adapted from http://www.known-issues.net/qt/qt-detect-event-windows.html
 bool MainWindow::nativeEvent(const QByteArray &type, void *vMsg, qintptr *result)
 {
     Q_UNUSED(type);
@@ -2401,9 +2145,8 @@ void MainWindow::updateHashControls()
 
     bHashCopy->setEnabled(false);
     hashLabel->clear();
-    // An empty hash line is a blank row; let the group close up until there is
-    // something to show. This one does not retain its space: the point is the
-    // height it gives back.
+    // Hidden while empty and, unlike the progress bar, not keeping its
+    // space, so the group closes up.
     hashLabel->setVisible(false);
 
     if (cboxHashType->currentIndex() != 0 && !leFile->text().isEmpty() && validFile)
@@ -2415,13 +2158,11 @@ void MainWindow::updateHashControls()
         bHashGen->setEnabled(false);
     }
 
-    // Copy stays disabled: this function has just cleared the label, so there
-    // is nothing to copy. generateHash() enables it once a digest exists.
+    // generateHash() enables Copy once a digest exists.
 }
 
-// A different image file has been named -- typed, browsed to, dropped, or given
-// on the command line. Everything that depends on which file it is is settled
-// here, so a fourth way of naming one cannot end up doing two thirds of it.
+// Everything that depends on which image file is named, for every way of
+// naming one (typed, browsed to, dropped, command line).
 void MainWindow::imageFileChanged()
 {
     defaultHashTypeForFile();

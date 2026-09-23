@@ -38,13 +38,10 @@
 #include "disk.h"
 #include "mainwindow.h"
 
-// Report a Win32 failure with the system's own description of it. `message`
-// carries %1 for the error code and %2 for that description, or the next two
-// free placeholders when the caller has already filled some in.
-//
-// The code is read once, up front: FormatMessageW and the dialog can both
-// overwrite it, so reading it again at the end -- as all ten copies of this
-// did -- risks reporting an error other than the one that happened.
+// Report a Win32 failure with the system's description of it. `message`
+// carries %1 for the error code and %2 for the description (or the next two
+// free placeholders). GetLastError() is read first because FormatMessageW and
+// the dialog can overwrite it.
 static void reportWin32Error(const QString &title, const QString &message)
 {
     DWORD code = GetLastError();
@@ -75,10 +72,9 @@ HANDLE getHandleOnDevice(int device, DWORD access)
 {
     HANDLE hDevice;
     QString devicename = QString("\\\\.\\PhysicalDrive%1").arg(device);
-    // Prefer sharing reads only: allowing concurrent writers lets Windows
-    // modify the partition table underneath us while the image is written.
-    // Fall back to the permissive mode rather than failing outright, since an
-    // exclusive open is refused if anything still holds the disk.
+    // Prefer sharing reads only, so Windows cannot modify the partition table
+    // while the image is written. That open is refused while another handle
+    // has the disk open for writing, so fall back to sharing writes too.
     hDevice = CreateFile(devicename.toLatin1().data(), access, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
     if (hDevice == INVALID_HANDLE_VALUE)
     {
@@ -124,7 +120,6 @@ bool unmountVolume(HANDLE handle)
 
 char *readSectorDataFromHandle(HANDLE handle, unsigned long long startsector, unsigned long long numsectors, unsigned long long sectorsize)
 {
-    // Add overflow check
     if (sectorsize == 0 || numsectors > ULLONG_MAX / sectorsize) {
         reportWin32Error(QObject::tr("Read Error"),
                          QObject::tr("Sector count too large."));
@@ -141,8 +136,7 @@ char *readSectorDataFromHandle(HANDLE handle, unsigned long long startsector, un
     }
     LARGE_INTEGER li;
     li.QuadPart = startsector * sectorsize;
-    // Checked the way rawSeekRead does it. A seek that silently failed would
-    // read from wherever the pointer happened to be.
+    // An unchecked failed seek would read from wherever the pointer was.
     if (SetFilePointer(handle, li.LowPart, &li.HighPart, FILE_BEGIN) == INVALID_SET_FILE_POINTER
         && GetLastError() != NO_ERROR)
     {
@@ -173,8 +167,7 @@ bool writeSectorDataToHandle(HANDLE handle, char *data, unsigned long long start
     BOOL bResult;
     LARGE_INTEGER li;
     li.QuadPart = startsector * sectorsize;
-    // Checked, and this one matters most: a seek that silently failed would put
-    // this chunk of the image somewhere else on the device entirely.
+    // An unchecked failed seek would put this chunk elsewhere on the device.
     if (SetFilePointer(handle, li.LowPart, &li.HighPart, FILE_BEGIN) == INVALID_SET_FILE_POINTER
         && GetLastError() != NO_ERROR)
     {
@@ -193,9 +186,7 @@ bool writeSectorDataToHandle(HANDLE handle, char *data, unsigned long long start
     }
     if (byteswritten != sectorsize * numsectors)
     {
-        // WriteFile can report success having written less than it was asked
-        // to. Counting that as a whole chunk leaves a hole in the image on the
-        // device that nothing notices until it fails to boot.
+        // WriteFile can succeed with a short write, leaving a silent hole.
         QMessageBox::critical(MainWindow::getInstanceIfAvailable(), QObject::tr("Write Error"),
             QObject::tr("The device took only %1 of %2 bytes. The image on the device "
                         "is incomplete.")
@@ -218,8 +209,6 @@ unsigned long long getNumberOfSectors(HANDLE handle, unsigned long long *sectors
         reportWin32Error(QObject::tr("Device Error"),
                          QObject::tr("An error occurred when attempting to get the device's geometry.\n"
                          "Error %1: %2"));
-        // Tell the caller this was reported, so it does not stack a second
-        // dialog blaming a removed card for what was an ioctl failure.
         if (reported != NULL) *reported = true;
         return 0;
     }
@@ -229,11 +218,7 @@ unsigned long long getNumberOfSectors(HANDLE handle, unsigned long long *sectors
     }
     if (diskgeometry.Geometry.BytesPerSector == 0)
     {
-        // Nothing else here divides by a sector size without checking it first,
-        // and this is the one place that would fault the process rather than
-        // return something wrong. Zero is a size every caller already stops on;
-        // what they then say -- that the device reports no size -- is near
-        // enough to a device that reports no sector size.
+        // Avoid dividing by zero; callers already treat 0 sectors as failure.
         return 0;
     }
     return (unsigned long long)diskgeometry.DiskSize.QuadPart / (unsigned long long)diskgeometry.Geometry.BytesPerSector;
@@ -247,7 +232,6 @@ unsigned long long getFileSizeInSectors(HANDLE handle, unsigned long long sector
         LARGE_INTEGER filesize;
         if(GetFileSizeEx(handle, &filesize) == 0)
         {
-            // error
             reportWin32Error(QObject::tr("File Error"),
                              QObject::tr("An error occurred while getting the file size.\n"
                              "Error %1: %2"));
@@ -280,12 +264,9 @@ bool spaceAvailable(const QString &location, unsigned long long spaceneeded)
 
 
 
-// Open a volume by drive letter and report which physical disk it lives on.
-// access is what CreateFile is asked for: 0 puts the question without needing
-// the volume to be readable by us and without disturbing whatever else has it
-// open, while a caller that means to lock the volume asks for read and write.
-// Returns INVALID_HANDLE_VALUE unless the volume opened and named a disk, so
-// *disk is set whenever a handle comes back.
+// Open a volume by drive letter and set *disk to the physical disk of its
+// first extent. access 0 queries without needing read rights and without
+// disturbing other openers. Returns INVALID_HANDLE_VALUE unless *disk was set.
 static HANDLE openVolumeOnDisk(char letter, DWORD access, int *disk)
 {
     char volumename[] = "\\\\.\\A:";
@@ -309,10 +290,9 @@ static HANDLE openVolumeOnDisk(char letter, DWORD access, int *disk)
     return h;
 }
 
-// Whether an open volume has any extent on physical disk deviceID. A spanned
-// or mirrored volume has one extent per disk, and a bare VOLUME_DISK_EXTENTS
-// holds only one, so the query is sized for several -- otherwise it fails
-// with ERROR_MORE_DATA and such a volume is never recognised at all.
+// Whether an open volume has any extent on physical disk deviceID. The buffer
+// is sized for many extents: a bare VOLUME_DISK_EXTENTS holds one, and a
+// spanned or mirrored volume would fail with ERROR_MORE_DATA.
 static bool volumeIsOnDisk(HANDLE h, DWORD deviceID)
 {
     const DWORD MAX_EXTENTS = 64;
@@ -334,9 +314,8 @@ static bool volumeIsOnDisk(HANDLE h, DWORD deviceID)
     return false;
 }
 
-// Open a volume by its \\?\Volume{GUID}\ name. CreateFile opens the volume
-// device only without the trailing backslash; with it, it opens the root
-// directory of the filesystem instead, which takes no volume ioctls.
+// Open a volume by its \\?\Volume{GUID}\ name, minus the trailing backslash:
+// with it, CreateFile opens the root directory, which takes no volume ioctls.
 static HANDLE openVolumeByName(const wchar_t *guidname, DWORD access)
 {
     std::wstring device(guidname);
@@ -364,16 +343,13 @@ static QString volumeDisplayName(const wchar_t *guidname)
 
 bool pathIsOnDisk(const QString &path, ULONG deviceID)
 {
-    // The file may not exist yet -- Read is about to create it -- so ask about
-    // the directory it goes in.
+    // The file may not exist yet, so ask about its directory.
     QFileInfo fi(path);
     QString probe = QDir::toNativeSeparators(fi.exists() ? fi.absoluteFilePath()
                                                          : fi.absolutePath());
     std::wstring wprobe = probe.toStdWString();
 
-    // Which volume holds the path, found through its mount point. This is what
-    // catches a card partition mounted as a folder, e.g. C:\mnt\card: going by
-    // the drive letter alone, that path looks like it is on C:.
+    // Via the mount point, so C:\mnt\card resolves to the card, not C:.
     wchar_t mountpoint[MAX_PATH + 1] = {0};
     wchar_t guidname[MAX_PATH + 1] = {0};
     if (GetVolumePathNameW(wprobe.c_str(), mountpoint, MAX_PATH)
@@ -389,8 +365,8 @@ bool pathIsOnDisk(const QString &path, ULONG deviceID)
     }
 
     // A SUBST drive has no mount point of its own, but \\.\X: still opens the
-    // volume underneath it -- the only check that existed before, kept as the
-    // fallback. Anything else, a UNC share included, is on no local disk.
+    // volume underneath it. Anything else, a UNC share included, is on no
+    // local disk.
     if (probe.length() >= 2 && probe.at(1) == QChar(':'))
     {
         wchar_t device[] = L"\\\\.\\A:";
@@ -480,10 +456,8 @@ bool diskPartitionNumbers(HANDLE hRawDisk, unsigned long long sectorsize,
     {
         return false;
     }
-    // The partition count is not known ahead of time, so this grows the
-    // buffer and retries until the ioctl stops asking for more room. 32
-    // entries covers any real device on the first try; the cap just keeps a
-    // pathological reply from growing forever.
+    // Grow the buffer until the ioctl stops asking for more room, capped at
+    // about 4MiB.
     DWORD size = sizeof(DRIVE_LAYOUT_INFORMATION_EX) + 32 * sizeof(PARTITION_INFORMATION_EX);
     QByteArray buf(size, 0);
     DWORD bytesreturned = 0;
@@ -508,8 +482,7 @@ bool diskPartitionNumbers(HANDLE hRawDisk, unsigned long long sectorsize,
     for (DWORD i = 0; i < layout->PartitionCount; ++i)
     {
         const PARTITION_INFORMATION_EX &p = layout->PartitionEntry[i];
-        // An unused table slot is reported with a partition number of 0
-        // (GPT) or an MBR type byte of 0; neither is a real partition.
+        // Unused slots come back with partition number 0 or MBR type 0.
         if (p.PartitionNumber == 0)
         {
             continue;
@@ -550,8 +523,7 @@ QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed)
     QList<PhysicalDevice> devices;
     const int systemDisk = systemDiskNumber();
 
-    // 128 covers anything a machine is likely to have attached; the numbers are
-    // not dense, so the loop cannot stop at the first gap.
+    // Disk numbers are not dense, so do not stop at the first gap.
     for (ULONG n = 0; n < 128; ++n)
     {
         QString devicename = QString("\\\\.\\PhysicalDrive%1").arg(n);
@@ -594,29 +566,9 @@ QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed)
         }
         delete[] buf;
 
-        // The two filters that can be settled without a size are applied here,
-        // ahead of the geometry call, and a disk failing either is dropped
-        // without ever being asked how big it is.
-        //
-        // Asking is what wakes a sleeping disk. Measured on a spun-down 4 TB
-        // SATA drive: opening the handle 0.8 ms, the descriptor query above
-        // 0.0 ms, the geometry call below 11,911 ms. The disk was still in
-        // standby after the descriptor query -- which is how we know the
-        // geometry call spun it up, and not the open or the classification.
-        //
-        // Nothing cheaper answers either: a drive in standby spins up for any
-        // command that needs the media, and capacity is not one of the
-        // exceptions. So the fix is not to ask more cheaply but not to ask at
-        // all about a disk that is about to be discarded. With "Show all
-        // devices" off -- the default, and where every session starts -- the
-        // machine's internal disks are classified out of metadata their
-        // drivers already hold and their platters are never touched. Ticking
-        // it asks for them by name, and the wait is the price of a real size.
-        //
-        // This is ordering only. A device still has to pass every one of these
-        // tests, so the list itself is unchanged.
-
-        // Never offer the disk Windows is running from, whatever the filter.
+        // Filter before the geometry query: asking a disk in standby for its
+        // size spins it up (seconds for an HDD), whereas the open and the
+        // descriptor query do not. Disks about to be dropped are never asked.
         if (systemDisk >= 0 && (int)n == systemDisk)
         {
             CloseHandle(hDevice);
@@ -628,13 +580,9 @@ QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed)
             continue;
         }
 
-        // A card reader with no card in it still has a PhysicalDrive node, but
-        // reports no size. Size doubles as the "media present" test that
-        // IOCTL_STORAGE_CHECK_VERIFY used to provide.
-        //
-        // Geometry rather than IOCTL_DISK_GET_LENGTH_INFO: the latter demands
-        // FILE_READ_ACCESS on the handle and returns nothing for a handle
-        // opened purely to query, which would empty the list entirely.
+        // An empty card reader reports no size, so size doubles as the
+        // media-present test. Not IOCTL_DISK_GET_LENGTH_INFO: it requires
+        // FILE_READ_ACCESS, which this zero-access handle lacks.
         DISK_GEOMETRY_EX geometry;
         DWORD junk;
         if (DeviceIoControl(hDevice, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, NULL, 0,
@@ -660,18 +608,14 @@ QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed)
 
 bool LockedVolumes::lockAll(DWORD deviceID)
 {
-    // Every volume, not every drive letter. A partition mounted as a folder,
-    // or not mounted anywhere a letter shows, is just as live: walking A: to Z:
-    // left it mounted, and Windows refuses raw writes to a mounted volume's
-    // sectors, so the write failed partway through with the card half
-    // overwritten. Volumes on other disks are left alone.
+    // Enumerate volumes, not drive letters: a folder-mounted or letterless
+    // volume is just as live, and Windows refuses raw writes to a mounted
+    // volume's sectors, failing the write partway through.
     wchar_t guidname[MAX_PATH + 1] = {0};
     HANDLE find = FindFirstVolumeW(guidname, MAX_PATH);
     if (find == INVALID_HANDLE_VALUE)
     {
-        // Every machine has at least the volume Windows runs from, so this is
-        // a failure, not an empty list -- and going ahead would write to a
-        // disk whose volumes nobody checked.
+        // There is always at least the system volume, so this is a failure.
         QMessageBox::critical(MainWindow::getInstanceIfAvailable(), QObject::tr("Lock Error"),
                               QObject::tr("Could not list the volumes on this computer.\n"
                                           "Error %1").arg(GetLastError()));
@@ -680,8 +624,8 @@ bool LockedVolumes::lockAll(DWORD deviceID)
     bool ok = true;
     do
     {
-        // Asked with no access first: only the target disk's volumes are
-        // opened for writing.
+        // Probe with no access; only the target disk's volumes are opened
+        // for writing.
         HANDLE probe = openVolumeByName(guidname, 0);
         if (probe == INVALID_HANDLE_VALUE)
         {
@@ -704,9 +648,8 @@ bool LockedVolumes::lockAll(DWORD deviceID)
             ok = false;
             break;
         }
-        // A volume that is merely busy (indexer, antivirus, an open Explorer
-        // window) fails FSCTL_LOCK_VOLUME with ERROR_ACCESS_DENIED, so retry
-        // rather than giving up on the first refusal.
+        // A briefly busy volume (indexer, antivirus, Explorer) fails the lock
+        // with ERROR_ACCESS_DENIED, so retry for about two seconds.
         bool gotlock = false;
         DWORD junk;
         for (int attempt = 0; attempt < 20 && !gotlock; ++attempt)
@@ -755,9 +698,8 @@ void LockedVolumes::release()
 
 bool flushDevice(HANDLE handle)
 {
-    // Deliberately no IOCTL_DISK_UPDATE_PROPERTIES here: asking Windows to
-    // re-read the partition table is what triggers the automatic GPT "repair"
-    // that rewrites the table we just wrote.
+    // No IOCTL_DISK_UPDATE_PROPERTIES: a partition table re-read triggers
+    // Windows' GPT rewrite (see disk.h).
     return FlushFileBuffers(handle);
 }
 
@@ -886,9 +828,7 @@ static bool rawSeekWrite(HANDLE h, unsigned long long offset, const void *buf, D
     return WriteFile(h, buf, len, &put, NULL) && put == len;
 }
 
-// An entry describes a partition when its type GUID is anything but zero. The
-// array is mostly empty on a normal table -- 128 slots, a handful used -- so
-// every walk over it has to skip the rest.
+// An entry is in use when its type GUID is non-zero.
 static bool gptEntryInUse(const unsigned char *e)
 {
     for (int b = 0; b < 16; ++b)
@@ -901,9 +841,9 @@ static bool gptEntryInUse(const unsigned char *e)
     return false;
 }
 
-// Validate a GPT header's entry-array geometry and report the space it takes.
-// The signature is the caller's business: some of them tell "no GPT here" apart
-// from "a GPT that makes no sense", and the two mean different things.
+// Validate a GPT header's entry-array geometry and report the sectors it
+// takes. The signature is not checked: callers distinguish "no GPT" from
+// "malformed GPT" themselves.
 static bool gptEntryGeometry(const unsigned char *hdr, unsigned long long sectorsize,
                              unsigned long long *entrysectors)
 {
@@ -943,7 +883,6 @@ GptFixResult relocateBackupGPT(HANDLE hRawDisk, unsigned long long sectorsize,
         return GPT_FIX_BAD_GPT;
     }
 
-    // Verify the header we are about to rewrite is itself intact.
     {
         QByteArray probe = primary.left(headersize);
         wr32((unsigned char *)probe.data(), GPT_OFF_HEADERCRC, 0);
@@ -971,14 +910,11 @@ GptFixResult relocateBackupGPT(HANDLE hRawDisk, unsigned long long sectorsize,
         return GPT_FIX_NOT_NEEDED;
     }
 
-    // Entry array, rounded up to a whole number of sectors.
     unsigned long long entrybytes = numentries * entrysize;
     unsigned long long entrysectors = (entrybytes + sectorsize - 1) / sectorsize;
     if (entrysectors + 2 >= devicesectors)
     {
-        // The arithmetic below subtracts this from the last LBA. A table
-        // claiming more entries than the device can hold would wrap round and
-        // put the backup GPT at an enormous sector number.
+        // Guards the subtraction from the last LBA below against wrapping.
         if (detail) *detail = QObject::tr("the GPT entry array does not fit on the device");
         return GPT_FIX_BAD_GPT;
     }
@@ -988,13 +924,9 @@ GptFixResult relocateBackupGPT(HANDLE hRawDisk, unsigned long long sectorsize,
         return GPT_FIX_FAILED;
     }
 
-    // Nothing here modifies the entry array, so the checksum in the header must
-    // already describe it. Recomputing and storing it instead would hand a
-    // damaged table a fresh valid checksum -- and on a table Windows has
-    // already rewritten, where PartitionEntryLBA points at empty space, it
-    // would overwrite the one field still recording what the real entries hash
-    // to. That field is exactly what repairPrimaryGpt() uses to find them
-    // again, so destroying it would make the damage unrepairable.
+    // Verify, never recompute, the entry CRC: on a table Windows has already
+    // rewritten it is the only record of the real entries, and
+    // repairPrimaryGpt() needs it to find them.
     if (gptCrc32((const unsigned char *)entries.constData(), (size_t)entrybytes)
         != rd32(hdr, GPT_OFF_ENTRIESCRC))
     {
@@ -1006,8 +938,6 @@ GptFixResult relocateBackupGPT(HANDLE hRawDisk, unsigned long long sectorsize,
     unsigned long long backupentries = backuphdr - entrysectors;
     unsigned long long firstusable   = rd64(hdr, GPT_OFF_FIRSTUSABLE);
     unsigned long long lastusable    = backupentries - 1;
-    // Where the image left its backup GPT. Kept before the header is rewritten
-    // so the stale copy can be cleared once the new one is in place.
     unsigned long long oldbackuphdr  = rd64(hdr, GPT_OFF_ALTLBA);
 
     if (backupentries <= firstusable || lastusable <= firstusable)
@@ -1015,8 +945,7 @@ GptFixResult relocateBackupGPT(HANDLE hRawDisk, unsigned long long sectorsize,
         return GPT_FIX_FAILED;
     }
 
-    // No partition may extend past the new last usable LBA. Growing the usable
-    // area cannot cause that, but a malformed table could.
+    // Only a malformed table can have a partition past the new LastUsableLBA.
     for (unsigned long long i = 0; i < numentries; ++i)
     {
         const unsigned char *e = (const unsigned char *)entries.constData() + i * entrysize;
@@ -1031,12 +960,10 @@ GptFixResult relocateBackupGPT(HANDLE hRawDisk, unsigned long long sectorsize,
         }
     }
 
-    // Rebuild the primary header in place. Only the fields that describe where
-    // the device ends change: PartitionEntryLBA and FirstUsableLBA are left
-    // exactly as the image wrote them. Forcing the entry array to LBA 2 would
-    // move it out from under a FirstUsableLBA that still reserves room ahead of
-    // it -- the very mismatch this repair exists to remove -- and would write
-    // over whatever the image put between LBA 2 and the array.
+    // Only the fields describing where the device ends change. Leave
+    // PartitionEntryLBA and FirstUsableLBA as the image wrote them: moving the
+    // entry array could overwrite what the image reserved ahead of
+    // FirstUsableLBA.
     wr64(hdr, GPT_OFF_MYLBA, 1);
     wr64(hdr, GPT_OFF_ALTLBA, backuphdr);
     wr64(hdr, GPT_OFF_LASTUSABLE, lastusable);
@@ -1061,8 +988,7 @@ GptFixResult relocateBackupGPT(HANDLE hRawDisk, unsigned long long sectorsize,
     {
         return GPT_FIX_FAILED;
     }
-    // The primary entry array is not rewritten: it was read from entrylba, it
-    // has not changed, and it is already where the header says it is.
+    // The primary entry array is unchanged and not rewritten.
     if (!rawSeekWrite(hRawDisk, sectorsize, hdr, (DWORD)sectorsize))
     {
         return GPT_FIX_FAILED;
@@ -1088,16 +1014,11 @@ GptFixResult relocateBackupGPT(HANDLE hRawDisk, unsigned long long sectorsize,
         }
     }
 
-    // The image's own backup GPT is still sitting where the image ended, in the
-    // middle of the device. Nothing reads it -- both Windows and Linux follow
-    // the pointers in the primary header, which now lead to the copy at the end
-    // -- but a stray "EFI PART" signature mid-device is exactly the kind of
-    // thing a later scan, clone or recovery tool picks up and acts on. Clear it
-    // now that the relocated pair is on the disk.
-    //
-    // Only a sector that really is the stale backup header is touched, and only
-    // once every location involved has been checked. Failing to clear it does
-    // not fail the repair: the table on the device is already correct.
+    // Clear the image's stale backup GPT mid-device: nothing follows the
+    // pointers to it, but scan, clone and recovery tools may act on a stray
+    // "EFI PART" signature. Only when that sector really is the stale backup
+    // header and no partition or the new table overlaps it; failure here does
+    // not fail the repair.
     bool stalecleared = false;
     if (oldbackuphdr >= 2 && oldbackuphdr < backupentries)
     {
@@ -1107,24 +1028,18 @@ GptFixResult relocateBackupGPT(HANDLE hRawDisk, unsigned long long sectorsize,
             && memcmp(shdr + GPT_OFF_SIGNATURE, "EFI PART", 8) == 0
             && rd64(shdr, GPT_OFF_MYLBA) == oldbackuphdr)
         {
-            // Its entry array, as that header itself describes it, rather than
-            // an assumption about where it ought to be.
             unsigned long long staleentrylba = rd64(shdr, GPT_OFF_ENTRYLBA);
             unsigned long long stalefirst = staleentrylba;
             unsigned long long stalelast  = oldbackuphdr;
             if (staleentrylba < 2 || staleentrylba > oldbackuphdr
                 || oldbackuphdr - staleentrylba != entrysectors)
             {
-                // Not the layout this code understands; clear the header sector
-                // alone, which is what carries the signature.
+                // Array not directly below the header: clear the header alone.
                 stalefirst = oldbackuphdr;
             }
 
-            // Never touch anything a partition claims, nor the area the new
-            // table occupies.
-            // At or past FirstUsableLBA keeps it clear of LBA 0/1 and the
-            // primary entry array; below the new entry array keeps it clear of
-            // the table just written.
+            // Stay within [FirstUsableLBA, new backup array) and outside every
+            // partition.
             bool safe = (stalefirst >= firstusable) && (stalelast < backupentries);
             for (unsigned long long i = 0; safe && i < numentries; ++i)
             {
@@ -1166,18 +1081,15 @@ GptFixResult relocateBackupGPT(HANDLE hRawDisk, unsigned long long sectorsize,
     return GPT_FIX_OK;
 }
 
-// One primary MBR entry worth keeping track of while packing: its slot in
-// the table (so the right entry gets its start field patched) and where it
-// currently is.
+// One in-use primary MBR entry: its table slot and current extent.
 struct MbrSlot
 {
     int idx;
     unsigned long long first, count;
 };
 
-// Reads and validates sector 0 as an MBR (boot signature present). Returns
-// false, leaving *sector0 untouched, if the device is too small or the
-// signature is missing.
+// Read sector 0 into *sector0 if it has an MBR boot signature; otherwise
+// return false with *sector0 untouched.
 static bool readValidMbr(HANDLE hRawDisk, unsigned long long sectorsize,
                          unsigned long long devicesectors, QByteArray *sector0)
 {
@@ -1196,12 +1108,10 @@ static bool readValidMbr(HANDLE hRawDisk, unsigned long long sectorsize,
     return true;
 }
 
-// Every in-use primary entry in mbr's table, by slot, in the order it
-// currently starts on the device. Entries of type 0 (empty) and 0xEE
-// (protective GPT -- this MBR is not really the partition table for a disk
-// that has one) are both skipped; only the four primary entries are looked
-// at, extended/logical partitions are not. Returns false, via *detail, if an
-// entry describes a range that cannot be right.
+// Append every in-use primary entry to *order, in slot order (callers sort).
+// Skips empty, zero-length and 0xEE (GPT protective) entries; extended/logical
+// partitions are not walked. Returns false, via *detail, on an impossible
+// range.
 static bool walkMbrEntries(const unsigned char *mbr, unsigned long long devicesectors,
                            QList<MbrSlot> *order, QString *detail)
 {
@@ -1248,13 +1158,6 @@ bool listMbrPartitions(HANDLE hRawDisk, unsigned long long sectorsize,
     {
         return false;
     }
-    // Table order is whatever slot the partition happens to occupy, which
-    // has nothing to do with where it sits on the disk -- a partition
-    // deleted and recreated later can land in an earlier slot than one
-    // physically ahead of it. List by starting sector instead, the same
-    // order Windows' own partition numbering (and diskpart) uses, so
-    // "Partition 2" here means the same partition "Partition 2" means
-    // there.
     std::sort(order.begin(), order.end(), [](const MbrSlot &a, const MbrSlot &b)
     {
         return a.first < b.first;
@@ -1289,10 +1192,6 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     }
     unsigned char *mbr = (unsigned char *)sector0.data();
 
-    // Every in-use primary entry, by its slot in the table, in the order it
-    // currently starts -- the same packing order planGptShrink() uses, and
-    // for the same reason: nothing crosses over anything else. Only the four
-    // primary entries are looked at; extended/logical partitions are not.
     QList<MbrSlot> order;
     if (!walkMbrEntries(mbr, devicesectors, &order, detail))
     {
@@ -1327,9 +1226,7 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         unsigned long long newlast  = newfirst + s.count - 1;
         if (newfirst > 0xFFFFFFFFull)
         {
-            // The classic MBR start field is 32 bits; a device needing more
-            // than that to describe a repacked start is not one this table
-            // format can express, shrunk or not.
+            // The MBR start field is 32 bits.
             if (detail) *detail = QObject::tr("the repacked layout no longer fits a 32-bit MBR entry");
             return false;
         }
@@ -1353,9 +1250,8 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     return true;
 }
 
-// Reads and validates the primary GPT header and its entry array. On
-// success every out parameter describes the table as found on the device;
-// on failure they are untouched and, when given, *detail explains why.
+// Read and validate the primary GPT header and entry array. On failure the
+// outputs are untouched and *detail, when given, may explain why.
 static bool readValidGpt(HANDLE hRawDisk, unsigned long long sectorsize,
                          unsigned long long devicesectors, QByteArray *primaryOut,
                          QByteArray *entriesOut, unsigned long long *entrylbaOut,
@@ -1410,10 +1306,9 @@ static bool readValidGpt(HANDLE hRawDisk, unsigned long long sectorsize,
     if (firstusable < entrylba + entrysectors || firstusable >= devicesectors
         || firstusable > devicesectors / 2)
     {
-        // The second bound is a sanity check, not a spec requirement: the
-        // reserved area ahead of FirstUsableLBA is read whole, in one piece,
-        // below, and a table claiming most of the device as "reserved" is not
-        // one this repack should guess about.
+        // The devicesectors / 2 bound is a sanity check, not a spec rule:
+        // planGptShrink() reads everything ahead of FirstUsableLBA in one
+        // piece.
         if (detail) *detail = QObject::tr("FirstUsableLBA is not usable for repacking");
         return false;
     }
@@ -1487,13 +1382,6 @@ bool listGptPartitions(HANDLE hRawDisk, unsigned long long sectorsize,
         info.name = gptEntryName(e);
         found.append(qMakePair(first, info));
     }
-    // Entry-array order is whatever slot the partition happens to occupy,
-    // which has nothing to do with where it sits on the disk -- a partition
-    // deleted and recreated later can land in an earlier slot than one
-    // physically ahead of it. List by starting sector instead, the same
-    // order Windows' own partition numbering (and diskpart) uses, so
-    // "Partition 2" here means the same partition "Partition 2" means
-    // there.
     std::sort(found.begin(), found.end(), [](const QPair<unsigned long long, PartitionInfo> &a,
                                               const QPair<unsigned long long, PartitionInfo> &b)
     {
@@ -1529,9 +1417,7 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     DWORD headersize = rd32(hdr, GPT_OFF_HEADERSIZE);
     unsigned long long entrybytes = numentries * entrysize;
 
-    // Every in-use partition, by its slot in the entry array, in the order it
-    // currently starts -- packing follows that order, so nothing changes
-    // relative to anything else, only the gaps between them disappear.
+    // Kept slots, sorted by start below so packing preserves on-disk order.
     QList<int> order;
     for (unsigned long long i = 0; i < numentries; ++i)
     {
@@ -1586,13 +1472,8 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         return false;
     }
 
-    // Everything from here on describes the repacked layout, not the device:
-    // a fresh backup entry array and header right after the data, and the
-    // primary header updated to point at them -- exactly what
-    // relocateBackupGPT() does for a real device, just computed up front so
-    // it can be written once, in order, instead of read back and patched
-    // afterward. That is what lets a compressed output stream use this too:
-    // there is no going back to fix up bytes already handed to the encoder.
+    // From here on, the repacked image: backup array and header right after
+    // the data, as relocateBackupGPT() would place them.
     unsigned long long lastlba      = cursor + entrysectors;
     unsigned long long backuphdr    = lastlba;
     unsigned long long backupentries = cursor;
@@ -1600,9 +1481,7 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
 
     wr64(hdr, GPT_OFF_ALTLBA, backuphdr);
     wr64(hdr, GPT_OFF_LASTUSABLE, lastusable);
-    // The entries moved, so the checksum describing them has to be redone;
-    // that and the fields above change the header bytes, so its own checksum
-    // follows.
+    // The entries changed, so both CRCs are redone.
     wr32(hdr, GPT_OFF_ENTRIESCRC, gptCrc32((const unsigned char *)entries.constData(), (size_t)entrybytes));
     wr32(hdr, GPT_OFF_HEADERCRC, 0);
     wr32(hdr, GPT_OFF_HEADERCRC, gptCrc32(hdr, headersize));
@@ -1615,9 +1494,7 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     memcpy(region.data() + sectorsize, hdr, headersize);
     memcpy(region.data() + entrylba * sectorsize, entries.constData(), (size_t)entries.size());
 
-    // The protective MBR must span the repacked image too, or Windows sees a
-    // mismatch and "fixes" it -- the same adjustment relocateBackupGPT() makes
-    // on a real device. Only a genuine 0xEE protective entry is touched.
+    // Protective MBR span, as in relocateBackupGPT().
     unsigned char *mbr = (unsigned char *)region.data();
     if (mbr[450] == 0xEE)
     {
@@ -1628,8 +1505,7 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         }
     }
 
-    // The backup header is the primary with MyLBA/AlternateLBA swapped and its
-    // own copy of the entry array, exactly as relocateBackupGPT() builds it.
+    // Backup header, built as in relocateBackupGPT().
     QByteArray backup(sectorsize, 0);
     unsigned char *bhdr = (unsigned char *)backup.data();
     memcpy(bhdr, hdr, headersize);
@@ -1669,10 +1545,8 @@ bool deviceHasMbrTable(HANDLE hRawDisk, unsigned long long sectorsize)
     {
         return false;
     }
-    // Four 16-byte entries at 446; byte 4 of each is the partition type. 0xEE
-    // is the protective entry that fronts a GPT, which is not an MBR table in
-    // the sense meant here: a device whose GPT header is missing or damaged
-    // would otherwise be reported as an MBR image.
+    // 0xEE is skipped so a device with a damaged GPT header is not reported
+    // as an MBR image.
     for (int i = 0; i < 4; ++i)
     {
         unsigned char type = mbr[446 + i * 16 + 4];
@@ -1718,8 +1592,7 @@ GptRewriteRisk gptRewriteRisk(HANDLE hRawDisk, unsigned long long sectorsize)
     return (firstusable - entrysectors == entrylba) ? GPT_RISK_SAFE : GPT_RISK_AFFECTED;
 }
 
-// Read the primary header and check it against itself. Returns the header in
-// *header when it is well enough formed to judge.
+// Read the primary header into *header and check its signature, size and CRC.
 static GptPrimaryState readPrimaryForCheck(HANDLE hRawDisk, unsigned long long sectorsize,
                                            QByteArray *header)
 {
@@ -1743,8 +1616,7 @@ static GptPrimaryState readPrimaryForCheck(HANDLE hRawDisk, unsigned long long s
     if (gptCrc32((const unsigned char *)probe.constData(), headersize)
         != rd32(hdr, GPT_OFF_HEADERCRC))
     {
-        // A header that fails its own checksum is damaged some other way. The
-        // rewrite this is looking for leaves one that passes.
+        // Windows' rewrite leaves a header that passes; this is other damage.
         return GPT_PRIMARY_UNKNOWN;
     }
     return GPT_PRIMARY_OK;
@@ -1813,10 +1685,6 @@ bool repairPrimaryGpt(HANDLE hRawDisk, unsigned long long sectorsize,
         return false;
     }
 
-    // The rewrite moves the pointer but leaves PartitionEntryArrayCRC32 alone,
-    // so the header still says what the real entries hash to. That checksum is
-    // what identifies them, and the entries have not moved: LBA 2 is where a
-    // primary array lives. Confirm by checksum rather than assume.
     DWORD wantcrc = rd32(hdr, GPT_OFF_ENTRIESCRC);
     size_t crclen = (size_t)(rd32(hdr, GPT_OFF_NUMENTRIES) * rd32(hdr, GPT_OFF_ENTRYSIZE));
     if (2ull + entrysectors > devicesectors)
@@ -1878,9 +1746,9 @@ bool gptImageBackupRange(const unsigned char *lba1, unsigned long long sectorsiz
         return false;
     }
 
-    // Same shape as the clearing code in relocateBackupGPT: the entry array
-    // sits directly below the header, and where it does not, only the header
-    // sector carries the signature and only that one gets cleared.
+    // Assume the entry array sits directly below the header, as the clearing
+    // in relocateBackupGPT() normally finds it; if that would reach LBA 1,
+    // report the header sector alone.
     unsigned long long lo = backuphdr;
     if (entrysectors < backuphdr - 1)
     {
@@ -1929,11 +1797,8 @@ bool gptOwnedSectors(HANDLE hRawDisk, unsigned long long sectorsize,
     return true;
 }
 
-// A GPT takes 33 sectors: one header and 32 of partition entries. At the front
-// the protective MBR sits ahead of them, so 34 covers it exactly; at the tail
-// there is no MBR and 34 is one sector more than needed. Both ends use the
-// same figure because the spare sector costs nothing and one number is easier
-// to be sure of than two.
+// Protective MBR + header + 32 entry sectors (a standard 512-byte-sector GPT).
+// Used at both ends; the tail needs one fewer, but the spare sector is harmless.
 #define GPT_RESERVED_SECTORS 34
 
 bool wipePartitionTables(HANDLE hRawDisk, unsigned long long sectorsize,
@@ -1946,9 +1811,8 @@ bool wipePartitionTables(HANDLE hRawDisk, unsigned long long sectorsize,
 
     QByteArray zeros(GPT_RESERVED_SECTORS * sectorsize, 0);
 
-    // Front: protective MBR and primary GPT. The image overwrites this region
-    // immediately afterwards; clearing it first means a partial write cannot
-    // leave a hybrid of the old and new tables.
+    // Front: protective MBR and primary GPT, so a partial write cannot leave
+    // a hybrid of old and new tables.
     if (!rawSeekWrite(hRawDisk, 0, zeros.constData(), (DWORD)zeros.size()))
     {
         return false;

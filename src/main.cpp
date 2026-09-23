@@ -31,28 +31,18 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setApplicationDisplayName(VER);
 
-    // Qt's own strings -- QMessageBox buttons, the file dialog -- live in
-    // translations/ next to the exe, under one of two names depending on how
-    // the copy was packaged. tools/deploy-cross.sh assembles the directory by
-    // hand and copies Qt's per-module catalogues, so they arrive as
-    // qtbase_<lang>.qm. windeployqt, which tools/deploy.sh uses, instead merges
-    // every module into a single qt_<lang>.qm and writes no qtbase file at all.
-    //
-    // Asking only for "qtbase" therefore left every Qt-supplied string in
-    // English on a natively built copy, and said nothing about it: the
-    // application's own strings are compiled in through translations.qrc and
-    // went on being translated, so the window looked right and its dialog
-    // buttons did not.
-    //
-    // qtbase first, because where it exists it is the catalogue these strings
-    // actually live in; the merged file is the fallback.
+    // Qt's own strings (QMessageBox buttons, the file dialog) come from
+    // translations/ next to the exe. tools/deploy-cross.sh copies Qt's
+    // qtbase_<lang>.qm (and qt_<lang>.qm where present); windeployqt, used by
+    // tools/deploy.sh, writes only a merged qt_<lang>.qm. Try qtbase first,
+    // then the merged file, or a native build shows Qt's strings in English.
     QTranslator qttranslator;
     const QString qttrdir = QCoreApplication::applicationDirPath() + "/translations";
     if (qttranslator.load(QLocale::system(), "qtbase", "_", qttrdir)
         || qttranslator.load(QLocale::system(), "qt", "_", qttrdir))
         app.installTranslator(&qttranslator);
 
-    // The app's own strings are compiled in by translations.qrc, under :/lang.
+    // The app's own catalogues are embedded by translations.qrc, under :/lang.
     QTranslator translator;
     if (translator.load(QLocale::system(), "diskimager", "_", ":/lang"))
         app.installTranslator(&translator);

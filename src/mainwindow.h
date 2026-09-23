@@ -51,8 +51,8 @@ class MainWindow : public QMainWindow, public Ui::MainWindow
             return instance;
         }
         static MainWindow* getInstanceIfAvailable() {
-            // getInstance crashes if invoked during init to get MessageBox-parent
-            // thus, we simply return instance (NULL, if not yet created) to avoid app crash.
+            // Never constructs, so it is safe during init (e.g. to find a
+            // MessageBox parent); NULL until getInstance() has run.
             return instance;
         }
 
@@ -70,12 +70,9 @@ class MainWindow : public QMainWindow, public Ui::MainWindow
         void on_leFile_editingFinished();
         void on_bHashCopy_clicked();
         void on_showAllDevicesCheckBox_toggled(bool checked);
-        // Compressing to .gz and to .xz are mutually exclusive; each unchecks
-        // the other. See mainwindow.cpp.
+        // .gz and .xz are mutually exclusive: checking one unchecks the other.
         void on_readGzCheckBox_toggled(bool checked);
         void on_readXzCheckBox_toggled(bool checked);
-        // Checking this always implies "Shrink image on Read" too; see
-        // mainwindow.cpp.
         void on_choosePartitionsCheckBox_toggled(bool checked);
 private slots:
         void on_cboxHashType_IdxChg();
@@ -84,43 +81,30 @@ protected:
         MainWindow(QWidget* = NULL);
 private:
         static MainWindow* instance;
-        // find attached devices
         void getLogicalDrives();
-        // Rescans behind a status message; see mainwindow.cpp.
         void rescanDevices();
         int selectedDeviceID();
         bool fileIsOnSelectedDevice(const QString &file);
         void setReadWriteButtonState();
         void initializeHomeDir();
         void updateHashControls();
-        // Everything that follows from a different image file; see mainwindow.cpp.
         void imageFileChanged();
-        // Picks a default hash type when a different image is chosen.
         void defaultHashTypeForFile();
-        // Sets the bar up for a run and starts the clocks; see mainwindow.cpp.
         int beginProgress(unsigned long long total, unsigned long long *lastsector);
-        // Shows or hides the progress group; see mainwindow.cpp.
         void showProgress(bool show);
-        // Shows the transfer rate, at most once a second; see mainwindow.cpp.
         void showThroughput(unsigned long long sector, unsigned long long total,
                             unsigned long long *lastsector);
-        // Puts the window back to idle and says why; see mainwindow.cpp.
         void endRun(const QString &message);
-        // Offers to repair a primary GPT found broken; see mainwindow.cpp.
         bool offerGptRepair(HANDLE hDisk, unsigned long long disksectorsize,
                             unsigned long long devicesectors,
                             const QString &lead);
-        // Locks the device, opens it and the image; see mainwindow.cpp.
         bool acquireDeviceAndImage(int deviceID, LockedVolumes &locked,
                                    ImageSource &image,
                                    unsigned long long *devicesectors,
                                    const QString &errorTitle,
                                    const QString &failedMessage);
-        // Scans the part of an image that will not fit; see mainwindow.cpp.
         bool imageTailHasData(ImageSource &image, unsigned long long from,
                               unsigned long long to, bool *datafound);
-        // Lists partitions and lets the user check which to include; see
-        // mainwindow.cpp. Returns false if the user canceled.
         bool choosePartitionsDialog(const QList<PartitionInfo> &partitions,
                                     unsigned long long sectorsize, int deviceID,
                                     QList<int> *excluded);
@@ -139,8 +123,8 @@ private:
         QString deviceSignature;
         QString myHomeDir;
         QString myFileType;
-        // The image the hash type was last defaulted for, so that choosing a
-        // type by hand is not undone on every pass through the field.
+        // Image the hash type was last defaulted for, so a hand-picked type
+        // survives later editingFinished signals.
         QString myHashDefaultedFor;
         QStringList myFileTypeList;
 };

@@ -12,8 +12,8 @@ jobs:
   # so the job runs in a Fedora container, which does ship them.
   windows-x86_64:
     runs-on: ubuntu-latest
-    # Keep in step with CROSS_BASE_IMAGE in tools/build-env.sh. It cannot be
-    # read from there: this is resolved before any step runs.
+    # Not read from CROSS_BASE_IMAGE in tools/build-env.sh (which pins
+    # fedora:44): this is resolved before any step runs.
     container: fedora:latest
     # Needed only by the release step, which creates a GitHub release.
     permissions:
@@ -27,24 +27,18 @@ jobs:
 
       - uses: actions/checkout@v7
 
-      # One list of packages and one set of toolchain paths, shared with
-      # tools/Containerfile.build and the build scripts. "install ci" adds the
-      # few things only this job needs (zip and gh, to publish a release), and
-      # fails loudly if the toolchain is not laid out the way the build expects.
+      # "install ci" adds zip and gh for the release, and fails if the
+      # toolchain is not laid out the way the build expects.
       - name: Install cross toolchain
         run: bash tools/build-env.sh install ci
 
       # The workspace is owned by a different UID than the user running these
-      # steps, so git refuses to read the repository. Anything shelling out to
-      # git -- gh, for one -- fails with "detected dubious ownership" without
-      # this.
+      # steps, so git (and gh, which shells out to it) fails with "detected
+      # dubious ownership" without this.
       - name: Trust the workspace
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      # The same script a developer runs on a Fedora host, and the same one
-      # tools/build-container.sh runs inside the image -- so however this is
-      # built, it is built by this. It configures, builds into build/, and
-      # fails if the result is not a win64 PE binary.
+      # The same script developers run; fails if the result is not win64 PE.
       - name: Build
         run: bash tools/build-cross.sh
 

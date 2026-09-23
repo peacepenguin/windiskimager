@@ -31,9 +31,8 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 //
 
 #ifdef TEST_NO_ADMIN
-// A build for testing the GUI, which asks for no elevation so the app can be
-// started and poked at without a UAC prompt each time. Generated into the build
-// directory by CMake's TEST_NO_ADMIN option; it cannot write to a device.
+// GUI-testing build without elevation; the manifest is generated into the
+// build directory by CMake's TEST_NO_ADMIN option.
 1                       RT_MANIFEST             "WinDiskImager-asinvoker.manifest"
 #else
 1                       RT_MANIFEST             "WinDiskImager.manifest"
@@ -63,13 +62,9 @@ END
 // Version
 //
 
-// VER_TUPLE and VER_RAW come from src/CMakeLists.txt, which is where the
-// version lives. Nothing here should spell it out: a number written twice is a
-// number that disagrees with itself eventually, and the release job only checks
-// the git tag against CMakeLists.
-//
-// The strings are built with # rather than taken straight from a -D, because
-// windres hands the define to the preprocessor without its quotes.
+// VER_TUPLE and VER_RAW come from src/CMakeLists.txt, the only place the
+// version is written (the release job checks the tag against it). Strings are
+// rebuilt with # because windres strips the quotes from -D values.
 #define RC_STR2(x) #x
 #define RC_STR(x)  RC_STR2(x)
 VS_VERSION_INFO VERSIONINFO

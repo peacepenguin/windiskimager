@@ -20,13 +20,8 @@
 // Reads images back through the real ImageSource and checks the bytes that come
 // out are the bytes that went in.
 //
-// The decoder is the part of this program with the most ways to be subtly
-// wrong -- multi-member gzip, multi-stream xz, stream padding, a size that is
-// not a whole number of sectors, a file that stops in the middle -- and none of
-// it is reachable from the GPT harness. A mistake here corrupts an image on its
-// way to a card without anything saying so.
-//
-// The fixtures are built here, with zlib and liblzma directly, so the test
+// A decoder mistake corrupts an image on its way to a card without anything
+// saying so. The fixtures are built here with zlib and liblzma, so the test
 // needs no gzip or xz on the path and no compressed files in the repository.
 //
 // Known gap: nextMemberFollows() keeps a single leftover byte when the input
@@ -245,8 +240,7 @@ int main(int argc, char **argv)
     caseRoundTrip("xz, two streams", "imgtest-multi.img.xz", raw);
     caseRoundTrip("xz, two streams with padding between", "imgtest-padded.img.xz", raw);
 
-    // Truncation has to be reported. Writing what did come out and calling it
-    // done would put half an image on a card and say it succeeded.
+    // Truncation must be reported, or half an image is written and called done.
     caseRejected("gzip that stops in the middle", "imgtest-trunc.img.gz");
     caseRejected("xz that stops in the middle", "imgtest-trunc.img.xz");
 

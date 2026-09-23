@@ -1,19 +1,14 @@
-# Cross-compile image for win64 builds from Linux, matching the toolchain that
-# .github/workflows/build.yml uses. Debian and Ubuntu ship no MinGW Qt6
-# packages, so the build has to happen on Fedora.
+# Cross-compile image for win64 builds from Linux; the toolchain is installed by
+# tools/build-env.sh, the same as in CI.
 #
 #   podman build -t w32di-build --build-arg BASE=fedora:44 \
 #       -f tools/Containerfile.build .
 #
-# The base image comes from CROSS_BASE_IMAGE in tools/build-env.sh, which
-# container_run passes in. The default below is only for building this by hand.
+# container_run passes BASE from CROSS_BASE_IMAGE; the default below is only for
+# building by hand. build-env.sh is the only file copied in, so editing it
+# rebuilds the layer and editing anything else does not.
 #
-# The package list and the paths it checks come from tools/build-env.sh, which
-# CI and the build scripts read too, so there is one copy of them. That file is
-# the build context's only input here, so editing it rebuilds this layer and
-# editing anything else does not.
-#
-# See BUILD.md, "Cross-compiling ... in a container".
+# See BUILD.md, "Windows, cross-compiled from Linux".
 ARG BASE=fedora:44
 FROM ${BASE}
 

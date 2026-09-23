@@ -1,12 +1,9 @@
-# Standalone build of the GPT repair harness. Self-contained: point cmake at
-# this directory and it finds the sources next door.
+# Standalone build of the GPT harness, not part of the application build.
+# Usually run via tools/gpttest.sh; by hand:
 #
 #   cmake -S tools/gpttest -B build-gpttest -G Ninja
 #   cmake --build build-gpttest
 #   ./build-gpttest/gpttest.exe
-#
-# Not part of the application build. disk.cpp is compiled straight into the
-# harness so the code under test is the shipped code, not a copy.
 cmake_minimum_required(VERSION 3.21)
 project(gpttest LANGUAGES CXX)
 

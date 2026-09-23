@@ -17,20 +17,16 @@
  *  https://github.com/peacepenguin/windiskimager                   *
  **********************************************************************/
 
-// Exercises relocateBackupGPT() against a file standing in for a device, so the
-// GPT repair can be changed without an SD card, a VM or a UAC prompt. The real
-// disk.cpp is linked in: rawSeekRead/rawSeekWrite go through ReadFile/WriteFile,
-// which work on a plain file handle exactly as they do on a raw device.
+// Exercises disk.cpp's GPT repair (relocateBackupGPT, gptPrimaryState,
+// repairPrimaryGpt, gptImageBackupRange) and its partition listing and
+// shrink planning against a file standing in for a device. rawSeekRead and
+// rawSeekWrite use ReadFile/WriteFile, which work on a plain file exactly as on
+// a raw device.
 //
-// It builds a GPT whose backup sits mid-"device", the way writing a small image
-// to a larger card leaves it, relocates it, and checks what came out. The cases
-// that matter most are the ones where nothing should be written: this code
-// zeroes sectors, and a guard that stops working would quietly destroy data.
+// The cases that matter most are the ones where nothing should be written: this
+// code zeroes sectors, and a guard that stops working would quietly destroy data.
 //
-//   cmake -S tools/gpttest -B build-gpttest -G Ninja
-//   cmake --build build-gpttest && ./build-gpttest/gpttest.exe
-//
-// Exits non-zero if any check fails. See BUILD.md.
+// Run with tools/gpttest.sh; exits non-zero if any check fails.
 
 #include <QCoreApplication>
 #include <QByteArray>
@@ -50,10 +46,8 @@ static const unsigned long long ENTRIES = 128;
 static const unsigned long long ENTRYSIZE = 128;
 static const unsigned long long ENTRYSECTORS = (ENTRIES * ENTRYSIZE) / SEC;   // 32
 
-// GPT field offsets, from the UEFI specification. disk.cpp states them too,
-// and that repetition is the point: the harness builds its fixtures from these
-// and disk.cpp reads them back through its own. Sharing one set of constants
-// would leave a wrong offset agreeing with itself and the tests still passing.
+// GPT field offsets, from the UEFI specification. Deliberately not shared with
+// disk.cpp: a wrong offset in one shared set would agree with itself and pass.
 // Header:
 enum { H_MYLBA = 24, H_ALTLBA = 32, H_FIRSTUSABLE = 40, H_LASTUSABLE = 48,
        H_ENTRYLBA = 72, H_HEADERCRC = 16 };
@@ -189,9 +183,8 @@ static const char *TESTFILE = "gpttest.img";
 static GptFixResult runRepair(const Disk &dk, unsigned long long devicesectors,
                               QByteArray *after, QString *detail)
 {
-    // Sized before anything can fail: every caller indexes into this, and on
-    // the early return below a default-constructed QByteArray would be read
-    // past its end.
+    // Sized before anything can fail: every caller indexes into this, even
+    // after an early return.
     *after = QByteArray(devicesectors * SEC, 0);
 
     DeleteFileA(TESTFILE);
@@ -203,9 +196,8 @@ static GptFixResult runRepair(const Disk &dk, unsigned long long devicesectors,
         ++failures;
         return GPT_FIX_FAILED;
     }
-    // Checked, or a short write would leave the test device holding something
-    // other than the case meant to set up, and the checks would be measuring
-    // the wrong thing while still passing.
+    // Checked, or a short write would leave the checks measuring a different
+    // case while still passing.
     DWORD put = 0;
     if (!WriteFile(h, dk.bytes.constData(), (DWORD)dk.bytes.size(), &put, NULL)
         || put != (DWORD)dk.bytes.size())
@@ -268,8 +260,7 @@ static void caseRelocate(const char *name, unsigned long long firstusable,
     check(headerCrcValid(p), "primary header CRC is valid");
     check(rd64(p, H_ALTLBA) == lastlba, "primary AlternateLBA is the last LBA");
     check(rd64(p, H_LASTUSABLE) == newentries - 1, "primary LastUsableLBA extended");
-    // The whole point of the repair: these two must survive untouched, or the
-    // mismatch that triggers Windows' rewrite is reintroduced.
+    // Changing these two reintroduces the mismatch that triggers Windows' rewrite.
     check(rd64(p, H_FIRSTUSABLE) == firstusable, "primary FirstUsableLBA untouched");
     check(rd64(p, H_ENTRYLBA) == 2, "primary PartitionEntryLBA untouched");
 
@@ -285,10 +276,9 @@ static void caseRelocate(const char *name, unsigned long long firstusable,
     check(rangeIsZero(a, dk.imgbackupentries, dk.imglast),
           "stale backup GPT and its entry array are zeroed");
 
-    // Verify has to forgive exactly those sectors. It works the range out from
-    // the image's own header, because once the repair has run the device no
-    // longer says where the stale copy was. If the two disagree, a good card
-    // fails verification at the first sector the repair cleared.
+    // Verify works the range out from the image's header, since the repaired
+    // device no longer says where the stale copy was. If it disagrees with the
+    // repair, a good card fails verification.
     unsigned long long vfirst = 0, vlast = 0;
     bool vknown = gptImageBackupRange((const unsigned char *)dk.bytes.constData() + SEC,
                                       SEC, &vfirst, &vlast);
@@ -328,10 +318,8 @@ static void caseStaleUnderPartition()
     check(r == GPT_FIX_OK, "returned GPT_FIX_OK");
     check(rd64(a + SEC, H_ALTLBA) == device - 1, "backup still relocated to the end");
 
-    // The whole covered range, table sectors included. Checking only the data
-    // sectors between them -- which is what this did -- steps over the two
-    // sectors the cleanup actually aims at, so a guard that narrowed to just
-    // the header, or just the entry array, would have gone unnoticed.
+    // The whole covered range, including the two table sectors the cleanup
+    // actually aims at, so a guard narrowed to just one of them is caught.
     const unsigned char *b = (const unsigned char *)dk.bytes.constData();
     const size_t covered = (size_t)((dk.imglast - dk.imgbackupentries + 1) * SEC);
     check(memcmp(a + dk.imgbackupentries * SEC,
@@ -342,22 +330,13 @@ static void caseStaleUnderPartition()
     printf("\n");
 }
 
-// No GPT at all, a backup already at the end, and a corrupt header: each must
-// leave the device exactly as it was.
-// The image very nearly fills the device, so the sectors the stale backup sits
-// in and the sectors the new one goes into overlap. The relocate must still
-// happen, and the cleanup must not run: zeroing the stale copy would erase the
-// table just written over the top of it.
-//
-// "image nearly fills device" does not reach this: it leaves a 160-sector gap
-// between the two, so the guard it is named for never has to do anything.
+// The stale backup overlaps where the new one goes, so the cleanup must not run:
+// zeroing the stale copy would erase the table just written over it.
 static void caseStaleOverlapsNewTable()
 {
     // 8160 puts the stale header exactly on the first sector of the new entry
-    // array, which is the only sector of it that is not zeros. Land it any
-    // later and a cleanup that wrongly ran would write zeros over zeros, which
-    // no check could detect -- the case would pass whether the guard held or
-    // not, and prove nothing.
+    // array, its only non-zero sector. Any later and a cleanup that wrongly ran
+    // would write zeros over zeros, and the case would prove nothing.
     const unsigned long long firstusable = 34, image = 8160, device = 8192;
     printf("stale copy overlaps where the new table goes\n");
 
@@ -372,10 +351,7 @@ static void caseStaleOverlapsNewTable()
     const unsigned long long newentries = lastlba - ENTRYSECTORS;
     check(dk.imglast >= newentries, "the two ranges really do overlap");
     check(r == GPT_FIX_OK, "returned GPT_FIX_OK");
-    // Checked by checksum, not by memcmp against the expected bytes: entries 1
-    // to 127 are zeros, so zeroing a sector in the middle of the array changes
-    // nothing a comparison would see. The header's own EntriesCRC covers every
-    // byte of it, which is the point -- that is what a GPT reader validates.
+    // By checksum, the way a GPT reader validates it.
     check(crc32of(a + newentries * SEC, ENTRIES * ENTRYSIZE)
               == rd32(a + lastlba * SEC, 88),
           "the backup entry array still matches its header checksum");
@@ -385,6 +361,7 @@ static void caseStaleOverlapsNewTable()
     printf("\n");
 }
 
+// A device relocateBackupGPT() must refuse or skip: it must stay byte-identical.
 static void caseUntouched(const char *name, GptFixResult expect,
                           void (*damage)(unsigned char *, unsigned long long))
 {
@@ -445,9 +422,9 @@ static void caseAfterTheFact(const char *name, unsigned long long firstusable,
     unsigned char *d = (unsigned char *)dk.bytes.data();
     unsigned char *hdr = d + SEC;
 
-    // Exactly what the rescan does. PartitionEntryArrayCRC32 is deliberately
-    // left alone: the recorded reproducer shows Windows does not recompute it,
-    // which is what makes the real array findable again afterwards.
+    // What the rescan does. PartitionEntryArrayCRC32 is left alone because
+    // Windows does not recompute it, which is what makes the real array
+    // findable again afterwards.
     wr64(hdr, H_ENTRYLBA, firstusable - ENTRYSECTORS);
     wr32(hdr, H_HEADERCRC, 0);
     wr32(hdr, H_HEADERCRC, crc32of(hdr, 92));
@@ -501,19 +478,14 @@ static void caseAfterTheFact(const char *name, unsigned long long firstusable,
 }
 
 // ---------------------------------------------------------------------------
-// listGptPartitions() / listMbrPartitions() / planGptShrink() / planMbrShrink()
-// with excludeSlots -- the "choose partitions to read" machinery. These write
-// a plain table straight to the test file (no backup GPT is built; the
-// functions under test here never look for one) and drive planGptShrink()/
-// planMbrShrink() with alignsectors=1 so the expected sector numbers stay
-// small and readable instead of chasing a real 1MiB alignment.
+// listGptPartitions() / listMbrPartitions(), and planGptShrink() /
+// planMbrShrink() with excludeSlots. These fixtures have no backup GPT (none of
+// these functions reads one), and alignsectors=1 keeps the expected sector
+// numbers exact.
 // ---------------------------------------------------------------------------
 
-// One partition to place in a multi-partition GPT test fixture, by table
-// slot rather than position -- callers deliberately put slots out of
-// position order, since that mismatch is exactly what the ordering bug
-// this reproduces (a partition recreated into an earlier freed slot lands
-// physically out of order, but still is a real diskpart-visible partition).
+// Placed by table slot rather than position: a partition recreated into an
+// earlier freed slot sits physically out of slot order.
 struct GptPart
 {
     int slot;
@@ -579,10 +551,8 @@ static HANDLE writeTestFile(const QByteArray &bytes)
     return h;
 }
 
-// A partition physically out of slot order -- slot 3 sits second on the
-// disk -- reproduces the real report this fixed: diskpart (and this
-// program) must list it as "Partition 4" in position order on the disk,
-// not renumber it to match where it happens to appear in the list.
+// Slot 3 sits second on the disk; diskpart lists partitions in disk order, and
+// so must this program.
 static void caseListGptOrder()
 {
     printf("listGptPartitions() orders by disk position, not table slot\n");
@@ -615,11 +585,9 @@ static void caseListGptOrder()
     printf("\n");
 }
 
-// Excluding a partition must repack around the gap it leaves, zero its
-// table entry (so the excluded data is unreachable even if something later
-// reads past what the ranges cover), and leave every other entry pointing
-// at its new, repacked location -- both in the primary table (headerregion)
-// and in the fresh backup copy planGptShrink() builds for the shrunk image.
+// The excluded slot's entry is zeroed so its data is unreachable even if
+// something reads past what the ranges cover; checked in both the primary
+// (headerregion) and the backup copy (backupregion).
 static void caseGptShrinkExclude()
 {
     printf("planGptShrink() with an excluded slot\n");
@@ -645,10 +613,7 @@ static void caseGptShrinkExclude()
         return;
     }
 
-    // Mirrors planGptShrink()'s own packing arithmetic with alignsectors=1,
-    // over just the two kept partitions in position order: nothing rounds
-    // up past the exact byte, so the expected numbers are exact, not
-    // approximate.
+    // planGptShrink()'s packing with alignsectors=1, over the two kept partitions.
     unsigned long long newKeep1First = firstusable;                    // 34
     unsigned long long newKeep2First = newKeep1First + 100;            // 134
     unsigned long long cursor = newKeep2First + 100;                   // 234
@@ -685,11 +650,8 @@ static void caseGptShrinkExclude()
     check(rd32(hdr, 88) == crc32of(region + 2 * SEC, ENTRIES * ENTRYSIZE),
           "the entries checksum matches the patched table, exclusion included");
 
-    // The backup copy planGptShrink() builds is entries (already patched
-    // above) followed by the backup header -- the same zeroed/repacked
-    // bytes have to show up here too, or a card written from this plan
-    // would carry a backup table that still describes the excluded
-    // partition.
+    // backupregion is the entry array followed by the backup header; a stale
+    // copy here would still describe the excluded partition.
     const unsigned char *backupentriesbytes = (const unsigned char *)plan.backupregion.constData();
     check(memcmp(backupentriesbytes, region + 2 * SEC, ENTRIES * ENTRYSIZE) == 0,
           "the backup entry array matches the patched primary entries exactly");
@@ -699,10 +661,8 @@ static void caseGptShrinkExclude()
     printf("\n");
 }
 
-// One partition per slot to place in a multi-primary-entry MBR test
-// fixture, by slot (0-3) rather than position, and an optional partition
-// type -- 0xEE marks a protective entry, which walkMbrEntries() must skip
-// even though it is a non-zero type byte like any real partition's.
+// As GptPart, for MBR slots 0-3. type 0xEE marks a protective entry, which
+// walkMbrEntries() must skip.
 struct MbrPart
 {
     int slot;
@@ -806,10 +766,7 @@ static void caseMbrShrinkExclude()
     printf("\n");
 }
 
-// A protective MBR (the one a GPT disk itself carries in sector 0) must
-// never be walked as if its 0xEE entry were a real partition to repack or
-// exclude -- both listMbrPartitions() and planMbrShrink() are exercised
-// here since each has its own call into walkMbrEntries().
+// Both callers are exercised, since each has its own call into walkMbrEntries().
 static void caseMbrProtectiveEntrySkipped()
 {
     printf("walkMbrEntries() skips a 0xEE protective entry\n");
@@ -841,22 +798,19 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
 
-    // crc32of() here is a copy of disk.cpp's gptCrc32(), so every CRC check
-    // below would agree with a wrong polynomial or seed just as happily as
-    // with a right one. This pins it to the published CRC-32 check value
-    // instead, which is what makes the rest of the CRC checks mean anything.
+    // crc32of() mirrors disk.cpp's gptCrc32(), so the CRC checks below would
+    // agree with a wrong polynomial or seed. Pin it to the standard check value.
     printf("CRC-32 algorithm\n");
     check(crc32of((const unsigned char *)"123456789", 9) == 0xCBF43926u,
           "matches the standard check value for \"123456789\"");
     printf("\n");
 
-    // Ordinary layout: FirstUsableLBA 34, which the Windows rewrite happens to
-    // land on correctly.
+    // FirstUsableLBA 34, which the Windows rewrite happens to land on correctly.
     caseRelocate("ordinary layout", 34, 2048, 8192);
-    // The layout the repair exists for: space reserved ahead of the first
-    // partition, as ARM board images do it.
+    // Space reserved ahead of the first partition, as ARM board images have it.
     caseRelocate("reserved-space layout", 2048, 16384, 65536);
-    // Old and new tables nearly touching, to exercise the overlap guards.
+    // Close but not overlapping (160 sectors apart); caseStaleOverlapsNewTable
+    // covers the overlap guard.
     caseRelocate("image nearly fills device", 34, 8000, 8192);
 
     caseStaleUnderPartition();

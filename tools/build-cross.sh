@@ -10,15 +10,9 @@
 # Install the toolchain once with:
 #   sudo bash tools/build-env.sh install
 #
-# tools/build-container.sh does the same build inside the Fedora container,
-# which is what CI uses and what a non-Fedora host needs. Both are driven by
-# tools/build-env.sh, so they compile with the same toolchain and flags.
-#
-# All three build into build/. A cmake cache records the absolute path it was
-# generated for, and the container sees this tree as /src, so a cache left by
-# one of them is useless to the others -- build_prepare drops it rather than
-# letting the build fail confusingly. Override with BUILD_DIR=... for a build
-# you want kept aside.
+# CI and tools/build-container.sh run this same script inside the Fedora image.
+# Every route builds into build/ (see drop_foreign_cache in tools/build-env.sh);
+# set BUILD_DIR=... for a build kept aside.
 #
 # Copyright (C) 2026 peacepenguin, GPL-2.0-or-later.
 set -euo pipefail
@@ -43,8 +37,7 @@ build_prepare "$build" "$CROSS_TOOLCHAIN"
 build_run "$REPO/src" "$build" cross_configure
 
 # A host compiler picked up by mistake produces an ELF binary that looks like a
-# successful build until someone tries to run it. Check here, so every route
-# into this script is covered rather than only CI.
+# successful build. Checked here so every route is covered, not only CI.
 if ! file "$build/WinDiskImager.exe" | grep -q 'PE32+'; then
     echo "error: $build/WinDiskImager.exe is not a win64 PE binary:" >&2
     file "$build/WinDiskImager.exe" >&2
