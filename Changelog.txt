@@ -11,6 +11,9 @@ CI builds and packages in the same Fedora container as tools/build-container.sh;
   tools/deploy-container.sh packages a container build locally
 Faster Windows packaging: gathering the licences took about a minute on MSYS2,
   now a second or two
+The package no longer ships Qt's networking library, TUIO touch-table plugin,
+  or JPEG, GIF and ICO readers, none of which the program uses; it is 4 MB
+  smaller
 
 Release 1.9.0
 =============

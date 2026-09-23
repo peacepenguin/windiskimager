@@ -46,15 +46,17 @@ LANGUAGES=$(sed -n 's/^set(LANGUAGES \(.*\))$/\1/p' src/CMakeLists.txt)
 
 # Qt DLLs, plugins and translations. The app is 2D-only, so skip the
 # software-OpenGL and D3D compiler payloads windeployqt adds by default.
+# "generic" is only the TUIO touch-table plugin, which Qt never loads unless
+# told to and which is the one thing that needs Qt6Network; the app draws
+# nothing but SVG, so the JPEG, GIF and ICO readers go too (JPEG brings
+# libjpeg; the .ico is in the .rc, where Windows reads it, not Qt).
+# deploy-cross.sh leaves out the same.
 (cd dist && windeployqt6 --release \
     --no-opengl-sw \
     --no-system-d3d-compiler \
+    --skip-plugin-types generic \
+    --exclude-plugins qjpeg,qgif,qico \
     WinDiskImager.exe)
-
-# Qt6Network itself has to stay: generic/qtuiotouchplugin.dll imports it, so
-# the dependency scan below would copy it straight back. Its plugins are loaded
-# by name, not imported, so deleting them sticks. The app opens no sockets.
-rm -rf dist/tls dist/networkinformation
 
 # ${f##*/} rather than basename: this loop runs hundreds of times and a process
 # per iteration cost seconds.

@@ -37,10 +37,13 @@ mkdir -p "$dist"
 cp "$build/WinDiskImager.exe" "$dist/"
 cp "$root"/Changelog.txt "$root"/README.md "$root"/License.txt "$root"/THIRD-PARTY-NOTICES.txt "$root"/GPL-2 "$dist/"
 
-# Qt plugins. Only the ones a widgets app on Windows actually loads.
+# Qt plugins. Only the ones a widgets app on Windows actually loads: no
+# "generic" (the TUIO touch-table plugin, which is what needs Qt6Network), and
+# no JPEG, GIF or ICO reader since the app draws nothing but SVG. deploy.sh
+# leaves out the same.
 qtplugins="$sysroot/lib/qt6/plugins"
 [ -d "$qtplugins" ] || qtplugins="$sysroot/share/qt6/plugins"
-for group in platforms styles imageformats iconengines generic; do
+for group in platforms styles imageformats iconengines; do
     if [ -d "$qtplugins/$group" ]; then
         mkdir -p "$dist/$group"
         cp "$qtplugins/$group"/*.dll "$dist/$group/" 2>/dev/null || true
@@ -49,12 +52,13 @@ done
 # Debug variants of the plugins would double the size for nothing. Scoped to
 # the plugin directories: at the top level "*d.dll" would also match innocent
 # names such as libzstd.dll.
-for group in platforms styles imageformats iconengines generic; do
+for group in platforms styles imageformats iconengines; do
     [ -d "$dist/$group" ] && find "$dist/$group" -name '*d.dll' -delete 2>/dev/null
 done
 true
 # qminimal/qoffscreen are headless platform plugins; useless in a shipped GUI.
 rm -f "$dist/platforms/qminimal.dll" "$dist/platforms/qoffscreen.dll"
+rm -f "$dist/imageformats/qjpeg.dll" "$dist/imageformats/qgif.dll" "$dist/imageformats/qico.dll"
 
 # Qt's own translations, trimmed to the languages the app ships. Read from
 # CMakeLists so this list cannot drift from the one the build compiles.
