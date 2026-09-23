@@ -38,8 +38,10 @@
 #include <dbt.h>
 #include <shlobj.h>
 #include <shellapi.h>
+#include <shobjidl.h>
 #include <iostream>
 #include <string>
+#include <vector>
 #include <climits>
 
 #include "disk.h"
@@ -524,12 +526,12 @@ void MainWindow::closeEvent(QCloseEvent *event)
     event->ignore();
 }
 
+// Windows' own Open dialog, not QFileDialog. Given no starting folder, it opens
+// where this app last opened a file, remembered by Windows across runs --
+// nothing is stored here. QFileDialog always sets a folder (the working
+// directory at worst) through IFileDialog::SetFolder, which overrides that.
 void MainWindow::on_tbBrowse_clicked()
 {
-    // Use the location of already entered file
-    QString fileLocation = leFile->text();
-    QFileInfo fileinfo(fileLocation);
-
     // See if there is a user-defined file extension.
     QString fileTypeEnv = qgetenv("DiskImagerFiles");
 
@@ -539,32 +541,96 @@ void MainWindow::on_tbBrowse_clicked()
         fileTypesList.move(index, 0);
     }
 
-    QFileDialog dialog(this, tr("Select a disk image"));
-    dialog.setNameFilters(fileTypesList);
-    dialog.setFileMode(QFileDialog::AnyFile);
-    dialog.setViewMode(QFileDialog::Detail);
-    if (fileinfo.exists())
+    // Qt's "Name (*.a *.b)" becomes the dialog's name and "*.a;*.b" spec.
+    std::vector<std::wstring> names, specs;
+    for (const QString &filter : fileTypesList)
     {
-        dialog.selectFile(fileLocation);
+        const int open = filter.lastIndexOf('('), close = filter.lastIndexOf(')');
+        const QString spec = (open >= 0 && close > open)
+            ? filter.mid(open + 1, close - open - 1) : QString("*");
+        names.push_back(filter.toStdWString());
+        specs.push_back(spec.split(' ', Qt::SkipEmptyParts).join(';').toStdWString());
     }
-    else
+    std::vector<COMDLG_FILTERSPEC> filters;
+    for (size_t i = 0; i < names.size(); ++i)
     {
-        dialog.setDirectory(myHomeDir);
+        filters.push_back(COMDLG_FILTERSPEC{names[i].c_str(), specs[i].c_str()});
     }
 
-    if (dialog.exec())
+    QString chosen;
+    int chosenType = 0;
+    const HRESULT com = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    IFileOpenDialog *dialog = NULL;
+    if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER,
+                                   IID_PPV_ARGS(&dialog))))
     {
-        fileLocation = (dialog.selectedFiles())[0];
-        myFileType = dialog.selectedNameFilter();
-
-        if (!fileLocation.isNull())
+        FILEOPENDIALOGOPTIONS opts = 0;
+        dialog->GetOptions(&opts);
+        // Read names a file that does not exist yet.
+        dialog->SetOptions((opts | FOS_FORCEFILESYSTEM) & ~FOS_FILEMUSTEXIST);
+        dialog->SetTitle((LPCWSTR)tr("Select a disk image").utf16());
+        if (!filters.empty())
         {
-            leFile->setText(QDir::toNativeSeparators(fileLocation));
-            QFileInfo newFileInfo(fileLocation);
-            myHomeDir = newFileInfo.absolutePath();
+            dialog->SetFileTypes((UINT)filters.size(), filters.data());
+            dialog->SetFileTypeIndex(1);
         }
-        imageFileChanged();
+
+        // Start where a path already in the field points. Otherwise set no
+        // folder, so Windows' remembered one applies; the image directory is
+        // only the default for the first time ever.
+        const QFileInfo current(leFile->text());
+        IShellItem *folder = NULL;
+        if (current.isAbsolute() && current.absoluteDir().exists()
+            && SUCCEEDED(SHCreateItemFromParsingName(
+                   (LPCWSTR)QDir::toNativeSeparators(current.absolutePath()).utf16(),
+                   NULL, IID_PPV_ARGS(&folder))))
+        {
+            dialog->SetFolder(folder);
+            dialog->SetFileName((LPCWSTR)current.fileName().utf16());
+            folder->Release();
+        }
+        else if (SUCCEEDED(SHCreateItemFromParsingName(
+                     (LPCWSTR)QDir::toNativeSeparators(myHomeDir).utf16(),
+                     NULL, IID_PPV_ARGS(&folder))))
+        {
+            dialog->SetDefaultFolder(folder);
+            folder->Release();
+        }
+
+        IShellItem *result = NULL;
+        if (SUCCEEDED(dialog->Show((HWND)winId())) && SUCCEEDED(dialog->GetResult(&result)))
+        {
+            PWSTR path = NULL;
+            if (SUCCEEDED(result->GetDisplayName(SIGDN_FILESYSPATH, &path)))
+            {
+                chosen = QString::fromWCharArray(path);
+                CoTaskMemFree(path);
+            }
+            UINT type = 0;
+            if (SUCCEEDED(dialog->GetFileTypeIndex(&type)))
+            {
+                chosenType = (int)type;
+            }
+            result->Release();
+        }
+        dialog->Release();
     }
+    if (SUCCEEDED(com))
+    {
+        CoUninitialize();
+    }
+
+    if (chosen.isEmpty())
+    {
+        return;   // cancelled
+    }
+    if (chosenType >= 1 && chosenType <= fileTypesList.size())
+    {
+        myFileType = fileTypesList.at(chosenType - 1);
+    }
+    leFile->setText(QDir::toNativeSeparators(chosen));
+    myHomeDir = QFileInfo(chosen).absolutePath();
+    imageFileChanged();
 }
 
 void MainWindow::on_bHashCopy_clicked()
