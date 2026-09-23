@@ -30,6 +30,8 @@ corrupting the GPT of images like ARM board images. See
 - **Verify** a device against an image byte for byte, compressed images
   included. It also checks the partition table and can repair one that
   Windows has broken.
+- **Drop** an image file anywhere on the window to use it, instead of browsing
+  for it.
 - **Checksum** the image as MD5, SHA1 or SHA256. SHA256 is selected by default,
   since that is what publishers usually quote.
 - **Fix GPT after write** makes the partition table match the device, so

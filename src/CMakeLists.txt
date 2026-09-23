@@ -106,7 +106,6 @@ qt_add_executable(WinDiskImager WIN32
     imagesource.cpp
     main.cpp
     mainwindow.cpp
-    droppablelineedit.cpp
     devicecombobox.cpp
     elapsedtimer.cpp
     mainwindow.ui

@@ -82,6 +82,7 @@ protected:
         MainWindow(QWidget* = NULL);
 private:
         static MainWindow* instance;
+        void acceptDroppedFiles();
         void getLogicalDrives();
         void rescanDevices();
         int selectedDeviceID();

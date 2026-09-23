@@ -37,7 +37,9 @@
 #include <winioctl.h>
 #include <dbt.h>
 #include <shlobj.h>
+#include <shellapi.h>
 #include <iostream>
+#include <string>
 #include <climits>
 
 #include "disk.h"
@@ -330,6 +332,7 @@ static void shadePressedIconButton(QAbstractButton *button)
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
     setupUi(this);
+    acceptDroppedFiles();
     wrapLongToolTips(this);
     elapsed_timer = new ElapsedTimer();
     shadeStatusBar(statusbar);
@@ -2221,10 +2224,50 @@ void MainWindow::on_choosePartitionsCheckBox_toggled(bool checked)
 
 // Rebuilds the device list on WM_DEVICECHANGE arrival/removal.
 // Adapted from http://www.known-issues.net/qt/qt-detect-event-windows.html
+// Files dropped on the window fill in the image field. Qt's drag and drop is
+// OLE, which Windows blocks from an unelevated source (Explorer) into an
+// elevated window -- the "no" cursor everywhere. The older WM_DROPFILES route
+// can be let through: accept files on the window, remove the OLE drop target
+// so OLE falls back to it, and let past the three messages a drop is made of
+// (WM_COPYGLOBALDATA, 0x0049, is undeclared). Nothing may call setAcceptDrops:
+// Qt would register an OLE target again and drops would go back to failing.
+void MainWindow::acceptDroppedFiles()
+{
+    leFile->setAcceptDrops(false);   // QLineEdit takes text drops by default
+    HWND hwnd = (HWND)winId();
+    RevokeDragDrop(hwnd);
+    DragAcceptFiles(hwnd, TRUE);
+    ChangeWindowMessageFilterEx(hwnd, WM_DROPFILES, MSGFLT_ALLOW, NULL);
+    ChangeWindowMessageFilterEx(hwnd, WM_COPYDATA, MSGFLT_ALLOW, NULL);
+    ChangeWindowMessageFilterEx(hwnd, 0x0049, MSGFLT_ALLOW, NULL);
+}
+
 bool MainWindow::nativeEvent(const QByteArray &type, void *vMsg, qintptr *result)
 {
     Q_UNUSED(type);
     MSG *msg = (MSG*)vMsg;
+    if (msg->message == WM_DROPFILES)
+    {
+        HDROP drop = (HDROP)msg->wParam;
+        // Not mid-run: the image field names the file a run's results refer to.
+        if (status == STATUS_IDLE && DragQueryFileW(drop, 0xFFFFFFFF, NULL, 0) > 0)
+        {
+            const UINT len = DragQueryFileW(drop, 0, NULL, 0);
+            std::wstring name(len + 1, L'\0');
+            DragQueryFileW(drop, 0, &name[0], len + 1);
+            const QString file = QString::fromWCharArray(name.c_str(), (int)len);
+            if (QFileInfo(file).isFile())
+            {
+                leFile->setText(file);
+                // What typing a name and leaving the field does.
+                on_leFile_editingFinished();
+                activateWindow();
+            }
+        }
+        DragFinish(drop);
+        *result = 0;
+        return true;
+    }
     if(msg->message == WM_DEVICECHANGE)
     {
         switch(msg->wParam)

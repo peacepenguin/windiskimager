@@ -27,6 +27,9 @@ Fix the Windows disk being listed when its volume spans more than one disk
 Fix progress stopping at 100% on large .img.gz images
 Image paths longer than 260 characters work, when long paths are enabled
   in Windows
+Drop an image file anywhere on the window to fill in the image field. Dropping
+  onto the field never worked: Windows blocks Qt's drag and drop from Explorer
+  into an elevated window, so it now uses the older mechanism Windows lets through
 Local cross-builds use fedora:latest, the same as CI
 Many more automated tests
 
