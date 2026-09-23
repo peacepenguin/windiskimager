@@ -20,8 +20,12 @@ find_package(LibLZMA REQUIRED)
 
 add_executable(imgtest
     main.cpp
+    imgtest.rc
     ${APPSRC}/imagesource.cpp
 )
+# windres reads the manifest while compiling the resource script.
+set_property(SOURCE imgtest.rc APPEND PROPERTY OBJECT_DEPENDS
+             ${CMAKE_CURRENT_SOURCE_DIR}/imgtest.manifest)
 
 target_include_directories(imgtest PRIVATE ${APPSRC})
 target_compile_definitions(imgtest PRIVATE

@@ -23,6 +23,8 @@ Fix "Choose partitions to read" leaving "Shrink image on Read" checked
   after being unchecked
 Fix the Windows disk being listed when its volume spans more than one disk
 Fix progress stopping at 100% on large .img.gz images
+Image paths longer than 260 characters work, when long paths are enabled
+  in Windows
 Local cross-builds use fedora:latest, the same as CI
 Many more automated tests
 

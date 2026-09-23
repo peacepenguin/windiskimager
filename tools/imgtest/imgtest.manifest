@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+        <!-- As src/WinDiskImager.manifest, but asInvoker: the harness must
+             run without a UAC prompt. longPathAware is what caseLongPath tests. -->
         <v3:trustInfo xmlns:v3="urn:schemas-microsoft-com:asm.v3">
             <v3:security>
                 <v3:requestedPrivileges>
-                    <v3:requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+                    <v3:requestedExecutionLevel level="asInvoker" uiAccess="false" />
                 </v3:requestedPrivileges>
             </v3:security>
         </v3:trustInfo>
-        <!-- Image paths past MAX_PATH (260 characters), on Windows 10 1607 and
-             later with long paths enabled (the LongPathsEnabled policy). The
-             app opens image files through the wide API, which this applies to. -->
         <application xmlns="urn:schemas-microsoft-com:asm.v3">
             <windowsSettings xmlns:ws2="http://schemas.microsoft.com/SMI/2016/WindowsSettings">
                 <ws2:longPathAware>true</ws2:longPathAware>

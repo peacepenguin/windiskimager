@@ -392,6 +392,63 @@ static void caseEndProbe(const char *name, const QString &file, const QByteArray
     printf("\n");
 }
 
+// A Read to, and a Write/Verify from, an image path past MAX_PATH. The app's
+// CreateFileW calls pass the path as it is, with no \\?\ prefix, so this only
+// works through the manifest's longPathAware -- this harness carries the same
+// setting (imgtest.manifest). Windows also needs LongPathsEnabled; without it
+// the case is skipped rather than failed.
+static void caseLongPath(const QByteArray &raw)
+{
+    printf("an image path longer than MAX_PATH\n");
+    DWORD enabled = 0, size = sizeof(enabled);
+    if (RegGetValueW(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+                     L"LongPathsEnabled", RRF_RT_REG_DWORD, NULL, &enabled, &size) != ERROR_SUCCESS
+        || enabled != 1)
+    {
+        printf("  skip long paths are not enabled on this machine (LongPathsEnabled)\n\n");
+        return;
+    }
+
+    wchar_t cwd[32768];
+    if (!GetCurrentDirectoryW(32768, cwd))
+    {
+        check(false, "read the working directory");
+        return;
+    }
+    QStringList dirs;
+    QString dir = QString::fromWCharArray(cwd);
+    for (int i = 0; i < 5; ++i)
+    {
+        dir += "\\" + QString("imgtest-long-path-segment-%1-").arg(i) + QString(40, QChar('x'));
+        dirs.append(dir);
+    }
+    const QString file = dir + "\\image.img.xz";
+    check(file.length() > MAX_PATH, "fixture: the path is longer than MAX_PATH");
+    bool made = true;
+    for (const QString &d : dirs)
+    {
+        made = made && (CreateDirectoryW((LPCWSTR)d.utf16(), NULL)
+                        || GetLastError() == ERROR_ALREADY_EXISTS);
+    }
+    check(made, "the directories were created without a \\\\?\\ prefix");
+    if (made)
+    {
+        ImageSink sink;
+        check(sink.open(file, ImageSink::FORMAT_XZ)
+                  && sink.write(raw.constData(), (unsigned long long)raw.size())
+                  && sink.finish(),
+              "ImageSink wrote the image there");
+        printf("\n");
+        caseRoundTrip("  ...and ImageSource read it back", file, raw);
+        DeleteFileW((LPCWSTR)file.utf16());
+    }
+    for (int i = dirs.size() - 1; i >= 0; --i)
+    {
+        RemoveDirectoryW((LPCWSTR)dirs.at(i).utf16());
+    }
+    if (!made) printf("\n");
+}
+
 static void caseNames()
 {
     printf("output names for Read\n");
@@ -510,6 +567,8 @@ int main(int argc, char **argv)
         caseEndProbe("gzip with a bad CRC", "imgtest-badcrc.img.gz", raw, true);
         DeleteFileA("imgtest-badcrc.img.gz");
     }
+
+    caseLongPath(raw);
 
     caseSinkRoundTrip("ImageSink, gzip", "imgtest-sink.img.gz", ImageSink::FORMAT_GZIP, raw);
     caseSinkRoundTrip("ImageSink, xz", "imgtest-sink.img.xz", ImageSink::FORMAT_XZ, raw);
