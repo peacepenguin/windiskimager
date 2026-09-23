@@ -435,23 +435,34 @@ deploy_write_licenses()
                 url="https://src.fedoraproject.org/rpms/$(rpm -q --qf '%{SOURCERPM}' "$pkg" | sed 's/-[^-]*-[^-]*\.src\.rpm$//')"
                 ;;
         esac
+        # Licence files first. Failing those, the README: a public-domain
+        # project has no licence file and says so there (win-iconv does).
+        # Failing both, a text kept in tools/licenses/<package>/ for a package
+        # that ships none at all (Fedora's mingw64-zlib).
+        local kind
         n=0
-        while IFS= read -r lf; do
-            [ -f "$lf" ] || continue
-            case "$lf" in
-                */share/licenses/*) dest="$dist/licenses/$pkg/$(echo "$lf" | sed 's|.*/share/licenses/[^/]*/||')" ;;
-                *)                  dest="$dist/licenses/$pkg/${lf##*/}" ;;
-            esac
-            mkdir -p "$(dirname "$dest")"
-            cp "$lf" "$dest"
-            n=$((n + 1))
-        done < <(case "$backend" in
-                     pacman) pacman -Qlq "$pkg" | grep -E '/share/licenses/.+[^/]$|/(LICENSE|LICENCE|COPYING)[^/]*$' || true ;;
-                     # Some packages file their licence as %doc, not %license.
-                     rpm)    { rpm -qL "$pkg"; rpm -qd "$pkg" | grep -E '/(LICENSE|LICENCE|COPYING)[^/]*$'; } || true ;;
-                 esac)
+        for kind in licence readme repo; do
+            while IFS= read -r lf; do
+                [ -f "$lf" ] || continue
+                case "$lf" in
+                    */share/licenses/*) dest="$dist/licenses/$pkg/$(echo "$lf" | sed 's|.*/share/licenses/[^/]*/||')" ;;
+                    *)                  dest="$dist/licenses/$pkg/${lf##*/}" ;;
+                esac
+                mkdir -p "$(dirname "$dest")"
+                cp "$lf" "$dest"
+                n=$((n + 1))
+            done < <(case "$backend:$kind" in
+                         pacman:licence) pacman -Qlq "$pkg" | grep -iE '/share/licenses/.+[^/]$|/(LICENSE|LICENCE|COPYING)[^/]*$' || true ;;
+                         pacman:readme)  pacman -Qlq "$pkg" | grep -iE '/share/doc/.*/README[^/]*$' || true ;;
+                         # Some packages file their licence as %doc, not %license.
+                         rpm:licence)    { rpm -qL "$pkg"; rpm -qd "$pkg" | grep -iE '/(LICENSE|LICENCE|COPYING)[^/]*$'; } || true ;;
+                         rpm:readme)     rpm -qd "$pkg" | grep -iE '/README[^/]*$' || true ;;
+                         *:repo)         find "$(dirname "${BASH_SOURCE[0]}")/licenses/$pkg" -type f 2>/dev/null || true ;;
+                     esac)
+            [ "$n" -gt 0 ] && break
+        done
         if [ "$n" -eq 0 ]; then
-            echo "error: package $pkg ships no licence file to include." >&2
+            echo "error: package $pkg ships no licence file or README to include." >&2
             [ "$backend" = rpm ] && echo "       If rpm -qd $pkg lists one, it was installed without docs (tsflags=nodocs)." >&2
             return 1
         fi
