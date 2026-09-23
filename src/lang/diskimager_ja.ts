@@ -1089,6 +1089,12 @@ Checking of free space will be skipped.</source>
         <translation>不明なデバイス</translation>
     </message>
     <message>
+        <source>Could not list the volumes on this computer.
+Error %1</source>
+        <translation>このコンピューターのボリュームを一覧表示できませんでした。
+エラー %1</translation>
+    </message>
+    <message>
         <source>Could not lock volume %1: it is still in use.
 Close any program using the device and try again.
 Error %2</source>

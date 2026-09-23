@@ -1089,6 +1089,12 @@ Checking of free space will be skipped.</source>
         <translation>未知设备</translation>
     </message>
     <message>
+        <source>Could not list the volumes on this computer.
+Error %1</source>
+        <translation>无法列出此计算机上的卷。
+错误 %1</translation>
+    </message>
+    <message>
         <source>Could not lock volume %1: it is still in use.
 Close any program using the device and try again.
 Error %2</source>

@@ -1102,6 +1102,12 @@ Checking of free space will be skipped.</source>
         <translation>Unbekannter Datenträger</translation>
     </message>
     <message>
+        <source>Could not list the volumes on this computer.
+Error %1</source>
+        <translation>Die Volumes auf diesem Computer konnten nicht aufgelistet werden.
+Fehler %1</translation>
+    </message>
+    <message>
         <source>Could not lock volume %1: it is still in use.
 Close any program using the device and try again.
 Error %2</source>

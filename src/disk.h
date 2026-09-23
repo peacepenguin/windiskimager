@@ -80,6 +80,11 @@ QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed);
 // Mounted volumes on physical disk deviceID as "E:, F:"; empty when none.
 QString driveLettersOnDevice(ULONG deviceID);
 
+// True if path (which need not exist yet) is on a volume with any part on
+// physical disk deviceID. Goes by the volume the path's mount point belongs
+// to, so a partition mounted as a folder is found, not just a drive letter.
+bool pathIsOnDisk(const QString &path, ULONG deviceID);
+
 HANDLE getHandleOnFile(LPCWSTR filelocation, DWORD access);
 HANDLE getHandleOnDevice(int device, DWORD access);
 bool removeLockOnVolume(HANDLE handle);

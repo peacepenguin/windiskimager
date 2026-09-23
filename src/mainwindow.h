@@ -107,7 +107,8 @@ private:
         // Puts the window back to idle and says why; see mainwindow.cpp.
         void endRun(const QString &message);
         // Offers to repair a primary GPT found broken; see mainwindow.cpp.
-        bool offerGptRepair(HANDLE hDisk, unsigned long long devicesectors,
+        bool offerGptRepair(HANDLE hDisk, unsigned long long disksectorsize,
+                            unsigned long long devicesectors,
                             const QString &lead);
         // Locks the device, opens it and the image; see mainwindow.cpp.
         bool acquireDeviceAndImage(int deviceID, LockedVolumes &locked,

@@ -1105,6 +1105,12 @@ La vérification de l&apos;espace libre ne sera pas effectuée.</translation>
         <translation>Périphérique inconnu</translation>
     </message>
     <message>
+        <source>Could not list the volumes on this computer.
+Error %1</source>
+        <translation>Impossible de lister les volumes de cet ordinateur.
+Erreur %1</translation>
+    </message>
+    <message>
         <source>Could not lock volume %1: it is still in use.
 Close any program using the device and try again.
 Error %2</source>

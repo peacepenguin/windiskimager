@@ -1089,6 +1089,12 @@ Checking of free space will be skipped.</source>
         <translation>알 수 없는 장치</translation>
     </message>
     <message>
+        <source>Could not list the volumes on this computer.
+Error %1</source>
+        <translation>이 컴퓨터의 볼륨 목록을 가져올 수 없습니다.
+오류 %1</translation>
+    </message>
+    <message>
         <source>Could not lock volume %1: it is still in use.
 Close any program using the device and try again.
 Error %2</source>

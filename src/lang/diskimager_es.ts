@@ -1105,6 +1105,12 @@ La comprobación del espacio libre será omitida.</translation>
         <translation>Dispositivo desconocido</translation>
     </message>
     <message>
+        <source>Could not list the volumes on this computer.
+Error %1</source>
+        <translation>No se pudieron enumerar los volúmenes de este equipo.
+Error %1</translation>
+    </message>
+    <message>
         <source>Could not lock volume %1: it is still in use.
 Close any program using the device and try again.
 Error %2</source>

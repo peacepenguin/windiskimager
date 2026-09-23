@@ -511,6 +511,17 @@ void MainWindow::initializeHomeDir()
 
 void MainWindow::setReadWriteButtonState()
 {
+    // The image field and the device list stay live during a run, and both
+    // end up here. Re-enabling the buttons then would let a second run start
+    // inside the first from one of its processEvents() calls.
+    if (status != STATUS_IDLE)
+    {
+        bRead->setEnabled(false);
+        bWrite->setEnabled(false);
+        bVerify->setEnabled(false);
+        bCheckGpt->setEnabled(false);
+        return;
+    }
     bool fileSelected = !(leFile->text().isEmpty());
     bool deviceSelected = (cboxDevice->count() > 0);
     QFileInfo fi(leFile->text());
@@ -658,8 +669,8 @@ void MainWindow::generateHash(const QString &filename, int hashish)
 // Tell the user the table is broken and put it right if they say so. `lead`
 // opens the sentence, because a verify and a check on its own meet the damage
 // in different circumstances. Returns true if the table was repaired.
-bool MainWindow::offerGptRepair(HANDLE hDisk, unsigned long long devicesectors,
-                                const QString &lead)
+bool MainWindow::offerGptRepair(HANDLE hDisk, unsigned long long disksectorsize,
+                                unsigned long long devicesectors, const QString &lead)
 {
     const int answer = QMessageBox::warning(this, tr("Partition table damaged"),
         tr("%1 the primary GPT header points at sectors the partition entries "
@@ -675,7 +686,7 @@ bool MainWindow::offerGptRepair(HANDLE hDisk, unsigned long long devicesectors,
     }
 
     QString detail;
-    if (repairPrimaryGpt(hDisk, sectorsize, devicesectors, &detail))
+    if (repairPrimaryGpt(hDisk, disksectorsize, devicesectors, &detail))
     {
         return true;
     }
@@ -689,6 +700,12 @@ bool MainWindow::offerGptRepair(HANDLE hDisk, unsigned long long devicesectors,
 // image sector for sector, so the table is the only place the damage shows.
 void MainWindow::on_bCheckGpt_clicked()
 {
+    // The transfer loops pump events, so this is reachable mid-run. It would
+    // lock and possibly rewrite another disk under a running transfer.
+    if (status != STATUS_IDLE)
+    {
+        return;
+    }
     const int deviceID = selectedDeviceID();
     if (deviceID < 0)
     {
@@ -711,7 +728,10 @@ void MainWindow::on_bCheckGpt_clicked()
         statusbar->showMessage(tr("Could not open the device."));
         return;
     }
-    unsigned long long devicesectors = getNumberOfSectors(hDisk, &sectorsize);
+    // Its own, not the sectorsize member every transfer runs on: a check of a
+    // different disk must not change the sector size anything else uses.
+    unsigned long long disksectorsize = 0ull;
+    unsigned long long devicesectors = getNumberOfSectors(hDisk, &disksectorsize);
     if (!devicesectors)
     {
         CloseHandle(hDisk);
@@ -722,10 +742,10 @@ void MainWindow::on_bCheckGpt_clicked()
         return;
     }
 
-    switch (gptPrimaryState(hDisk, sectorsize, devicesectors))
+    switch (gptPrimaryState(hDisk, disksectorsize, devicesectors))
     {
     case GPT_PRIMARY_BROKEN:
-        if (offerGptRepair(hDisk, devicesectors,
+        if (offerGptRepair(hDisk, disksectorsize, devicesectors,
                 tr("This device's partition table is broken:")))
         {
             statusbar->showMessage(tr("Partition table repaired."));
@@ -819,6 +839,13 @@ void MainWindow::on_bCancel_clicked()
 
 void MainWindow::on_bWrite_clicked()
 {
+    // Reachable mid-run through the processEvents() calls in the transfer
+    // loops; a second run started inside the first would share its
+    // handles, buffers and status.
+    if (status != STATUS_IDLE)
+    {
+        return;
+    }
     bool passfail = true;
     if (!leFile->text().isEmpty())
     {
@@ -868,6 +895,7 @@ void MainWindow::on_bWrite_clicked()
             bWrite->setEnabled(false);
             bRead->setEnabled(false);
             bVerify->setEnabled(false);
+            bCheckGpt->setEnabled(false);
             unsigned long long i, lasti, availablesectors, numsectors;
             LockedVolumes locked;
             ImageSource image;
@@ -1066,7 +1094,12 @@ void MainWindow::on_bWrite_clicked()
             // written is an MBR image or has no table at all. Read here while
             // the handle is still open.
             bool mbr = deviceHasMbrTable(hRawDisk, sectorsize);
-            if (fixGptCheckBox->isChecked() && status != STATUS_CANCELED)
+            // STATUS_WRITING only survives the loop when it ran to the end;
+            // Cancel and closing the window both change it. Testing for
+            // STATUS_CANCELED alone treated a window close mid-write as a
+            // completed write, "fixed" the GPT of a half-written card and
+            // reported success.
+            if (fixGptCheckBox->isChecked() && status == STATUS_WRITING)
             {
                 statusbar->showMessage(tr("Fixing GPT..."));
                 QCoreApplication::processEvents();
@@ -1083,7 +1116,7 @@ void MainWindow::on_bWrite_clicked()
             hRawDisk = INVALID_HANDLE_VALUE;
             locked.release();
 
-            if (imagetruncated && status != STATUS_CANCELED)
+            if (imagetruncated && status == STATUS_WRITING)
             {
                 QMessageBox::critical(this, tr("Image truncated"),
                     tr("The image is larger than the device, so the end of it was not "
@@ -1092,7 +1125,7 @@ void MainWindow::on_bWrite_clicked()
                        "the compressed image does not record its uncompressed size."));
                 passfail = false;
             }
-            else if (status == STATUS_CANCELED){
+            else if (status != STATUS_WRITING){
                 passfail = false;
             }
             // No GPT means nothing for Windows to "repair", whether or not the
@@ -1185,7 +1218,6 @@ void MainWindow::on_bWrite_clicked()
         showProgress(false);
         statusbar->showMessage(tr("Done."));
         bCancel->setEnabled(false);
-        setReadWriteButtonState();
         if (passfail){
             statusbar->showMessage(tr("Write Successful."));
         }
@@ -1200,6 +1232,9 @@ void MainWindow::on_bWrite_clicked()
         close();
     }
     status = STATUS_IDLE;
+    // Only now: setReadWriteButtonState() keeps everything disabled while
+    // a run is active, which status still said until the line above.
+    setReadWriteButtonState();
     elapsed_timer->stop();
 }
 
@@ -1341,6 +1376,13 @@ bool MainWindow::choosePartitionsDialog(const QList<PartitionInfo> &partitions,
 
 void MainWindow::on_bRead_clicked()
 {
+    // Reachable mid-run through the processEvents() calls in the transfer
+    // loops; a second run started inside the first would share its
+    // handles, buffers and status.
+    if (status != STATUS_IDLE)
+    {
+        return;
+    }
     QString myFile;
     if (!leFile->text().isEmpty())
     {
@@ -1425,6 +1467,7 @@ void MainWindow::on_bRead_clicked()
         bWrite->setEnabled(false);
         bRead->setEnabled(false);
         bVerify->setEnabled(false);
+        bCheckGpt->setEnabled(false);
         status = STATUS_READING;
         showProgress(true);
         unsigned long long i, lasti, numsectors, filesize, spaceneeded = 0ull;
@@ -1752,8 +1795,10 @@ void MainWindow::on_bRead_clicked()
         showProgress(false);
         statusbar->showMessage(tr("Done."));
         bCancel->setEnabled(false);
-        setReadWriteButtonState();
-        if (status == STATUS_CANCELED){
+        // Closing the window mid-read stops the loop too, and leaves an
+        // incomplete image (a compressed one never gets its stream finished),
+        // so anything but a read that ran to the end is a canceled one.
+        if (status != STATUS_READING){
             QMessageBox::information(this, tr("Complete"), tr("Read Canceled."));
         } else {
             QMessageBox::information(this, tr("Complete"), tr("Read Successful."));
@@ -1770,12 +1815,22 @@ void MainWindow::on_bRead_clicked()
         close();
     }
     status = STATUS_IDLE;
+    // Only now: setReadWriteButtonState() keeps everything disabled while
+    // a run is active, which status still said until the line above.
+    setReadWriteButtonState();
     elapsed_timer->stop();
 }
 
 // Verify image with device
 void MainWindow::on_bVerify_clicked()
 {
+    // Reachable mid-run through the processEvents() calls in the transfer
+    // loops; a second run started inside the first would share its
+    // handles, buffers and status.
+    if (status != STATUS_IDLE)
+    {
+        return;
+    }
     bool passfail = true;
     bool verifyreported = false;
     if (!leFile->text().isEmpty())
@@ -1801,6 +1856,7 @@ void MainWindow::on_bVerify_clicked()
             bWrite->setEnabled(false);
             bRead->setEnabled(false);
             bVerify->setEnabled(false);
+            bCheckGpt->setEnabled(false);
             unsigned long long i, lasti, availablesectors, numsectors, result;
             LockedVolumes locked;
             ImageSource image;
@@ -2014,7 +2070,7 @@ void MainWindow::on_bVerify_clicked()
             }
             if (gptstate == GPT_PRIMARY_BROKEN)
             {
-                if (offerGptRepair(hRawDisk, availablesectors,
+                if (offerGptRepair(hRawDisk, sectorsize, availablesectors,
                         tr("The device holds the image correctly, but its partition "
                            "table is broken:")))
                 {
@@ -2039,7 +2095,8 @@ void MainWindow::on_bVerify_clicked()
             sectorData = NULL;
             sectorData2 = NULL;
             hRawDisk = INVALID_HANDLE_VALUE;
-            if (status == STATUS_CANCELED){
+            // Canceled or window closed: only part of the image was compared.
+            if (status != STATUS_VERIFYING){
                 passfail = false;
             }
             else if (imageunchecked)
@@ -2107,7 +2164,6 @@ void MainWindow::on_bVerify_clicked()
         showProgress(false);
         statusbar->showMessage(tr("Done."));
         bCancel->setEnabled(false);
-        setReadWriteButtonState();
         if (passfail && !verifyreported){
             QMessageBox::information(this, tr("Complete"), tr("Verify Successful."));
         }
@@ -2121,6 +2177,9 @@ void MainWindow::on_bVerify_clicked()
         close();
     }
     status = STATUS_IDLE;
+    // Only now: setReadWriteButtonState() keeps everything disabled while
+    // a run is active, which status still said until the line above.
+    setReadWriteButtonState();
     elapsed_timer->stop();
 }
 
@@ -2257,12 +2316,11 @@ int MainWindow::selectedDeviceID()
 bool MainWindow::fileIsOnSelectedDevice(const QString &file)
 {
     int deviceID = selectedDeviceID();
-    if (deviceID < 0 || file.length() < 2 || file.at(1) != QChar(':'))
+    if (deviceID < 0 || file.isEmpty())
     {
         return false;
     }
-    QString letters = driveLettersOnDevice((ULONG)deviceID);
-    return letters.contains(QString("%1:").arg(file.at(0).toUpper()));
+    return pathIsOnDisk(file, (ULONG)deviceID);
 }
 
 void MainWindow::on_showAllDevicesCheckBox_toggled(bool)

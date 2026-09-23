@@ -32,6 +32,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <new>
+#include <string>
 #include <windows.h>
 #include <winioctl.h>
 #include "disk.h"
@@ -308,6 +309,104 @@ static HANDLE openVolumeOnDisk(char letter, DWORD access, int *disk)
     return h;
 }
 
+// Whether an open volume has any extent on physical disk deviceID. A spanned
+// or mirrored volume has one extent per disk, and a bare VOLUME_DISK_EXTENTS
+// holds only one, so the query is sized for several -- otherwise it fails
+// with ERROR_MORE_DATA and such a volume is never recognised at all.
+static bool volumeIsOnDisk(HANDLE h, DWORD deviceID)
+{
+    const DWORD MAX_EXTENTS = 64;
+    QByteArray buf((int)(sizeof(VOLUME_DISK_EXTENTS) + MAX_EXTENTS * sizeof(DISK_EXTENT)), 0);
+    DWORD bytesreturned = 0;
+    if (!DeviceIoControl(h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, NULL, 0,
+                         buf.data(), (DWORD)buf.size(), &bytesreturned, NULL))
+    {
+        return false;
+    }
+    const VOLUME_DISK_EXTENTS *ext = (const VOLUME_DISK_EXTENTS *)buf.constData();
+    for (DWORD i = 0; i < ext->NumberOfDiskExtents && i <= MAX_EXTENTS; ++i)
+    {
+        if (ext->Extents[i].DiskNumber == deviceID)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Open a volume by its \\?\Volume{GUID}\ name. CreateFile opens the volume
+// device only without the trailing backslash; with it, it opens the root
+// directory of the filesystem instead, which takes no volume ioctls.
+static HANDLE openVolumeByName(const wchar_t *guidname, DWORD access)
+{
+    std::wstring device(guidname);
+    if (!device.empty() && device.back() == L'\\')
+    {
+        device.pop_back();
+    }
+    return CreateFileW(device.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                       NULL, OPEN_EXISTING, 0, NULL);
+}
+
+// Where a volume is mounted, for a message: its drive letter or folder if it
+// has one, otherwise the GUID name, which is all a letterless volume has.
+static QString volumeDisplayName(const wchar_t *guidname)
+{
+    wchar_t paths[MAX_PATH * 4] = {0};
+    DWORD needed = 0;
+    if (GetVolumePathNamesForVolumeNameW(guidname, paths, MAX_PATH * 4, &needed)
+        && paths[0] != 0)
+    {
+        return QString::fromWCharArray(paths);
+    }
+    return QString::fromWCharArray(guidname);
+}
+
+bool pathIsOnDisk(const QString &path, ULONG deviceID)
+{
+    // The file may not exist yet -- Read is about to create it -- so ask about
+    // the directory it goes in.
+    QFileInfo fi(path);
+    QString probe = QDir::toNativeSeparators(fi.exists() ? fi.absoluteFilePath()
+                                                         : fi.absolutePath());
+    std::wstring wprobe = probe.toStdWString();
+
+    // Which volume holds the path, found through its mount point. This is what
+    // catches a card partition mounted as a folder, e.g. C:\mnt\card: going by
+    // the drive letter alone, that path looks like it is on C:.
+    wchar_t mountpoint[MAX_PATH + 1] = {0};
+    wchar_t guidname[MAX_PATH + 1] = {0};
+    if (GetVolumePathNameW(wprobe.c_str(), mountpoint, MAX_PATH)
+        && GetVolumeNameForVolumeMountPointW(mountpoint, guidname, MAX_PATH))
+    {
+        HANDLE h = openVolumeByName(guidname, 0);
+        if (h != INVALID_HANDLE_VALUE)
+        {
+            bool onDisk = volumeIsOnDisk(h, deviceID);
+            CloseHandle(h);
+            return onDisk;
+        }
+    }
+
+    // A SUBST drive has no mount point of its own, but \\.\X: still opens the
+    // volume underneath it -- the only check that existed before, kept as the
+    // fallback. Anything else, a UNC share included, is on no local disk.
+    if (probe.length() >= 2 && probe.at(1) == QChar(':'))
+    {
+        wchar_t device[] = L"\\\\.\\A:";
+        device[4] = (wchar_t)probe.at(0).toUpper().unicode();
+        HANDLE h = CreateFileW(device, 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                               NULL, OPEN_EXISTING, 0, NULL);
+        if (h != INVALID_HANDLE_VALUE)
+        {
+            bool onDisk = volumeIsOnDisk(h, deviceID);
+            CloseHandle(h);
+            return onDisk;
+        }
+    }
+    return false;
+}
+
 // Physical disk a mounted volume lives on, or -1 if it cannot be determined.
 static int diskNumberOfVolume(char letter)
 {
@@ -561,27 +660,49 @@ QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed)
 
 bool LockedVolumes::lockAll(DWORD deviceID)
 {
-    // Volumes on other disks are left alone; only the target disk is locked.
-    for (int i = 0; i < 26; ++i)
+    // Every volume, not every drive letter. A partition mounted as a folder,
+    // or not mounted anywhere a letter shows, is just as live: walking A: to Z:
+    // left it mounted, and Windows refuses raw writes to a mounted volume's
+    // sectors, so the write failed partway through with the card half
+    // overwritten. Volumes on other disks are left alone.
+    wchar_t guidname[MAX_PATH + 1] = {0};
+    HANDLE find = FindFirstVolumeW(guidname, MAX_PATH);
+    if (find == INVALID_HANDLE_VALUE)
     {
-        char root[] = "A:\\";
-        root[0] = 'A' + i;
-        UINT type = GetDriveTypeA(root);
-        if (type != DRIVE_REMOVABLE && type != DRIVE_FIXED)
+        // Every machine has at least the volume Windows runs from, so this is
+        // a failure, not an empty list -- and going ahead would write to a
+        // disk whose volumes nobody checked.
+        QMessageBox::critical(MainWindow::getInstanceIfAvailable(), QObject::tr("Lock Error"),
+                              QObject::tr("Could not list the volumes on this computer.\n"
+                                          "Error %1").arg(GetLastError()));
+        return false;
+    }
+    bool ok = true;
+    do
+    {
+        // Asked with no access first: only the target disk's volumes are
+        // opened for writing.
+        HANDLE probe = openVolumeByName(guidname, 0);
+        if (probe == INVALID_HANDLE_VALUE)
         {
             continue;
         }
-        int disk = -1;
-        HANDLE h = openVolumeOnDisk((char)('A' + i),
-                                    GENERIC_READ | GENERIC_WRITE, &disk);
+        bool onDisk = volumeIsOnDisk(probe, deviceID);
+        CloseHandle(probe);
+        if (!onDisk)
+        {
+            continue;
+        }
+        const QString name = volumeDisplayName(guidname);
+        HANDLE h = openVolumeByName(guidname, GENERIC_READ | GENERIC_WRITE);
         if (h == INVALID_HANDLE_VALUE)
         {
-            continue;
-        }
-        if (disk != (int)deviceID)
-        {
-            CloseHandle(h);
-            continue;
+            QMessageBox::critical(MainWindow::getInstanceIfAvailable(), QObject::tr("Lock Error"),
+                                  QObject::tr("Could not lock volume %1: it is still in use.\n"
+                                              "Close any program using the device and try again.\n"
+                                              "Error %2").arg(name).arg(GetLastError()));
+            ok = false;
+            break;
         }
         // A volume that is merely busy (indexer, antivirus, an open Explorer
         // window) fails FSCTL_LOCK_VOLUME with ERROR_ACCESS_DENIED, so retry
@@ -601,20 +722,25 @@ bool LockedVolumes::lockAll(DWORD deviceID)
             QMessageBox::critical(MainWindow::getInstanceIfAvailable(), QObject::tr("Lock Error"),
                                   QObject::tr("Could not lock volume %1: it is still in use.\n"
                                               "Close any program using the device and try again.\n"
-                                              "Error %2").arg(QChar('A' + i)).arg(GetLastError()));
+                                              "Error %2").arg(name).arg(GetLastError()));
             CloseHandle(h);
-            release();
-            return false;
+            ok = false;
+            break;
         }
         if (!unmountVolume(h))
         {
             CloseHandle(h);
-            release();
-            return false;
+            ok = false;
+            break;
         }
         handles.append(h);
+    } while (FindNextVolumeW(find, guidname, MAX_PATH));
+    FindVolumeClose(find);
+    if (!ok)
+    {
+        release();
     }
-    return true;
+    return ok;
 }
 
 void LockedVolumes::release()

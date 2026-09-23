@@ -955,6 +955,12 @@ Error %1: %2</source>
         <translation>அறியப்படாத சாதனம்</translation>
     </message>
     <message>
+        <source>Could not list the volumes on this computer.
+Error %1</source>
+        <translation>இந்தக் கணினியில் உள்ள தொகுதிகளைப் பட்டியலிட முடியவில்லை.
+பிழை %1</translation>
+    </message>
+    <message>
         <source>Could not lock volume %1: it is still in use.
 Close any program using the device and try again.
 Error %2</source>

@@ -1092,6 +1092,12 @@ Sprawdzanie wolnej pamięci zostanie pominięte.</translation>
         <translation>Nieznane urządzenie</translation>
     </message>
     <message>
+        <source>Could not list the volumes on this computer.
+Error %1</source>
+        <translation>Nie można wyświetlić listy woluminów na tym komputerze.
+Błąd %1</translation>
+    </message>
+    <message>
         <source>Could not lock volume %1: it is still in use.
 Close any program using the device and try again.
 Error %2</source>
