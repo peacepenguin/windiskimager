@@ -25,11 +25,11 @@
     </message>
     <message>
         <source>Shrink image on Read</source>
-        <translation>读取时缩小映像</translation>
+        <translation type="vanished">读取时缩小映像</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device to shrink the image to match actual partitions only. Moves backup GPT to end of used space.</source>
-        <translation>读取设备的 MBR 或 GPT，将映像缩小到仅包含实际分区。将备份 GPT 移到已用空间的末尾。</translation>
+        <translation type="vanished">读取设备的 MBR 或 GPT，将映像缩小到仅包含实际分区。将备份 GPT 移到已用空间的末尾。</translation>
     </message>
     <message>
         <source>Read to .img.gz</source>
@@ -53,7 +53,7 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
-        <translation>在读取之前列出设备的分区，供选择要包含哪些分区。未包含的分区将从映像中移除，与未分区空间一样 -- 无论是否同时勾选了&quot;读取时缩小映像&quot;，这都会缩小映像。</translation>
+        <translation type="vanished">在读取之前列出设备的分区，供选择要包含哪些分区。未包含的分区将从映像中移除，与未分区空间一样 -- 无论是否同时勾选了&quot;读取时缩小映像&quot;，这都会缩小映像。</translation>
     </message>
     <message>
         <source>Exit WinDiskImager</source>
@@ -74,6 +74,18 @@
     <message>
         <source>Check the currently selected device for GPT corruption and offer to repair it.</source>
         <translation>检查当前所选设备的 GPT 是否损坏，若已损坏则提供修复。</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space</source>
+        <translation>跳过未分区空间</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
+        <translation>读取设备的 MBR 或 GPT，并在映像中省去未分区空间，保留分区、分区表以及 GPT 在其分区之前预留的空间。备份 GPT 会移到映像新的末尾。</translation>
+    </message>
+    <message>
+        <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
+        <translation>在读取之前列出设备的分区，供选择要包含哪些分区。未包含的分区将从映像中移除，与未分区空间一样 -- 无论是否同时勾选了“跳过未分区空间”，未分区空间也总会被跳过。</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -810,6 +822,22 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
     <message>
         <source>Choose Partitions</source>
         <translation>选择分区</translation>
+    </message>
+    <message>
+        <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
+        <translation>跳过未分区空间只保留分区和分区表，以及 GPT 在其分区之前预留的空间。
+
+某些可启动映像（例如单板计算机的映像）会把引导加载程序数据放在分区之外。以这种方式读取此类设备得到的映像可能无法启动。</translation>
+    </message>
+    <message>
+        <source>Shrinking keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. A shrunk image of such a device may not boot.</source>
+        <translation type="vanished">缩小只保留分区和分区表，以及 GPT 在其分区之前预留的空间。
+
+某些可启动映像（例如单板计算机的映像）会把引导加载程序数据放在分区之外。此类设备的缩小映像可能无法启动。</translation>
     </message>
     <message>
         <source>Choose which partitions to include in the image. Anything left unchecked is removed, the same as unpartitioned space.</source>

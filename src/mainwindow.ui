@@ -272,10 +272,10 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>Shrink image on Read</string>
+         <string>Skip unpartitioned space</string>
         </property>
         <property name="toolTip">
-         <string>Reads the MBR or GPT of the Device to shrink the image to match actual partitions only. Moves backup GPT to end of used space.</string>
+         <string>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</string>
         </property>
        </widget>
           </item>
@@ -323,7 +323,7 @@
          <string>Choose partitions to read</string>
         </property>
         <property name="toolTip">
-         <string>Before reading, list the Device's partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not "Shrink image on Read" is also checked.</string>
+         <string>Before reading, list the Device's partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not "Skip unpartitioned space" is also checked.</string>
         </property>
        </widget>
           </item>

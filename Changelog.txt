@@ -9,8 +9,10 @@ Fix Check GPT, or editing the image name, starting a second operation while
 Lock and dismount partitions mounted as a folder or with no drive letter
   before writing, and refuse an image stored on one of them
 Fix a very large shrink-on-read header region being written short
-Fix Shrink image on Read dropping a bootloader stored before the first
-  partition, which left shrunk SD-card board images unbootable
+Rename "Shrink image on Read" to "Skip unpartitioned space"
+Skip unpartitioned space keeps a GPT's reserved area below FirstUsableLBA,
+  where board images store their bootloader, and warns when turned on that
+  bootloader data outside the partitions can still be lost
 Fix Verify passing when the boot sector or the partition entries differ
 Fix a damaged end of a compressed image going unreported when the image
   exactly fills the device
@@ -19,7 +21,7 @@ Fix Read backing up a write-protected card failing at the volume lock
 Fix Read writing a relative file name somewhere other than the name shown
 Fix the checksum button staying usable during a run, and an old checksum
   staying on screen after its file was overwritten
-Fix "Choose partitions to read" leaving "Shrink image on Read" checked
+Fix "Choose partitions to read" leaving "Skip unpartitioned space" checked
   after being unchecked
 Fix the Windows disk being listed when its volume spans more than one disk
 Fix progress stopping at 100% on large .img.gz images

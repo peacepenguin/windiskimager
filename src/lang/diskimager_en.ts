@@ -25,11 +25,11 @@
     </message>
     <message>
         <source>Shrink image on Read</source>
-        <translation>Shrink image on Read</translation>
+        <translation type="vanished">Shrink image on Read</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device to shrink the image to match actual partitions only. Moves backup GPT to end of used space.</source>
-        <translation>Reads the MBR or GPT of the Device to shrink the image to match actual partitions only. Moves backup GPT to end of used space.</translation>
+        <translation type="vanished">Reads the MBR or GPT of the Device to shrink the image to match actual partitions only. Moves backup GPT to end of used space.</translation>
     </message>
     <message>
         <source>Read to .img.gz</source>
@@ -53,7 +53,7 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
-        <translation>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</translation>
+        <translation type="vanished">Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</translation>
     </message>
     <message>
         <source>Exit WinDiskImager</source>
@@ -74,6 +74,18 @@
     <message>
         <source>Check the currently selected device for GPT corruption and offer to repair it.</source>
         <translation>Check the currently selected device for GPT corruption and offer to repair it.</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space</source>
+        <translation>Skip unpartitioned space</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
+        <translation>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</translation>
+    </message>
+    <message>
+        <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
+        <translation>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -798,6 +810,22 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
     <message>
         <source>Choose Partitions</source>
         <translation>Choose Partitions</translation>
+    </message>
+    <message>
+        <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
+        <translation>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</translation>
+    </message>
+    <message>
+        <source>Shrinking keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. A shrunk image of such a device may not boot.</source>
+        <translation type="vanished">Shrinking keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. A shrunk image of such a device may not boot.</translation>
     </message>
     <message>
         <source>Choose which partitions to include in the image. Anything left unchecked is removed, the same as unpartitioned space.</source>

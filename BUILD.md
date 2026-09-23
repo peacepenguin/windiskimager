@@ -256,7 +256,7 @@ compressed is checked in and neither `gzip` nor `xz` needs to be on the path.
 
 ## Testing shrink-on-read
 
-"Shrink image on Read" repacks a GPT or MBR device to remove every
+"Skip unpartitioned space" repacks a GPT or MBR device to remove every
 unpartitioned gap — ahead of the first partition, between partitions, and
 after the last one — instead of reading the device byte for byte. It has no
 automated harness of its own; `tools/make-test-images.sh` (Linux only, see

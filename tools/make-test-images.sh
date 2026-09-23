@@ -278,7 +278,7 @@ echo "building the GPT pair"
 make_gpt_image 2048 "$OUTDIR/test-gpt-affected.img"
 make_gpt_image 34   "$OUTDIR/test-gpt-safe.img"
 
-# -------------------------------------------------- "Shrink image on Read" ---
+# ---------------------------------------------- "Skip unpartitioned space" ---
 #
 # Each region that matters carries its own ASCII tag rather than zeros, so a
 # gap left in or data left out shows up in the shrunk output, not just in its
@@ -625,7 +625,7 @@ the GPT pair, for the Windows GPT rewrite bug -- no filesystem, only a table
                                With the option OFF the warning should say this
                                image is NOT affected. Nothing else differs.
 
-for "Shrink image on Read" -- write one of these to a device (or attach it
+for "Skip unpartitioned space" -- write one of these to a device (or attach it
 directly), then Read it back with the box checked. Every gap and every
 region that must survive is stamped with its own ASCII tag rather than left
 zero, so diffing the shrunk output against the original catches a gap left

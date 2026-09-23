@@ -25,11 +25,11 @@
     </message>
     <message>
         <source>Shrink image on Read</source>
-        <translation>படித்தல் நேரத்தில் படிமத்தைச் சுருக்கு</translation>
+        <translation type="vanished">படித்தல் நேரத்தில் படிமத்தைச் சுருக்கு</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device to shrink the image to match actual partitions only. Moves backup GPT to end of used space.</source>
-        <translation>சாதனத்தின் MBR அல்லது GPT-ஐப் படித்து, உண்மையான பகிர்வுகளுக்கு மட்டும் ஏற்பப் படிமத்தைச் சுருக்குகிறது. காப்பு GPT-ஐப் பயன்பட்ட இட முடிவுக்கு நகர்த்துகிறது.</translation>
+        <translation type="vanished">சாதனத்தின் MBR அல்லது GPT-ஐப் படித்து, உண்மையான பகிர்வுகளுக்கு மட்டும் ஏற்பப் படிமத்தைச் சுருக்குகிறது. காப்பு GPT-ஐப் பயன்பட்ட இட முடிவுக்கு நகர்த்துகிறது.</translation>
     </message>
     <message>
         <source>Read to .img.gz</source>
@@ -53,7 +53,7 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
-        <translation>படிப்பதற்கு முன், சாதனத்தின் பகிர்வுகளைப் பட்டியலிட்டு, சேர்க்க வேண்டியவற்றைத் தேர்வுசெய்ய அனுமதிக்கிறது. விடுபட்டவை படிமத்திலிருந்து அகற்றப்படும், பகிரப்படாத இடம் போலவே -- &quot;படித்தல் நேரத்தில் படிமத்தைச் சுருக்கு&quot; தேர்வு செய்யப்பட்டிருந்தாலும் இல்லாவிட்டாலும், இது எப்போதும் படிமத்தைச் சுருக்கும்.</translation>
+        <translation type="vanished">படிப்பதற்கு முன், சாதனத்தின் பகிர்வுகளைப் பட்டியலிட்டு, சேர்க்க வேண்டியவற்றைத் தேர்வுசெய்ய அனுமதிக்கிறது. விடுபட்டவை படிமத்திலிருந்து அகற்றப்படும், பகிரப்படாத இடம் போலவே -- &quot;படித்தல் நேரத்தில் படிமத்தைச் சுருக்கு&quot; தேர்வு செய்யப்பட்டிருந்தாலும் இல்லாவிட்டாலும், இது எப்போதும் படிமத்தைச் சுருக்கும்.</translation>
     </message>
     <message>
         <source>Exit WinDiskImager</source>
@@ -74,6 +74,18 @@
     <message>
         <source>Check the currently selected device for GPT corruption and offer to repair it.</source>
         <translation>தேர்ந்தெடுக்கப்பட்ட சாதனத்தில் GPT சிதைந்துள்ளதா எனச் சரிபார்த்து, சிதைந்திருந்தால் சரிசெய்ய முன்வரும்.</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space</source>
+        <translation>பகிரப்படாத இடத்தைத் தவிர்</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
+        <translation>சாதனத்தின் MBR அல்லது GPT-ஐப் படித்து, பகிரப்படாத இடத்தைப் படிமத்திலிருந்து விலக்குகிறது. பகிர்வுகள், பகிர்வு அட்டவணை, GPT தன் பகிர்வுகளுக்கு முன் ஒதுக்கிய இடம் ஆகியவை வைக்கப்படும். காப்பு GPT படிமத்தின் புதிய முடிவுக்கு நகர்த்தப்படும்.</translation>
+    </message>
+    <message>
+        <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
+        <translation>படிப்பதற்கு முன், சாதனத்தின் பகிர்வுகளைப் பட்டியலிட்டு, சேர்க்க வேண்டியவற்றைத் தேர்வுசெய்ய அனுமதிக்கிறது. விடுபட்டவை பகிரப்படாத இடம் போலவே படிமத்திலிருந்து அகற்றப்படும் -- &quot;பகிரப்படாத இடத்தைத் தவிர்&quot; தேர்வு செய்யப்பட்டிருந்தாலும் இல்லாவிட்டாலும், பகிரப்படாத இடமும் எப்போதும் தவிர்க்கப்படும்.</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -308,6 +320,22 @@ This could only be detected once the device was full, because the compressed ima
     <message>
         <source>Remove the device now</source>
         <translation>சாதனத்தை இப்போது அகற்றவும்</translation>
+    </message>
+    <message>
+        <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
+        <translation>பகிரப்படாத இடத்தைத் தவிர்க்கும்போது பகிர்வுகளும் பகிர்வு அட்டவணையும், GPT தன் பகிர்வுகளுக்கு முன் ஒதுக்கிய இடமும் மட்டுமே வைக்கப்படும்.
+
+ஒற்றைப் பலகைக் கணினிகளுக்கானவை போன்ற சில துவக்கக்கூடிய படிமங்கள் துவக்கி தரவைப் பகிர்வுகளுக்கு வெளியே வைத்திருக்கும். அத்தகைய சாதனத்தை இவ்வாறு படித்த படிமம் துவங்காமல் போகலாம்.</translation>
+    </message>
+    <message>
+        <source>Shrinking keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. A shrunk image of such a device may not boot.</source>
+        <translation type="vanished">சுருக்கும்போது பகிர்வுகளும் பகிர்வு அட்டவணையும், GPT தன் பகிர்வுகளுக்கு முன் ஒதுக்கிய இடமும் மட்டுமே வைக்கப்படும்.
+
+ஒற்றைப் பலகைக் கணினிகளுக்கானவை போன்ற சில துவக்கக்கூடிய படிமங்கள் துவக்கி தரவைப் பகிர்வுகளுக்கு வெளியே வைத்திருக்கும். அத்தகைய சாதனத்தின் சுருக்கப்பட்ட படிமம் துவங்காமல் போகலாம்.</translation>
     </message>
     <message>
         <source>File Error</source>

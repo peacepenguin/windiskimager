@@ -74,6 +74,7 @@ class MainWindow : public QMainWindow, public Ui::MainWindow
         void on_readGzCheckBox_toggled(bool checked);
         void on_readXzCheckBox_toggled(bool checked);
         void on_choosePartitionsCheckBox_toggled(bool checked);
+        void on_shrinkOnReadCheckBox_toggled(bool checked);
 private slots:
         void on_cboxHashType_IdxChg();
         void on_bHashGen_clicked();
@@ -126,7 +127,7 @@ private:
         // Image the hash type was last defaulted for, so a hand-picked type
         // survives later editingFinished signals.
         QString myHashDefaultedFor;
-        // "Shrink image on Read" as it was before "Choose partitions" forced it.
+        // "Skip unpartitioned space" as it was before "Choose partitions" forced it.
         bool myShrinkBeforeChoose = false;
         QStringList myFileTypeList;
 };

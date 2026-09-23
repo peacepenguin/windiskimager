@@ -25,11 +25,11 @@
     </message>
     <message>
         <source>Shrink image on Read</source>
-        <translation>읽기 시 이미지 축소</translation>
+        <translation type="vanished">읽기 시 이미지 축소</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device to shrink the image to match actual partitions only. Moves backup GPT to end of used space.</source>
-        <translation>장치의 MBR 또는 GPT를 읽어 실제 파티션에 맞게 이미지를 축소합니다. 백업 GPT는 사용된 공간의 끝으로 옮깁니다.</translation>
+        <translation type="vanished">장치의 MBR 또는 GPT를 읽어 실제 파티션에 맞게 이미지를 축소합니다. 백업 GPT는 사용된 공간의 끝으로 옮깁니다.</translation>
     </message>
     <message>
         <source>Read to .img.gz</source>
@@ -53,7 +53,7 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
-        <translation>읽기 전에 장치의 파티션을 나열하고 포함할 항목을 선택합니다. 제외된 항목은 파티션되지 않은 공간과 마찬가지로 이미지에서 제거됩니다 -- &quot;읽기 시 이미지 축소&quot;가 선택되어 있는지 여부와 관계없이 항상 이미지를 축소합니다.</translation>
+        <translation type="vanished">읽기 전에 장치의 파티션을 나열하고 포함할 항목을 선택합니다. 제외된 항목은 파티션되지 않은 공간과 마찬가지로 이미지에서 제거됩니다 -- &quot;읽기 시 이미지 축소&quot;가 선택되어 있는지 여부와 관계없이 항상 이미지를 축소합니다.</translation>
     </message>
     <message>
         <source>Exit WinDiskImager</source>
@@ -74,6 +74,18 @@
     <message>
         <source>Check the currently selected device for GPT corruption and offer to repair it.</source>
         <translation>현재 선택된 장치의 GPT가 손상되었는지 확인하고, 손상된 경우 복구를 제안합니다.</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space</source>
+        <translation>파티션되지 않은 공간 건너뛰기</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
+        <translation>장치의 MBR 또는 GPT를 읽고 파티션되지 않은 공간을 이미지에서 제외합니다. 파티션, 파티션 테이블, 그리고 GPT가 파티션 앞에 예약해 둔 공간은 유지합니다. 백업 GPT는 이미지의 새 끝으로 옮겨집니다.</translation>
+    </message>
+    <message>
+        <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
+        <translation>읽기 전에 장치의 파티션을 나열하고 포함할 항목을 선택합니다. 제외된 항목은 파티션되지 않은 공간과 마찬가지로 이미지에서 제거됩니다 -- &quot;파티션되지 않은 공간 건너뛰기&quot;가 선택되어 있는지 여부와 관계없이 파티션되지 않은 공간도 항상 건너뜁니다.</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -810,6 +822,22 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
     <message>
         <source>Choose Partitions</source>
         <translation>파티션 선택</translation>
+    </message>
+    <message>
+        <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
+        <translation>파티션되지 않은 공간을 건너뛰면 파티션과 파티션 테이블, 그리고 GPT가 파티션 앞에 예약해 둔 공간만 남습니다.
+
+싱글 보드 컴퓨터용 이미지 같은 일부 부팅 가능한 이미지는 부트로더 데이터를 파티션 밖에 둡니다. 그런 장치를 이렇게 읽은 이미지는 부팅되지 않을 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Shrinking keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. A shrunk image of such a device may not boot.</source>
+        <translation type="vanished">축소하면 파티션과 파티션 테이블, 그리고 GPT가 파티션 앞에 예약해 둔 공간만 남습니다.
+
+싱글 보드 컴퓨터용 이미지 같은 일부 부팅 가능한 이미지는 부트로더 데이터를 파티션 밖에 둡니다. 그런 장치를 축소한 이미지는 부팅되지 않을 수 있습니다.</translation>
     </message>
     <message>
         <source>Choose which partitions to include in the image. Anything left unchecked is removed, the same as unpartitioned space.</source>

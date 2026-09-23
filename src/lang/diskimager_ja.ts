@@ -25,11 +25,11 @@
     </message>
     <message>
         <source>Shrink image on Read</source>
-        <translation>読み取り時にイメージを縮小</translation>
+        <translation type="vanished">読み取り時にイメージを縮小</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device to shrink the image to match actual partitions only. Moves backup GPT to end of used space.</source>
-        <translation>デバイスの MBR または GPT を読み取り、実際のパーティションに合わせてイメージを縮小します。バックアップ GPT は使用済み領域の末尾へ移動します。</translation>
+        <translation type="vanished">デバイスの MBR または GPT を読み取り、実際のパーティションに合わせてイメージを縮小します。バックアップ GPT は使用済み領域の末尾へ移動します。</translation>
     </message>
     <message>
         <source>Read to .img.gz</source>
@@ -53,7 +53,7 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
-        <translation>読み取りの前に、デバイスのパーティションを一覧表示し、含めるものを選択できます。除外したものはイメージから取り除かれます。これは未パーティション領域と同様で、「読み取り時にイメージを縮小」がチェックされているかどうかにかかわらず、常にイメージを縮小します。</translation>
+        <translation type="vanished">読み取りの前に、デバイスのパーティションを一覧表示し、含めるものを選択できます。除外したものはイメージから取り除かれます。これは未パーティション領域と同様で、「読み取り時にイメージを縮小」がチェックされているかどうかにかかわらず、常にイメージを縮小します。</translation>
     </message>
     <message>
         <source>Exit WinDiskImager</source>
@@ -74,6 +74,18 @@
     <message>
         <source>Check the currently selected device for GPT corruption and offer to repair it.</source>
         <translation>選択中のデバイスの GPT が壊れていないかを確認し、壊れていれば修復を提案します。</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space</source>
+        <translation>未パーティション領域をスキップ</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
+        <translation>デバイスのMBRまたはGPTを読み取り、未パーティション領域をイメージから除きます。パーティション、パーティションテーブル、およびGPTがパーティションの前に予約している領域は残します。バックアップGPTはイメージの新しい末尾に移動します。</translation>
+    </message>
+    <message>
+        <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
+        <translation>読み取りの前に、デバイスのパーティションを一覧表示し、含めるものを選択できます。除外したものは未パーティション領域と同様にイメージから取り除かれます。この場合、「未パーティション領域をスキップ」がチェックされているかどうかにかかわらず、未パーティション領域も常にスキップされます。</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -810,6 +822,22 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
     <message>
         <source>Choose Partitions</source>
         <translation>パーティションの選択</translation>
+    </message>
+    <message>
+        <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
+        <translation>未パーティション領域をスキップすると、パーティションとパーティションテーブル、およびGPTがパーティションの前に予約している領域だけが残ります。
+
+シングルボードコンピューター用など一部の起動可能なイメージは、ブートローダーのデータをパーティションの外に置いています。そのようなデバイスをこの方法で読み取ったイメージは起動しない場合があります。</translation>
+    </message>
+    <message>
+        <source>Shrinking keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. A shrunk image of such a device may not boot.</source>
+        <translation type="vanished">縮小すると、パーティションとパーティションテーブル、およびGPTがパーティションの前に予約している領域だけが残ります。
+
+シングルボードコンピューター用など一部の起動可能なイメージは、ブートローダーのデータをパーティションの外に置いています。そのようなデバイスの縮小イメージは起動しない場合があります。</translation>
     </message>
     <message>
         <source>Choose which partitions to include in the image. Anything left unchecked is removed, the same as unpartitioned space.</source>

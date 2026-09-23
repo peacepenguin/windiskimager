@@ -25,11 +25,11 @@
     </message>
     <message>
         <source>Shrink image on Read</source>
-        <translation>Image beim Lesen verkleinern</translation>
+        <translation type="vanished">Image beim Lesen verkleinern</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device to shrink the image to match actual partitions only. Moves backup GPT to end of used space.</source>
-        <translation>Liest den MBR oder die GPT des Datenträgers und verkleinert das Image so, dass es nur die tatsächlichen Partitionen umfasst. Verschiebt die Sicherungs-GPT an das Ende des belegten Speicherbereichs.</translation>
+        <translation type="vanished">Liest den MBR oder die GPT des Datenträgers und verkleinert das Image so, dass es nur die tatsächlichen Partitionen umfasst. Verschiebt die Sicherungs-GPT an das Ende des belegten Speicherbereichs.</translation>
     </message>
     <message>
         <source>Read to .img.gz</source>
@@ -53,7 +53,7 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
-        <translation>Listet vor dem Lesen die Partitionen des Datenträgers auf und lässt auswählen, welche einbezogen werden. Alles Ausgelassene wird aus dem Image entfernt, genau wie nicht partitionierter Speicherplatz -- dies verkleinert das Image immer, unabhängig davon, ob „Image beim Lesen verkleinern“ auch aktiviert ist.</translation>
+        <translation type="vanished">Listet vor dem Lesen die Partitionen des Datenträgers auf und lässt auswählen, welche einbezogen werden. Alles Ausgelassene wird aus dem Image entfernt, genau wie nicht partitionierter Speicherplatz -- dies verkleinert das Image immer, unabhängig davon, ob „Image beim Lesen verkleinern“ auch aktiviert ist.</translation>
     </message>
     <message>
         <source>Exit WinDiskImager</source>
@@ -74,6 +74,18 @@
     <message>
         <source>Check the currently selected device for GPT corruption and offer to repair it.</source>
         <translation>Prüft den aktuell ausgewählten Datenträger auf eine beschädigte GPT und bietet an, sie zu reparieren.</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space</source>
+        <translation>Nicht partitionierten Bereich überspringen</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
+        <translation>Liest den MBR oder die GPT des Datenträgers und lässt den nicht partitionierten Speicherplatz aus dem Image weg. Erhalten bleiben die Partitionen, die Partitionstabelle und jeder Bereich, den eine GPT vor ihren Partitionen reserviert. Die Sicherungs-GPT wird an das neue Ende des Images verschoben.</translation>
+    </message>
+    <message>
+        <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
+        <translation>Listet vor dem Lesen die Partitionen des Datenträgers auf und lässt auswählen, welche einbezogen werden. Alles Ausgelassene wird aus dem Image entfernt, genau wie nicht partitionierter Speicherplatz -- dabei wird nicht partitionierter Speicherplatz immer mit übersprungen, unabhängig davon, ob „Nicht partitionierten Bereich überspringen“ auch aktiviert ist.</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -790,6 +802,22 @@ Entfernen Sie den Datenträger JETZT und stecken Sie ihn hier nicht wieder ein. 
     <message>
         <source>Choose Partitions</source>
         <translation>Partitionen auswählen</translation>
+    </message>
+    <message>
+        <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
+        <translation>Beim Überspringen des nicht partitionierten Bereichs bleiben nur die Partitionen und die Partitionstabelle erhalten, dazu jeder Bereich, den eine GPT vor ihren Partitionen reserviert.
+
+Manche startfähigen Images, etwa für Einplatinencomputer, speichern Bootloader-Daten außerhalb der Partitionen. Ein so gelesenes Image eines solchen Datenträgers startet womöglich nicht.</translation>
+    </message>
+    <message>
+        <source>Shrinking keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. A shrunk image of such a device may not boot.</source>
+        <translation type="vanished">Beim Verkleinern bleiben nur die Partitionen und die Partitionstabelle erhalten, dazu jeder Bereich, den eine GPT vor ihren Partitionen reserviert.
+
+Manche startfähigen Images, etwa für Einplatinencomputer, speichern Bootloader-Daten außerhalb der Partitionen. Ein verkleinertes Image eines solchen Datenträgers startet dann womöglich nicht.</translation>
     </message>
     <message>
         <source>Choose which partitions to include in the image. Anything left unchecked is removed, the same as unpartitioned space.</source>

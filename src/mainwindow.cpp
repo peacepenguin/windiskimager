@@ -2186,6 +2186,22 @@ void MainWindow::on_readXzCheckBox_toggled(bool checked)
     }
 }
 
+// Also fires when "Choose partitions to read" forces the box on, which is the
+// point: that shrinks too.
+void MainWindow::on_shrinkOnReadCheckBox_toggled(bool checked)
+{
+    if (!checked)
+    {
+        return;
+    }
+    QMessageBox::warning(this, tr("Skip unpartitioned space"),
+        tr("Skipping unpartitioned space keeps only the partitions and the partition "
+           "table, plus any space a GPT reserves ahead of its partitions.\n\n"
+           "Some bootable images, such as those for single-board computers, keep "
+           "bootloader data outside the partitions. An image of such a device read "
+           "this way may not boot."));
+}
+
 void MainWindow::on_choosePartitionsCheckBox_toggled(bool checked)
 {
     // A partition selection needs the shrink plan, so force "Shrink image on

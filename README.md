@@ -25,7 +25,7 @@ corrupting the GPT of images like ARM board images. See
 - **Write** an `.img`, `.img.gz` or `.img.xz` to a device. Compressed images are
   decompressed as they stream, so no expanded copy is ever written to disk.
 - **Read** a device to an `.img`, `.img.gz` or `.img.xz`.
-  - **Shrink image on Read** leaves out unpartitioned space.
+  - **Skip unpartitioned space** leaves out the space outside the partitions.
   - **Choose partitions to read** leaves out whole partitions you pick.
 - **Verify** a device against an image byte for byte, compressed images
   included. It also checks the partition table and can repair one that
@@ -54,19 +54,25 @@ includes volumes mounted as folders or with no drive letter.
 
 By default, Read copies the whole device, sector by sector.
 
-**Shrink image on Read** reads the device's MBR or GPT and packs the partitions
-back to back, removing the space between and after them. Everything before the
-first partition is kept exactly where it is, because board images keep their
-bootloader there, outside any partition. Each partition is aligned to 1 MiB,
-the same default as Windows, `parted` and `sgdisk`, and never moves later on
-the disk. For GPT, the backup table is rebuilt at the new end of the image. A
-device with no partition table, or nothing to remove, is read in full.
+**Skip unpartitioned space** reads the device's MBR or GPT and packs the partitions
+back to back, removing the unpartitioned space before, between and after them.
+On GPT, the area below `FirstUsableLBA` is kept exactly as it is: that is how an
+image reserves room for a bootloader stored outside its partitions (image
+builders such as genimage set it that way). Each partition is aligned to 1 MiB,
+the same default as Windows, `parted` and `sgdisk`, and never moves later on the
+disk. For GPT, the backup table is rebuilt at the new end of the image. A device
+with no partition table, or nothing to remove, is read in full.
+
+Turning the option on shows a warning. Some bootable images, board images in
+particular, keep bootloader data outside the partitions without reserving it,
+and MBR has no way to reserve it at all. An image of such a device read this way
+may not boot. For images that only hold data, this doesn't matter.
 
 **Choose partitions to read** lists the device's partitions before reading.
 Partitions are numbered as `diskpart` numbers them and show their drive letter
 if they have one. Anything you uncheck is removed from the image and from its
-partition table. This always shrinks the image. If the image cannot be shrunk,
-the read stops rather than including the partitions you left out.
+partition table. This always skips unpartitioned space too. If the partitions
+cannot be repacked, the read stops rather than including the ones you left out.
 
 Both options work together with `.img.gz` / `.img.xz` compression.
 

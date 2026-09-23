@@ -25,11 +25,11 @@
     </message>
     <message>
         <source>Shrink image on Read</source>
-        <translation>Image verkleinen bij lezen</translation>
+        <translation type="vanished">Image verkleinen bij lezen</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device to shrink the image to match actual partitions only. Moves backup GPT to end of used space.</source>
-        <translation>Leest de MBR of GPT van het apparaat om de image te verkleinen tot alleen de werkelijke partities. Verplaatst de reserve-GPT naar het einde van de gebruikte ruimte.</translation>
+        <translation type="vanished">Leest de MBR of GPT van het apparaat om de image te verkleinen tot alleen de werkelijke partities. Verplaatst de reserve-GPT naar het einde van de gebruikte ruimte.</translation>
     </message>
     <message>
         <source>Read to .img.gz</source>
@@ -53,7 +53,7 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
-        <translation>Toont voor het lezen de partities van het apparaat en laat kiezen welke worden opgenomen. Alles wat wordt weggelaten, wordt uit de image verwijderd, net als niet-gepartitioneerde ruimte -- dit verkleint de image altijd, ongeacht of &quot;Image verkleinen bij lezen&quot; ook is aangevinkt.</translation>
+        <translation type="vanished">Toont voor het lezen de partities van het apparaat en laat kiezen welke worden opgenomen. Alles wat wordt weggelaten, wordt uit de image verwijderd, net als niet-gepartitioneerde ruimte -- dit verkleint de image altijd, ongeacht of &quot;Image verkleinen bij lezen&quot; ook is aangevinkt.</translation>
     </message>
     <message>
         <source>Exit WinDiskImager</source>
@@ -74,6 +74,18 @@
     <message>
         <source>Check the currently selected device for GPT corruption and offer to repair it.</source>
         <translation>Controleer het geselecteerde apparaat op een beschadigde GPT en bied aan deze te herstellen.</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space</source>
+        <translation>Niet-gepartitioneerde ruimte overslaan</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
+        <translation>Leest de MBR of GPT van het apparaat en laat de niet-gepartitioneerde ruimte weg uit de image. De partities, de partitietabel en de ruimte die een GPT vóór zijn partities reserveert blijven behouden. De reserve-GPT wordt naar het nieuwe einde van de image verplaatst.</translation>
+    </message>
+    <message>
+        <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
+        <translation>Toont voor het lezen de partities van het apparaat en laat kiezen welke worden opgenomen. Alles wat wordt weggelaten, wordt uit de image verwijderd, net als niet-gepartitioneerde ruimte -- niet-gepartitioneerde ruimte wordt daarbij altijd ook overgeslagen, ongeacht of &quot;Niet-gepartitioneerde ruimte overslaan&quot; is aangevinkt.</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -810,6 +822,22 @@ Verwijder het apparaat NU en plaats het hier niet opnieuw. Steek het meteen in d
     <message>
         <source>Choose Partitions</source>
         <translation>Partities kiezen</translation>
+    </message>
+    <message>
+        <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
+        <translation>Bij het overslaan van niet-gepartitioneerde ruimte blijven alleen de partities en de partitietabel over, plus de ruimte die een GPT vóór zijn partities reserveert.
+
+Sommige opstartbare images, zoals die voor single-board computers, bewaren bootloadergegevens buiten de partities. Een op deze manier gelezen image van zo&apos;n apparaat start mogelijk niet op.</translation>
+    </message>
+    <message>
+        <source>Shrinking keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
+
+Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. A shrunk image of such a device may not boot.</source>
+        <translation type="vanished">Bij verkleinen blijven alleen de partities en de partitietabel over, plus de ruimte die een GPT vóór zijn partities reserveert.
+
+Sommige opstartbare images, zoals die voor single-board computers, bewaren bootloadergegevens buiten de partities. Een verkleinde image van zo&apos;n apparaat start mogelijk niet op.</translation>
     </message>
     <message>
         <source>Choose which partitions to include in the image. Anything left unchecked is removed, the same as unpartitioned space.</source>

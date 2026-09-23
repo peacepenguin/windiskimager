@@ -1218,13 +1218,6 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     {
         return false;
     }
-    // Before exclusion, so an excluded first partition's data is not kept as
-    // part of the space ahead of it.
-    unsigned long long firststart = devicesectors;
-    for (const MbrSlot &s : order)
-    {
-        firststart = qMin(firststart, s.first);
-    }
     if (excludeSlots)
     {
         for (int i = order.size() - 1; i >= 0; --i)
@@ -1246,15 +1239,11 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         return a.first < b.first;
     });
 
-    // Everything from sector 1 to the first partition is kept as it is; see
-    // PartitionShrinkPlan.
+    // MBR reserves nothing past the boot sector, so packing starts right after
+    // it; see PartitionShrinkPlan.
     QList<ShrinkCopyRange> ranges;
-    if (firststart > 1ull)
-    {
-        ranges.append(ShrinkCopyRange{1ull, 1ull, firststart - 1ull});
-    }
-    unsigned long long cursor = firststart;
-    unsigned long long prevend = firststart;   // original end of the last kept partition
+    unsigned long long cursor = 1ull;
+    unsigned long long prevend = 1ull;         // original end of the last kept partition
     for (const MbrSlot &s : order)
     {
         if (s.first < prevend)
@@ -1462,8 +1451,9 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     DWORD headersize = rd32(hdr, GPT_OFF_HEADERSIZE);
     unsigned long long entrybytes = numentries * entrysize;
 
-    // The tables themselves; everything after them up to the first partition
-    // is copied as a range (see PartitionShrinkPlan), not held in memory.
+    // The tables themselves; the reserved area after them, up to
+    // FirstUsableLBA, is copied as a range (see PartitionShrinkPlan) rather
+    // than held in memory.
     const unsigned long long headerend = entrylba + entrysectors;
     if (headerend * sectorsize > 64ull * 1024ull * 1024ull)
     {
@@ -1472,10 +1462,7 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     }
 
     // Kept slots, sorted by start below so packing preserves on-disk order.
-    // firststart counts excluded partitions too, so an excluded first
-    // partition's data is not kept as part of the space ahead of it.
     QList<int> order;
-    unsigned long long firststart = devicesectors;
     for (unsigned long long i = 0; i < numentries; ++i)
     {
         unsigned char *e = (unsigned char *)entries.data() + i * entrysize;
@@ -1490,7 +1477,6 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
             if (detail) *detail = QObject::tr("a partition entry describes an impossible range");
             return false;
         }
-        firststart = qMin(firststart, first);
         if (excludeSlots && excludeSlots->contains((int)i))
         {
             memset(e, 0, (size_t)entrysize);
@@ -1511,12 +1497,12 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     });
 
     QList<ShrinkCopyRange> ranges;
-    if (firststart > headerend)
+    if (firstusable > headerend)
     {
-        ranges.append(ShrinkCopyRange{headerend, headerend, firststart - headerend});
+        ranges.append(ShrinkCopyRange{headerend, headerend, firstusable - headerend});
     }
-    unsigned long long cursor = firststart;
-    unsigned long long prevend = firststart;   // original end of the last kept partition
+    unsigned long long cursor = firstusable;
+    unsigned long long prevend = firstusable;  // original end of the last kept partition
     for (int idx : order)
     {
         unsigned char *e = (unsigned char *)entries.data() + (size_t)idx * entrysize;
