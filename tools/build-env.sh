@@ -383,8 +383,9 @@ deploy_write_licenses()
     local backend=${1:?usage: deploy_write_licenses pacman|rpm DIST BINDIR PLUGINDIR TRDIR}
     local dist=${2:?} bindir=${3:?} plugindir=${4:?} trdir=${5:?}
     local notices="$dist/THIRD-PARTY-NOTICES.txt"
-    local rel src pkg
-    declare -A files_of=()
+    local rel src pkg line
+    declare -A files_of=() owner_of=() ver_of=() lic_of=() list_of=()
+    local -a rels=() srcs=()
 
     while IFS= read -r rel; do
         case "$rel" in
@@ -392,8 +393,30 @@ deploy_write_licenses()
             */*)            src="$plugindir/$rel" ;;
             *)              src="$bindir/$rel" ;;
         esac
+        rels+=("$rel")
+        srcs+=("$src")
+    done < <(cd "$dist" && find . \( -name '*.dll' -o -name '*.qm' \) | sed 's|^\./||' | sort)
+
+    # pacman takes half a second to start on MSYS2, so it is asked everything
+    # in three calls -- owners, then versions and licences, then file lists --
+    # rather than once per file and several times per package. rpm is fast
+    # enough to ask as it goes.
+    if [ "$backend" = pacman ] && [ "${#srcs[@]}" -gt 0 ]; then
+        while IFS= read -r line; do
+            case "$line" in
+                *" is owned by "*)
+                    pkg=${line#* is owned by }
+                    owner_of[${line%% is owned by *}]=${pkg%% *} ;;
+            esac
+        done < <(pacman -Qo "${srcs[@]}" 2>/dev/null || true)
+    fi
+
+    local i
+    for i in "${!rels[@]}"; do
+        rel=${rels[$i]}
+        src=${srcs[$i]}
         case "$backend" in
-            pacman) pkg=$(pacman -Qqo "$src" 2>/dev/null || true) ;;
+            pacman) pkg=${owner_of[$src]:-} ;;
             rpm)    pkg=$(rpm -qf --qf '%{NAME}\n' "$src" 2>/dev/null || true) ;;
         esac
         if [ -z "$pkg" ]; then
@@ -401,7 +424,25 @@ deploy_write_licenses()
             return 1
         fi
         files_of[$pkg]="${files_of[$pkg]:+${files_of[$pkg]}, }$rel"
-    done < <(cd "$dist" && find . \( -name '*.dll' -o -name '*.qm' \) | sed 's|^\./||' | sort)
+    done
+
+    if [ "$backend" = pacman ] && [ "${#files_of[@]}" -gt 0 ]; then
+        local name=""
+        while IFS= read -r line; do
+            case "$line" in
+                "Name "*)     name=${line#*: } ;;
+                "Version "*)  ver_of[$name]=${line#*: } ;;
+                "Licenses "*) lic_of[$name]=${line#*: } ;;
+            esac
+        done < <(pacman -Qi "${!files_of[@]}")
+        # Qt alone lists thousands of files; keep only what could be a
+        # licence or README, which the copy loop below narrows further.
+        while IFS= read -r line; do
+            pkg=${line%% *}
+            list_of[$pkg]+="${line#* }"$'\n'
+        done < <(pacman -Ql "${!files_of[@]}" |
+                     grep -iE '/share/licenses/.+[^/]$|/(LICENSE|LICENCE|COPYING)[^/]*$|/README[^/]*$' || true)
+    fi
 
     local mgr="MSYS2 (UCRT64)"
     [ "$backend" = rpm ] && mgr="Fedora MinGW"
@@ -420,8 +461,8 @@ deploy_write_licenses()
     for pkg in $(printf '%s\n' "${!files_of[@]}" | sort); do
         case "$backend" in
             pacman)
-                version=$(pacman -Q "$pkg" | cut -d' ' -f2)
-                licence=$(pacman -Qi "$pkg" | sed -n 's/^Licenses *: //p')
+                version=${ver_of[$pkg]:-}
+                licence=${lic_of[$pkg]:-}
                 url="https://packages.msys2.org/package/$pkg"
                 ;;
             rpm)
@@ -434,21 +475,40 @@ deploy_write_licenses()
         # project has no licence file and says so there (win-iconv does).
         # Failing both, a text kept in tools/licenses/<package>/ for a package
         # that ships none at all (Fedora's mingw64-zlib).
-        local kind
+        local kind want rest
+        local -A made=()
         n=0
         for kind in licence readme repo; do
+            # Forks are slow on MSYS2, so the loop matches and names files
+            # with bash itself; only cp runs per file.
+            case "$kind" in
+                licence) want='/share/licenses/.+[^/]$|/(LICENSE|LICENCE|COPYING)[^/]*$' ;;
+                readme)  want='/share/doc/.*/README[^/]*$' ;;
+                repo)    want='' ;;
+            esac
             while IFS= read -r lf; do
+                [ -n "$lf" ] || continue
+                if [ "$backend" = pacman ] && [ -n "$want" ]; then
+                    shopt -s nocasematch
+                    if [[ $lf =~ $want ]]; then rest=; else rest=no; fi
+                    shopt -u nocasematch
+                    [ -z "$rest" ] || continue
+                fi
                 [ -f "$lf" ] || continue
                 case "$lf" in
-                    */share/licenses/*) dest="$dist/licenses/$pkg/$(echo "$lf" | sed 's|.*/share/licenses/[^/]*/||')" ;;
-                    *)                  dest="$dist/licenses/$pkg/${lf##*/}" ;;
+                    */share/licenses/*/*)
+                        rest=${lf##*/share/licenses/}
+                        dest="$dist/licenses/$pkg/${rest#*/}" ;;
+                    *)  dest="$dist/licenses/$pkg/${lf##*/}" ;;
                 esac
-                mkdir -p "$(dirname "$dest")"
+                if [ -z "${made[${dest%/*}]:-}" ]; then
+                    mkdir -p "${dest%/*}"
+                    made[${dest%/*}]=1
+                fi
                 cp "$lf" "$dest"
                 n=$((n + 1))
             done < <(case "$backend:$kind" in
-                         pacman:licence) pacman -Qlq "$pkg" | grep -iE '/share/licenses/.+[^/]$|/(LICENSE|LICENCE|COPYING)[^/]*$' || true ;;
-                         pacman:readme)  pacman -Qlq "$pkg" | grep -iE '/share/doc/.*/README[^/]*$' || true ;;
+                         pacman:licence|pacman:readme) printf '%s' "${list_of[$pkg]:-}" ;;
                          # Some packages file their licence as %doc, not %license.
                          rpm:licence)    { rpm -qL "$pkg"; rpm -qd "$pkg" | grep -iE '/(LICENSE|LICENCE|COPYING)[^/]*$'; } || true ;;
                          rpm:readme)     rpm -qd "$pkg" | grep -iE '/README[^/]*$' || true ;;
