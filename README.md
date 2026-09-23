@@ -1,158 +1,137 @@
-# WinDiskImager
+<p align="center">
+  <img src="src/images/WinDiskImager.svg" alt="WinDiskImager icon" width="112" height="112">
+</p>
 
-Reads and writes raw disk images to any Windows block storage device: USB flash
-drive, SD card, SATA, NVMe, mounted VHDX, drive enclosure. Run it as
-Administrator, point it at an image, and choose the device to write to.
+<h1 align="center">WinDiskImager</h1>
 
-This program has no warranty. The authors take no responsibility for lost or
-damaged data.
+<p align="center">
+  Write, read and verify raw disk images on Windows, without breaking the partition table.
+</p>
+
+WinDiskImager copies raw images to and from any Windows block device: USB flash
+drives, SD cards, SATA and NVMe disks, drive enclosures and mounted VHDX files.
+Run it as Administrator, choose an image and a device, and click **Write**,
+**Read** or **Verify**.
+
+It is a fork of Win32DiskImager. Its main purpose is to stop Windows from
+corrupting the GPT of images like ARM board images. See
+[The Windows GPT problem](#the-windows-gpt-problem).
+
+> This program comes with no warranty. The authors take no responsibility for
+> lost or damaged data.
+
+## Features
+
+- **Write** an `.img`, `.img.gz` or `.img.xz` to a device. Compressed images are
+  decompressed as they stream, so no expanded copy is ever written to disk.
+- **Read** a device to an `.img`, `.img.gz` or `.img.xz`.
+  - **Shrink image on Read** leaves out unpartitioned space.
+  - **Choose partitions to read** leaves out whole partitions you pick.
+- **Verify** a device against an image byte for byte, compressed images
+  included. It also checks the partition table and can repair one that
+  Windows has broken.
+- **Checksum** the image as MD5, SHA1 or SHA256. SHA256 is selected by default,
+  since that is what publishers usually quote.
+- **Fix GPT after write** makes the partition table match the device, so
+  Windows has nothing to rewrite.
+
+## Choosing a device
+
+Devices are listed as physical disks, not drive letters. A card holding a Linux
+image often gets no drive letter at all, but it still appears here. Each entry
+shows the model, size and any drive letters.
+
+Removable and USB/SD/MMC devices are always listed. **Show all devices** adds
+fixed disks, for internal card readers that present the card as non-removable.
+The disk Windows runs from is never listed. The list is rescanned each time you
+open it, because inserting a card into some readers sends Windows no
+notification.
+
+Before writing, every volume on the target disk is locked and dismounted. That
+includes volumes mounted as folders or with no drive letter.
+
+## Smaller images on Read
+
+By default, Read copies the whole device, sector by sector.
+
+**Shrink image on Read** reads the device's MBR or GPT and packs the partitions
+back to back, removing the space before, between and after them. Each partition
+is aligned to 1 MiB, the same default as Windows, `parted` and `sgdisk`. For
+GPT, the backup table is rebuilt at the new end of the image. A device with no
+partition table, or nothing to remove, is read in full.
+
+**Choose partitions to read** lists the device's partitions before reading.
+Partitions are numbered as `diskpart` numbers them and show their drive letter
+if they have one. Anything you uncheck is removed from the image and from its
+partition table. This always shrinks the image. If the image cannot be shrunk,
+the read stops rather than including the partitions you left out.
+
+Both options work together with `.img.gz` / `.img.xz` compression.
+
+## The Windows GPT problem
+
+An image smaller than the card leaves its backup GPT where the image ends, not
+where the device ends. Windows rewrites the table the next time it scans the
+disk, which happens every time the card is plugged in. Most of that rewrite is
+correct: it moves the backup GPT to the end of the device.
+
+It also recomputes the primary header's `PartitionEntryLBA` as
+`FirstUsableLBA - 32`. On an ordinary image `FirstUsableLBA` is 34, so the
+result happens to be correct. ARM board images such as rk3588 reserve space
+before the first partition, so `FirstUsableLBA` is higher and the pointer lands
+on empty space. The primary table is then corrupt and the board no longer boots.
+Windows still shows a healthy disk, because it only checks the backup copy it
+wrote itself. No data is lost; only the table breaks.
+
+This is how Windows behaves, not a bug in any one tool; Rufus triggers it too.
+[TESTING-GPT-BUG.md](TESTING-GPT-BUG.md) explains it in full and includes a
+48 MB reproducer that shows the damage in about a minute, with no SD card
+needed.
+
+**Fix GPT after write** decides how a write deals with this:
+
+- **Checked (default):** after the write, the backup GPT is moved to the last
+  sector of the device and the header is updated, as `sgdisk -e` does. Windows
+  finds nothing to rewrite, and the card can be handled normally.
+- **Unchecked:** the card is left byte-identical to the image, like `dd` on
+  Linux. It is taken offline and ejected before Windows can scan it. Plugging it
+  back into Windows triggers the rewrite.
+
+**Verify** also catches a table Windows has already broken. The data still
+matches the image in that case, so a byte comparison alone would pass. Verify
+reports the damage and offers to repair it by pointing `PartitionEntryLBA` back
+at the entry array, without touching any data.
+
+Every write also zeroes the first and last 34 sectors first, so no table left
+from a previous, larger image survives. `tools/gptdump.py` decodes and checks
+both GPT headers of an image or device.
+
+## More
 
 | | |
 |---|---|
 | Building from source | [BUILD.md](BUILD.md) |
-| What changed, per release | [Changelog.txt](Changelog.txt) |
+| Release notes | [Changelog.txt](Changelog.txt) |
 | Translating | [readme-translations.txt](readme-translations.txt) |
-| The GPT defect, in full | [TESTING-GPT-BUG.md](TESTING-GPT-BUG.md) |
-
-## What it does
-
-**Write** a raw image file `.img` to a device. `.img.gz` or `.img.xz` is decompressed as it is read, so there is never an expanded copy on disk.
-
-**Read** a device back into an image file, as an uncompressed `.img` or with
-compression to `.img.gz` or `.img.xz`. **Shrink image on Read** repacks the
-partitions to remove unpartitioned gaps instead of copying the device byte for
-byte -- see [Shrink image on Read](#shrink-image-on-read).
-
-**Verify** a device against an image byte for byte, reading compressed images
-the same way writing does. Verify will inform if the GPT is different, but the partition data is identical in case it's been expanded by this tool or by windows.
-
-**Checksum** the image file, as MD5, SHA1 or SHA256. Choosing an image selects
-SHA256, which is what publishers usually quote.
-
-**Keep the partition table intact**, which is the one thing this fork exists
-for; see [Partition tables](#partition-tables).
-
-## The device list
-
-Devices are enumerated as physical disks (`\.\PhysicalDriveN`), not as drive
-letters. Upstream scanned letters, so a card only appeared once Windows had
-mounted a filesystem and assigned one - which a card holding a Linux image
-never gets, making the card it had just written invisible. Each entry shows its
-drive letters if any, its size, and the model it reports.
-
-Removable and USB/SD/MMC devices are always listed. **Show all devices** adds
-fixed disks, for internal PCIe card readers that present the card as
-non-removable. The disk Windows is running from is never listed. The list also
-refreshes on a timer, since a card going into a reader that presents no volume
-produces no device-arrival broadcast at all.
-
-## Shrink image on Read
-
-Reading a device normally copies it byte for byte, sector zero to the last
-one, whether or not anything is actually there. **Shrink image on Read**
-instead reads the device's MBR or GPT, works out where each partition
-actually starts and ends, and repacks them back to back -- closing the gap
-ahead of the first partition, any gap between partitions, and the gap after
-the last one -- so the image comes out only as large as the data it holds.
-Each partition is realigned to a 1MiB boundary as it moves -- the same
-default Windows, `parted` and `sgdisk` all align to, and 1MiB per partition
-is negligible next to the multi-hundred-MB gaps this is meant to remove. For
-a GPT device the backup table is rebuilt and relocated to the new end; for
-MBR, which has no backup table, only the partition entries themselves are
-updated.
-
-A device with no partition table, or one already packed this tight, is read
-in full instead -- silently, since neither is an error. Combine it with **Read
-to .img.gz** / **Read to .img.xz** to shrink and compress in the same pass.
-
-## Partition tables
-
-Writing an image smaller than the card leaves the backup GPT where the *image*
-ends rather than where the *device* ends. Linux leaves that alone; **Windows
-always rewrites it** the first time the disk is rescanned, which is every time
-such a card is plugged in.
-
-Most of that rewrite is correct and welcome: the backup GPT is moved to the
-end of the device the way `sgdisk -e` would. **But while doing it, Windows
-also recomputes the primary header's `PartitionEntryLBA` as `FirstUsableLBA -
-32`** instead of leaving it pointing at the entry array. On an ordinary image
-`FirstUsableLBA` is 34, so the wrong formula happens to land on the right
-answer and nothing breaks -- which is why this went unnoticed for so long. An
-ARM board image that reserves space ahead of its first partition (rk3588 and
-similar keep idbloader and u-boot below LBA 2048) sets `FirstUsableLBA`
-higher, the formula then points at empty space, and the primary table is
-corrupted -- invisibly, since Windows validates the backup header it wrote
-correctly and shows a healthy disk regardless. No data sector is touched
-either way; only the table breaks, which is why the symptom is "the board
-stopped booting" rather than "the card is blank". Rufus triggers the same
-rewrite, so this is Windows behaviour, not a bug in any one imaging tool.
-
-The full mechanism, why it is invisible from Windows, and a 48 MB reproducer
-that shows the damage in about a minute with no SD card involved, are all in
-[TESTING-GPT-BUG.md](TESTING-GPT-BUG.md).
-
-### Fix GPT after write
-
-**Checked - fix the table.** After writing, the backup GPT is moved to the true
-last LBA and the header updated to match, the way `sgdisk -e` does. Windows
-finds a consistent table and has nothing to repair, which removes the trigger
-rather than racing it. It is what you want on the card anyway, and the device
-can be handled normally afterwards.
-
-**Unchecked - preserve the image byte for byte.** The disk is taken offline and
-ejected before the volume locks are released, so nothing can rescan it, and a
-dialog tells you to remove the card without re-inserting it. The card ends up
-identical to a Linux `dd`. Re-inserting it in Windows lets Windows rewrite the
-table, which corrupts it if the image's `FirstUsableLBA` is not 34.
-
-### Repairing a table Windows has already broken
-
-Verify checks the table as well as the data. A card that Windows has already
-rescanned still matches its image sector for sector - only the table is wrong -
-so a plain comparison passes and tells you nothing.
-
-When the device holds the image correctly but its primary GPT points at sectors
-the partition entries are not in, Verify says so and offers to repair it. The
-repair points `PartitionEntryLBA` back at the entry array and rebuilds the
-header checksum. No data sector is touched.
-
-### Other write-path changes
-
-Every write first zeroes the first and last 34 sectors, clearing any table left
-by a previous larger image. That is hygiene - it does **not** prevent the
-repair on its own. Writes also lock and dismount *every* volume on the target
-disk, open it without sharing writes, and flush and close before unlocking,
-closing the windows where another process could modify the disk mid-write.
-
-`tools/gptdump.py` decodes and checksum-verifies both GPT headers of an image
-or a raw device, and reports where an entry array actually lives when a header
-points elsewhere.
+| The GPT problem in depth | [TESTING-GPT-BUG.md](TESTING-GPT-BUG.md) |
+| Bugs and questions | [github.com/peacepenguin/windiskimager](https://github.com/peacepenguin/windiskimager/issues) |
 
 ## About this fork
 
-This is a fork of Win32DiskImager (upstream: the ImageWriter project),
-not affiliated with it or its maintainers. It carries its own name,
-WinDiskImager, so a build of this fork is never mistaken for one of upstream's;
-upstream did not write the changes described here and cannot support them -
-report anything you hit at
-[github.com/peacepenguin/windiskimager](https://github.com/peacepenguin/windiskimager/issues),
-not to SourceForge.
+WinDiskImager is a fork of Win32DiskImager (the ImageWriter project). It is not
+affiliated with the original project or its maintainers. It has its own name so
+that its builds are not mistaken for theirs. Please report problems to this
+repository, not to SourceForge.
 
-What changed in each release is in [Changelog.txt](Changelog.txt); the sections
-above describe how the current version behaves.
+## License
 
-## Legal
+Licensed under the GNU General Public License v2; see [GPL-2](GPL-2). The
+changes in this fork are Copyright (C) 2026 peacepenguin under the same license,
+and each modified file says what changed.
 
-Image Writer for Windows is licensed under the General Public License v2, with
-full text in [GPL-2](GPL-2). The modifications in this fork are released under
-the same licence, Copyright (C) 2026 peacepenguin; the files they touch carry
-notices saying what changed.
+Binaries include the MinGW runtime and Qt, the latter under the LGPL
+([LGPL-2.1](LGPL-2.1)). Third-party components are listed in
+[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 
-This project uses and includes binaries of the MinGW runtime library
-(http://www.mingw.org) and of the Qt library (http://www.qt-project.org/),
-the latter licensed under the "Library General Public License", with full text
-in [LGPL-2.1](LGPL-2.1).
-
-Original version developed by Justin Davis <tuxdavis@gmail.com>.
-Maintained by the ImageWriter developers
-(http://sourceforge.net/projects/win32diskimager).
+Originally developed by Justin Davis <tuxdavis@gmail.com> and maintained by the
+ImageWriter developers (https://sourceforge.net/projects/win32diskimager).
