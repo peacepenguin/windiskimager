@@ -81,7 +81,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
-        <translation>读取设备的 MBR 或 GPT，并在映像中省去未分区空间，保留分区、分区表以及 GPT 在其分区之前预留的空间。备份 GPT 会移到映像新的末尾。</translation>
+        <translation type="vanished">读取设备的 MBR 或 GPT，并在映像中省去未分区空间，保留分区、分区表以及 GPT 在其分区之前预留的空间。备份 GPT 会移到映像新的末尾。</translation>
     </message>
     <message>
         <source>Compress during Read</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>同时列出固定磁盘. 内置 PCIe 读卡器常把存储卡显示为不可移动设备, 否则将被隐藏. 运行 Windows 的磁盘永远不会被列出.</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
+        <translation>读取设备的 MBR 或 GPT，并在映像中省去各分区之间及之后的未分区空间。第一个分区之前存放引导加载程序的部分按原样读取，第一个分区不会移动。备份 GPT 会移到映像新的末尾。</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
@@ -843,7 +847,7 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
 
 Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
-        <translation>跳过未分区空间只保留分区和分区表，以及 GPT 在其分区之前预留的空间。
+        <translation type="vanished">跳过未分区空间只保留分区和分区表，以及 GPT 在其分区之前预留的空间。
 
 某些可启动映像（例如单板计算机的映像）会把引导加载程序数据放在分区之外。以这种方式读取此类设备得到的映像可能无法启动。</translation>
     </message>

@@ -81,7 +81,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
-        <translation>讀取裝置的 MBR 或 GPT，並在映像檔中略去未分割空間，保留磁碟分割、磁碟分割表，以及 GPT 在其磁碟分割之前保留的空間。備份 GPT 會移到映像檔新的結尾。</translation>
+        <translation type="vanished">讀取裝置的 MBR 或 GPT，並在映像檔中略去未分割空間，保留磁碟分割、磁碟分割表，以及 GPT 在其磁碟分割之前保留的空間。備份 GPT 會移到映像檔新的結尾。</translation>
     </message>
     <message>
         <source>Compress during Read</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>同時列出固定式磁碟。內建 PCIe 讀卡機常將記憶卡顯示為不可卸除式裝置，否則便會被隱藏。執行 Windows 的磁碟永遠不會被列出。</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
+        <translation>讀取裝置的 MBR 或 GPT，並在映像檔中略過各分割區之間及之後的未分割空間。第一個分割區之前存放開機載入程式的部分按原樣讀取，第一個分割區不會移動。備份 GPT 會移到映像檔新的結尾。</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
@@ -843,7 +847,7 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
 
 Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
-        <translation>略過未分割空間只會保留磁碟分割與磁碟分割表，以及 GPT 在其磁碟分割之前保留的空間。
+        <translation type="vanished">略過未分割空間只會保留磁碟分割與磁碟分割表，以及 GPT 在其磁碟分割之前保留的空間。
 
 部分可開機映像檔（例如單板電腦的映像檔）會把開機載入程式的資料放在磁碟分割之外。以這種方式讀取這類裝置所得的映像檔可能無法開機。</translation>
     </message>

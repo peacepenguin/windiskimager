@@ -1114,9 +1114,9 @@ struct MbrSlot
 //
 // A GPT disk's MBR is not: a 0xEE entry, or a GPT header at LBA 1, means the
 // MBR is only the protective one, or a hybrid copy of some GPT partitions.
-// Repacking those entries from sector 1 would zero the GPT and everything
-// before the first partition -- the bootloader reserved below FirstUsableLBA
-// included -- and Read tries the MBR plan whenever the GPT plan declines.
+// Repacking those entries would move partitions while the GPT, and its backup
+// dropped with the rest of the tail, still described them where they were --
+// and Read tries the MBR plan whenever the GPT plan declines.
 static bool readValidMbr(HANDLE hRawDisk, unsigned long long sectorsize,
                          unsigned long long devicesectors, QByteArray *sector0,
                          QString *detail)
@@ -1241,6 +1241,13 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     {
         return false;
     }
+    // Where the first partition starts, excluded or not: everything before it
+    // is kept as it is; see PartitionShrinkPlan.
+    unsigned long long leading = devicesectors;
+    for (const MbrSlot &s : order)
+    {
+        leading = qMin(leading, s.first);
+    }
     if (excludeSlots)
     {
         for (int i = order.size() - 1; i >= 0; --i)
@@ -1262,11 +1269,15 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         return a.first < b.first;
     });
 
-    // MBR reserves nothing past the boot sector, so packing starts right after
-    // it; see PartitionShrinkPlan.
+    // The leading area, boot sector aside, is copied where it is; packing
+    // starts where the first partition did.
     QList<ShrinkCopyRange> ranges;
-    unsigned long long cursor = 1ull;
-    unsigned long long prevend = 1ull;         // original end of the last kept partition
+    if (leading > 1ull)
+    {
+        ranges.append(ShrinkCopyRange{1ull, 1ull, leading - 1ull});
+    }
+    unsigned long long cursor = leading;
+    unsigned long long prevend = leading;      // original end of the last kept partition
     for (const MbrSlot &s : order)
     {
         if (s.first < prevend)
@@ -1276,9 +1287,11 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
             return false;
         }
         prevend = s.first + s.count;
+        // The first kept partition goes where the first partition was, even
+        // off a 1MiB boundary, as it was on the device; the rest are aligned.
         // Never later than it already is: a partition already packed tighter
         // than the alignment stays put.
-        unsigned long long newfirst = qMin(s.first,
+        unsigned long long newfirst = (cursor == leading) ? leading : qMin(s.first,
             ((cursor + alignsectors - 1) / alignsectors) * alignsectors);
         unsigned long long newlast  = newfirst + s.count - 1;
         if (newfirst > 0xFFFFFFFFull)
@@ -1474,9 +1487,9 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     DWORD headersize = rd32(hdr, GPT_OFF_HEADERSIZE);
     unsigned long long entrybytes = numentries * entrysize;
 
-    // The tables themselves; the reserved area after them, up to
-    // FirstUsableLBA, is copied as a range (see PartitionShrinkPlan) rather
-    // than held in memory.
+    // The tables themselves; the area after them, up to the first partition,
+    // is copied as a range (see PartitionShrinkPlan) rather than held in
+    // memory.
     const unsigned long long headerend = entrylba + entrysectors;
     if (headerend * sectorsize > 64ull * 1024ull * 1024ull)
     {
@@ -1484,8 +1497,10 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         return false;
     }
 
-    // Kept slots, sorted by start below so packing preserves on-disk order.
+    // Kept slots, sorted by start below so packing preserves on-disk order,
+    // and where the first partition starts, excluded or not.
     QList<int> order;
+    unsigned long long leading = devicesectors;
     for (unsigned long long i = 0; i < numentries; ++i)
     {
         unsigned char *e = (unsigned char *)entries.data() + i * entrysize;
@@ -1500,6 +1515,7 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
             if (detail) *detail = QObject::tr("a partition entry describes an impossible range");
             return false;
         }
+        leading = qMin(leading, first);
         if (excludeSlots && excludeSlots->contains((int)i))
         {
             memset(e, 0, (size_t)entrysize);
@@ -1519,13 +1535,15 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         return rd64(ea, GPT_ENT_FIRSTLBA) < rd64(eb, GPT_ENT_FIRSTLBA);
     });
 
+    // Everything from the end of the table to the first partition is copied
+    // where it is; packing starts where the first partition did.
     QList<ShrinkCopyRange> ranges;
-    if (firstusable > headerend)
+    if (leading > headerend)
     {
-        ranges.append(ShrinkCopyRange{headerend, headerend, firstusable - headerend});
+        ranges.append(ShrinkCopyRange{headerend, headerend, leading - headerend});
     }
-    unsigned long long cursor = firstusable;
-    unsigned long long prevend = firstusable;  // original end of the last kept partition
+    unsigned long long cursor = leading;
+    unsigned long long prevend = leading;      // original end of the last kept partition
     for (int idx : order)
     {
         unsigned char *e = (unsigned char *)entries.data() + (size_t)idx * entrysize;
@@ -1539,8 +1557,9 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         }
         prevend = origlast + 1;
         unsigned long long length  = origlast - origfirst + 1;
-        // Never later than it already is; see planMbrShrink().
-        unsigned long long newfirst = qMin(origfirst,
+        // As in planMbrShrink(): the first kept partition goes where the first
+        // partition was, the rest aligned and never later than they were.
+        unsigned long long newfirst = (cursor == leading) ? leading : qMin(origfirst,
             ((cursor + alignsectors - 1) / alignsectors) * alignsectors);
         unsigned long long newlast  = newfirst + length - 1;
         ranges.append(ShrinkCopyRange{origfirst, newfirst, length});

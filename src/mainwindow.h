@@ -74,7 +74,6 @@ class MainWindow : public QMainWindow, public Ui::MainWindow
         // compressing.
         void on_compressReadCheckBox_toggled(bool checked);
         void on_choosePartitionsCheckBox_toggled(bool checked);
-        void on_shrinkOnReadCheckBox_toggled(bool checked);
 private slots:
         void on_cboxHashType_IdxChg();
         void on_bHashGen_clicked();

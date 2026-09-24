@@ -81,7 +81,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
-        <translation>சாதனத்தின் MBR அல்லது GPT-ஐப் படித்து, பகிரப்படாத இடத்தைப் படிமத்திலிருந்து விலக்குகிறது. பகிர்வுகள், பகிர்வு அட்டவணை, GPT தன் பகிர்வுகளுக்கு முன் ஒதுக்கிய இடம் ஆகியவை வைக்கப்படும். காப்பு GPT படிமத்தின் புதிய முடிவுக்கு நகர்த்தப்படும்.</translation>
+        <translation type="vanished">சாதனத்தின் MBR அல்லது GPT-ஐப் படித்து, பகிரப்படாத இடத்தைப் படிமத்திலிருந்து விலக்குகிறது. பகிர்வுகள், பகிர்வு அட்டவணை, GPT தன் பகிர்வுகளுக்கு முன் ஒதுக்கிய இடம் ஆகியவை வைக்கப்படும். காப்பு GPT படிமத்தின் புதிய முடிவுக்கு நகர்த்தப்படும்.</translation>
     </message>
     <message>
         <source>Compress during Read</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>நிலையான வட்டுகளையும் பட்டியலிடும். உள்ளக PCIe அட்டை வாசிப்பான்கள் பெரும்பாலும் அட்டையை அகற்ற முடியாத சாதனமாகக் காட்டுகின்றன; இல்லையெனில் அது மறைக்கப்பட்டிருக்கும். Windows இயங்கிக்கொண்டிருக்கும் வட்டு ஒருபோதும் பட்டியலிடப்படாது.</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
+        <translation>சாதனத்தின் MBR அல்லது GPT-ஐப் படித்து, பகிர்வுகளுக்கு இடையிலும் பின்னாலும் உள்ள பகிரப்படாத இடத்தை விலக்குகிறது. துவக்கி வைக்கப்படும் முதல் பகிர்வுக்கு முன் உள்ள அனைத்தும் அப்படியே படிக்கப்படும்; முதல் பகிர்வு நகர்த்தப்படாது. காப்பு GPT படிமத்தின் புதிய முடிவுக்கு நகர்த்தப்படும்.</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
@@ -341,7 +345,7 @@ This could only be detected once the device was full, because the compressed ima
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
 
 Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
-        <translation>பகிரப்படாத இடத்தைத் தவிர்க்கும்போது பகிர்வுகளும் பகிர்வு அட்டவணையும், GPT தன் பகிர்வுகளுக்கு முன் ஒதுக்கிய இடமும் மட்டுமே வைக்கப்படும்.
+        <translation type="vanished">பகிரப்படாத இடத்தைத் தவிர்க்கும்போது பகிர்வுகளும் பகிர்வு அட்டவணையும், GPT தன் பகிர்வுகளுக்கு முன் ஒதுக்கிய இடமும் மட்டுமே வைக்கப்படும்.
 
 ஒற்றைப் பலகைக் கணினிகளுக்கானவை போன்ற சில துவக்கக்கூடிய படிமங்கள் துவக்கி தரவைப் பகிர்வுகளுக்கு வெளியே வைத்திருக்கும். அத்தகைய சாதனத்தை இவ்வாறு படித்த படிமம் துவங்காமல் போகலாம்.</translation>
     </message>

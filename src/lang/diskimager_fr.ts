@@ -81,7 +81,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
-        <translation>Lit le MBR ou la GPT du périphérique et laisse l&apos;espace non partitionné hors de l&apos;image, en conservant les partitions, la table de partitions et l&apos;espace qu&apos;une GPT réserve avant ses partitions. La GPT de secours est déplacée à la nouvelle fin de l&apos;image.</translation>
+        <translation type="vanished">Lit le MBR ou la GPT du périphérique et laisse l&apos;espace non partitionné hors de l&apos;image, en conservant les partitions, la table de partitions et l&apos;espace qu&apos;une GPT réserve avant ses partitions. La GPT de secours est déplacée à la nouvelle fin de l&apos;image.</translation>
     </message>
     <message>
         <source>Compress during Read</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>Affiche aussi les disques fixes. Les lecteurs de cartes PCIe internes présentent souvent la carte comme un périphérique non amovible, qui reste sinon masqué. Le disque depuis lequel Windows s&apos;exécute n&apos;est jamais listé.</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
+        <translation>Lit le MBR ou la GPT du périphérique et laisse de côté l&apos;espace non partitionné entre ses partitions et après elles. Tout ce qui précède la première partition, où se trouve un chargeur d&apos;amorçage, est lu tel quel, et la première partition ne bouge pas. La GPT de secours est déplacée à la nouvelle fin de l&apos;image.</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
@@ -823,7 +827,7 @@ Retirez le périphérique MAINTENANT et ne le réinsérez pas ici. Placez-le dir
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
 
 Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
-        <translation>Ignorer l&apos;espace non partitionné ne conserve que les partitions et la table de partitions, ainsi que l&apos;espace qu&apos;une GPT réserve avant ses partitions.
+        <translation type="vanished">Ignorer l&apos;espace non partitionné ne conserve que les partitions et la table de partitions, ainsi que l&apos;espace qu&apos;une GPT réserve avant ses partitions.
 
 Certaines images amorçables, comme celles des ordinateurs monocartes, placent des données du chargeur d&apos;amorçage hors des partitions. Une image d&apos;un tel périphérique lue de cette façon risque de ne pas démarrer.</translation>
     </message>

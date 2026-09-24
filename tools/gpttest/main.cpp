@@ -678,23 +678,26 @@ static void caseGptShrinkExclude()
         return;
     }
 
-    // With alignsectors=1 and FirstUsableLBA 34 (no reserved area past the
-    // table): KEEP1 moves down to FirstUsableLBA, KEEP2 closes up behind it.
+    // With alignsectors=1: everything before KEEP1 is kept where it is, KEEP1
+    // stays put, and KEEP2 closes up behind it over the excluded slot's space.
     const unsigned long long headerend = 2 + ENTRYSECTORS;              // 34
-    unsigned long long newKeep1First = firstusable;                    // 34
-    unsigned long long newKeep2First = newKeep1First + 100;            // 134
-    unsigned long long cursor = newKeep2First + 100;                   // 234
-    unsigned long long backupentries = cursor;                        // 234
-    unsigned long long backuphdr = cursor + ENTRYSECTORS;             // 266
+    unsigned long long newKeep1First = 100;                            // unmoved
+    unsigned long long newKeep2First = newKeep1First + 100;            // 200
+    unsigned long long cursor = newKeep2First + 100;                   // 300
+    unsigned long long backupentries = cursor;                        // 300
+    unsigned long long backuphdr = cursor + ENTRYSECTORS;             // 332
 
-    check(plan.ranges.size() == 2, "only the two kept partitions are copied");
-    if (plan.ranges.size() == 2)
+    check(plan.ranges.size() == 3, "the area before KEEP1, then only the two kept partitions");
+    if (plan.ranges.size() == 3)
     {
-        check(plan.ranges[0].srcfirst == 100 && plan.ranges[0].dstfirst == newKeep1First
-                  && plan.ranges[0].length == 100,
-              "KEEP1 moves down to FirstUsableLBA");
-        check(plan.ranges[1].srcfirst == 500 && plan.ranges[1].dstfirst == newKeep2First
+        check(plan.ranges[0].srcfirst == headerend && plan.ranges[0].dstfirst == headerend
+                  && plan.ranges[0].length == 100 - headerend,
+              "everything from the table to the first partition is copied where it is");
+        check(plan.ranges[1].srcfirst == 100 && plan.ranges[1].dstfirst == newKeep1First
                   && plan.ranges[1].length == 100,
+              "KEEP1, the first partition, does not move");
+        check(plan.ranges[2].srcfirst == 500 && plan.ranges[2].dstfirst == newKeep2First
+                  && plan.ranges[2].length == 100,
               "KEEP2 closes up behind KEEP1, with no gap for the excluded slot");
     }
     check(plan.totalsectors == backuphdr + 1, "totalsectors covers up to the backup header");
@@ -820,17 +823,20 @@ static void caseMbrShrinkExclude()
         return;
     }
 
-    unsigned long long newKeep1First = 1ull;      // MBR reserves nothing past sector 0
+    unsigned long long newKeep1First = 100ull;    // the first partition does not move
     unsigned long long newKeep2First = newKeep1First + 100;
 
-    check(plan.ranges.size() == 2, "only the two kept partitions are copied");
-    if (plan.ranges.size() == 2)
+    check(plan.ranges.size() == 3, "the area before KEEP1, then only the two kept partitions");
+    if (plan.ranges.size() == 3)
     {
-        check(plan.ranges[0].srcfirst == 100 && plan.ranges[0].dstfirst == newKeep1First
-                  && plan.ranges[0].length == 100,
-              "KEEP1 moves down to right after the boot sector");
-        check(plan.ranges[1].srcfirst == 500 && plan.ranges[1].dstfirst == newKeep2First
+        check(plan.ranges[0].srcfirst == 1 && plan.ranges[0].dstfirst == 1
+                  && plan.ranges[0].length == 99,
+              "everything from the boot sector to the first partition is copied where it is");
+        check(plan.ranges[1].srcfirst == 100 && plan.ranges[1].dstfirst == newKeep1First
                   && plan.ranges[1].length == 100,
+              "KEEP1, the first partition, does not move");
+        check(plan.ranges[2].srcfirst == 500 && plan.ranges[2].dstfirst == newKeep2First
+                  && plan.ranges[2].length == 100,
               "KEEP2 closes up behind KEEP1, with no gap for the excluded slot");
     }
     check(plan.backupsectors == 0ull && plan.backupregion.isEmpty(),
@@ -841,7 +847,7 @@ static void caseMbrShrinkExclude()
     QByteArray zero16(16, 0);
     check(memcmp(sector0 + 446 + 2 * 16, zero16.constData(), 16) == 0,
           "the excluded slot's entry is entirely zeroed, not just its type byte");
-    check(rd32(sector0 + 446 + 0 * 16, 8) == newKeep1First, "KEEP1's start field was patched");
+    check(rd32(sector0 + 446 + 0 * 16, 8) == newKeep1First, "KEEP1's start field is its unmoved start");
     check(rd32(sector0 + 446 + 1 * 16, 8) == newKeep2First, "KEEP2's start field was patched");
     printf("\n");
 }
@@ -958,11 +964,12 @@ static void caseGptShrinkEndToEnd(const char *name, const QList<int> &exclude)
         {2, 10000, 10499, "C"},
     };
     QByteArray dev = buildMultiGptDisk(device, firstusable, parts);
-    // A bootloader in the reserved area below FirstUsableLBA, as genimage
-    // lays one out, and data outside any partition above FirstUsableLBA,
-    // which nothing reserves.
+    // A bootloader below FirstUsableLBA, as genimage lays one out; more of it
+    // above FirstUsableLBA but still before the first partition, as Armbian's
+    // Rockchip images have it; and data between two partitions.
     fillSectors(dev, 64, 100, (char)0x1D);
     fillSectors(dev, 3000, 500, (char)0x1E);
+    fillSectors(dev, 7000, 100, (char)0x1F);
     fillSectors(dev, 4096, 2048, (char)0xA1);
     fillSectors(dev, 20000, 1000, (char)0xB2);
     fillSectors(dev, 10000, 500, (char)0xC3);
@@ -1000,15 +1007,18 @@ static void caseGptShrinkEndToEnd(const char *name, const QList<int> &exclude)
 
     check(img.mid(64 * SEC, 100 * SEC) == dev.mid(64 * SEC, 100 * SEC),
           "the bootloader below FirstUsableLBA is kept at the same sectors");
-    check(noSectorFilledWith(img, (char)0x1E),
-          "unpartitioned data above FirstUsableLBA is not kept");
+    check(img.mid(3000 * SEC, 500 * SEC) == dev.mid(3000 * SEC, 500 * SEC),
+          "data above FirstUsableLBA but before the first partition is kept at the same sectors");
+    check(noSectorFilledWith(img, (char)0x1F),
+          "unpartitioned data between partitions is not kept");
     QList<KeptPart> want;
     if (!exclude.contains(0)) want.append({2048, (char)0xA1});
     if (!exclude.contains(2)) want.append({500, (char)0xC3});
     want.append({1000, (char)0xB2});
     checkImagePartitions(img, found, want);
-    check(!found.isEmpty() && found[0].firstSector == firstusable,
-          "the first kept partition moves down to FirstUsableLBA");
+    // A, at 4096, is the first partition; excluded, C takes its place.
+    check(!found.isEmpty() && found[0].firstSector == 4096,
+          "the first kept partition starts where the first partition did");
     for (int slot : exclude)
     {
         const char fill = (slot == 0) ? (char)0xA1 : (char)0xC3;
@@ -1019,8 +1029,8 @@ static void caseGptShrinkEndToEnd(const char *name, const QList<int> &exclude)
 
 // Read tries planGptShrink() and, if that declines, planMbrShrink(). On a GPT
 // disk the second must decline too: its MBR is only a protective or hybrid
-// copy, and packing from sector 1 would zero the GPT and everything up to the
-// first partition, the bootloader reserved below FirstUsableLBA included.
+// copy, and repacking it would move partitions the GPT still describes where
+// they were.
 // Here the GPT plan declines honestly -- the partition already runs to the end
 // of the card, as one grown on first boot does -- and the hybrid MBR entry
 // that mirrors it must not be repacked in its place.
@@ -1086,18 +1096,20 @@ static void caseMbrPlanOnGptWithoutProtectiveEntry()
     printf("\n");
 }
 
-// genimage sets FirstUsableLBA to wherever the bootloader ends, which is rarely
-// on an alignment boundary. Packing must then start at the next boundary at or
-// after it -- never at the end of the table, which would put the first
-// partition on top of the reserved area.
+// genimage sets FirstUsableLBA, and so the first partition, to wherever the
+// bootloader ends, which is rarely on an alignment boundary. The first
+// partition must stay exactly there -- rounding it up would move it, and
+// rounding it down would put it on the bootloader -- and only the partitions
+// after it are aligned.
 static void caseGptShrinkUnalignedFirstUsable()
 {
-    printf("GPT shrink with FirstUsableLBA off a 1MiB boundary\n");
+    printf("GPT shrink with the first partition off a 1MiB boundary\n");
     const unsigned long long device = 40000, firstusable = 3000;
-    QList<GptPart> parts = { {0, 8192, 10239, "A"} };
+    QList<GptPart> parts = { {0, 3000, 5047, "A"}, {1, 9000, 9999, "B"} };
     QByteArray dev = buildMultiGptDisk(device, firstusable, parts);
     fillSectors(dev, 64, firstusable - 64, (char)0x1D);   // the loader, up to FirstUsableLBA
-    fillSectors(dev, 8192, 2048, (char)0xA1);
+    fillSectors(dev, 3000, 2048, (char)0xA1);
+    fillSectors(dev, 9000, 1000, (char)0xB2);
 
     HANDLE h = writeTestFile(dev);
     if (h == INVALID_HANDLE_VALUE) return;
@@ -1108,10 +1120,12 @@ static void caseGptShrinkUnalignedFirstUsable()
     check(ok, "planned");
     if (!ok) { printf("  -> %s\n\n", detail.toLocal8Bit().constData()); return; }
 
-    const unsigned long long want = 2 * ALIGN_1MIB;   // 4096, the first boundary >= 3000
-    check(plan.ranges.size() == 2 && plan.ranges[1].srcfirst == 8192
-              && plan.ranges[1].dstfirst == want,
-          "the partition moves to the first 1MiB boundary at or after FirstUsableLBA");
+    check(plan.ranges.size() == 3 && plan.ranges[1].srcfirst == 3000
+              && plan.ranges[1].dstfirst == 3000,
+          "the first partition stays at its unaligned start");
+    check(plan.ranges.size() == 3 && plan.ranges[2].srcfirst == 9000
+              && plan.ranges[2].dstfirst == 3 * ALIGN_1MIB,
+          "the next moves to the first 1MiB boundary after it (6144)");
     QByteArray img = applyPlan(dev, plan);
     check(!img.isEmpty() && img.mid(64 * SEC, (int)((firstusable - 64) * SEC))
                                 == dev.mid(64 * SEC, (int)((firstusable - 64) * SEC)),
@@ -1129,9 +1143,10 @@ static void caseMbrShrinkEndToEnd(const char *name, const QList<int> &exclude)
         {2, 10000,  500, 0x0C},
     };
     QByteArray dev = buildMultiMbrDisk(device, parts);
-    // Data outside any partition, where an Allwinner loader would be. MBR
-    // cannot reserve it, so shrinking drops it; the UI warns about this.
+    // A loader before the first partition, where Allwinner and Rockchip keep
+    // theirs, and data between two partitions.
     fillSectors(dev, 16, 1000, (char)0x1D);
+    fillSectors(dev, 7000, 100, (char)0x1F);
     fillSectors(dev, 4096, 2048, (char)0xA1);
     fillSectors(dev, 20000, 1000, (char)0xB2);
     fillSectors(dev, 10000, 500, (char)0xC3);
@@ -1158,10 +1173,12 @@ static void caseMbrShrinkEndToEnd(const char *name, const QList<int> &exclude)
           "the image's MBR lists, every entry within the image");
     CloseHandle(h);
 
-    check(noSectorFilledWith(img, (char)0x1D),
-          "unpartitioned data before the first partition is not kept");
-    check(!found.isEmpty() && found[0].firstSector == ALIGN_1MIB,
-          "the first partition moves down to the first 1MiB boundary");
+    check(img.mid(16 * SEC, 1000 * SEC) == dev.mid(16 * SEC, 1000 * SEC),
+          "the loader before the first partition is kept at the same sectors");
+    check(noSectorFilledWith(img, (char)0x1F),
+          "unpartitioned data between partitions is not kept");
+    check(!found.isEmpty() && found[0].firstSector == 4096,
+          "the first partition does not move");
     QList<KeptPart> want = { {2048, (char)0xA1} };
     if (!exclude.contains(2)) want.append({500, (char)0xC3});
     want.append({1000, (char)0xB2});

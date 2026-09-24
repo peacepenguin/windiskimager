@@ -81,7 +81,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
-        <translation>デバイスのMBRまたはGPTを読み取り、未パーティション領域をイメージから除きます。パーティション、パーティションテーブル、およびGPTがパーティションの前に予約している領域は残します。バックアップGPTはイメージの新しい末尾に移動します。</translation>
+        <translation type="vanished">デバイスのMBRまたはGPTを読み取り、未パーティション領域をイメージから除きます。パーティション、パーティションテーブル、およびGPTがパーティションの前に予約している領域は残します。バックアップGPTはイメージの新しい末尾に移動します。</translation>
     </message>
     <message>
         <source>Compress during Read</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>固定ディスクも一覧に表示します。内蔵 PCIe カードリーダーはカードをリムーバブルでないデバイスとして見せることが多く、その場合は通常表示されません。Windows が起動しているディスクが一覧に出ることはありません。</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
+        <translation>デバイスのMBRまたはGPTを読み取り、パーティション間とその後ろにある未パーティション領域を除きます。ブートローダーが置かれる最初のパーティションより前の部分はそのまま読み取り、最初のパーティションは移動しません。バックアップGPTはイメージの新しい末尾に移動します。</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
@@ -843,7 +847,7 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
 
 Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
-        <translation>未パーティション領域をスキップすると、パーティションとパーティションテーブル、およびGPTがパーティションの前に予約している領域だけが残ります。
+        <translation type="vanished">未パーティション領域をスキップすると、パーティションとパーティションテーブル、およびGPTがパーティションの前に予約している領域だけが残ります。
 
 シングルボードコンピューター用など一部の起動可能なイメージは、ブートローダーのデータをパーティションの外に置いています。そのようなデバイスをこの方法で読み取ったイメージは起動しない場合があります。</translation>
     </message>

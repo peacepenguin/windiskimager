@@ -81,7 +81,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
-        <translation>Liest den MBR oder die GPT des Datenträgers und lässt den nicht partitionierten Speicherplatz aus dem Image weg. Erhalten bleiben die Partitionen, die Partitionstabelle und jeder Bereich, den eine GPT vor ihren Partitionen reserviert. Die Sicherungs-GPT wird an das neue Ende des Images verschoben.</translation>
+        <translation type="vanished">Liest den MBR oder die GPT des Datenträgers und lässt den nicht partitionierten Speicherplatz aus dem Image weg. Erhalten bleiben die Partitionen, die Partitionstabelle und jeder Bereich, den eine GPT vor ihren Partitionen reserviert. Die Sicherungs-GPT wird an das neue Ende des Images verschoben.</translation>
     </message>
     <message>
         <source>Compress during Read</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>Listet auch fest eingebaute Datenträger auf. Interne PCIe-Kartenleser melden die Karte oft als nicht wechselbares Gerät, das sonst ausgeblendet bleibt. Der Datenträger, von dem Windows läuft, wird nie aufgeführt.</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
+        <translation>Liest den MBR oder die GPT des Datenträgers und lässt den nicht partitionierten Speicherplatz zwischen und nach seinen Partitionen weg. Alles vor der ersten Partition, wo ein Bootloader liegt, wird unverändert gelesen, und die erste Partition wird nicht verschoben. Die Sicherungs-GPT wird an das neue Ende des Images verschoben.</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
@@ -823,7 +827,7 @@ Entfernen Sie den Datenträger JETZT und stecken Sie ihn hier nicht wieder ein. 
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
 
 Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
-        <translation>Beim Überspringen des nicht partitionierten Bereichs bleiben nur die Partitionen und die Partitionstabelle erhalten, dazu jeder Bereich, den eine GPT vor ihren Partitionen reserviert.
+        <translation type="vanished">Beim Überspringen des nicht partitionierten Bereichs bleiben nur die Partitionen und die Partitionstabelle erhalten, dazu jeder Bereich, den eine GPT vor ihren Partitionen reserviert.
 
 Manche startfähigen Images, etwa für Einplatinencomputer, speichern Bootloader-Daten außerhalb der Partitionen. Ein so gelesenes Image eines solchen Datenträgers startet womöglich nicht.</translation>
     </message>

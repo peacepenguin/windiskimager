@@ -81,7 +81,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
-        <translation>Leest de MBR of GPT van het apparaat en laat de niet-gepartitioneerde ruimte weg uit de image. De partities, de partitietabel en de ruimte die een GPT vóór zijn partities reserveert blijven behouden. De reserve-GPT wordt naar het nieuwe einde van de image verplaatst.</translation>
+        <translation type="vanished">Leest de MBR of GPT van het apparaat en laat de niet-gepartitioneerde ruimte weg uit de image. De partities, de partitietabel en de ruimte die een GPT vóór zijn partities reserveert blijven behouden. De reserve-GPT wordt naar het nieuwe einde van de image verplaatst.</translation>
     </message>
     <message>
         <source>Compress during Read</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>Toon ook vaste schijven. Interne PCIe-kaartlezers presenteren de kaart vaak als een niet-verwisselbaar apparaat, dat anders verborgen blijft. De schijf waarvan Windows draait wordt nooit getoond.</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
+        <translation>Leest de MBR of GPT van het apparaat en laat de niet-gepartitioneerde ruimte tussen en na de partities weg. Alles vóór de eerste partitie, waar een bootloader staat, wordt ongewijzigd gelezen, en de eerste partitie wordt niet verplaatst. De reserve-GPT wordt naar het nieuwe einde van de image verplaatst.</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
@@ -843,7 +847,7 @@ Verwijder het apparaat NU en plaats het hier niet opnieuw. Steek het meteen in d
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
 
 Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
-        <translation>Bij het overslaan van niet-gepartitioneerde ruimte blijven alleen de partities en de partitietabel over, plus de ruimte die een GPT vóór zijn partities reserveert.
+        <translation type="vanished">Bij het overslaan van niet-gepartitioneerde ruimte blijven alleen de partities en de partitietabel over, plus de ruimte die een GPT vóór zijn partities reserveert.
 
 Sommige opstartbare images, zoals die voor single-board computers, bewaren bootloadergegevens buiten de partities. Een op deze manier gelezen image van zo&apos;n apparaat start mogelijk niet op.</translation>
     </message>

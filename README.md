@@ -60,23 +60,21 @@ includes volumes mounted as folders or with no drive letter.
 By default, Read copies the whole device, sector by sector.
 
 **Skip unpartitioned space** reads the device's MBR or GPT and packs the partitions
-back to back, removing the unpartitioned space before, between and after them.
-On GPT, the area below `FirstUsableLBA` is kept exactly as it is: that is how an
-image reserves room for a bootloader stored outside its partitions (image
-builders such as genimage set it that way). Each partition is aligned to 1 MiB,
-the same default as Windows, `parted` and `sgdisk`, and never moves later on the
-disk. For GPT, the backup table is rebuilt at the new end of the image. A device
-with no partition table, or nothing to remove, is read in full.
-
-Turning the option on shows a warning. Some bootable images, board images in
-particular, keep bootloader data outside the partitions without reserving it,
-and MBR has no way to reserve it at all. An image of such a device read this way
-may not boot. For images that only hold data, this doesn't matter.
+back to back, removing the unpartitioned space between and after them.
+Everything before the first partition is kept exactly as it is, and the first
+partition does not move: board images keep their bootloader there, and nothing
+in the partition table reliably says how far it runs (`FirstUsableLBA` often
+stops well short of it). Each later partition is aligned to 1 MiB, the same
+default as Windows, `parted` and `sgdisk`, and never moves later on the disk.
+For GPT, the backup table is rebuilt at the new end of the image. A device with
+no partition table, or nothing to remove, is read in full, and so is a GPT
+device whose GPT cannot be repacked: its MBR is never repacked in its place.
 
 **Choose partitions to read** lists the device's partitions before reading.
 Partitions are numbered as `diskpart` numbers them and show their drive letter
 if they have one. Anything you uncheck is removed from the image and from its
-partition table. This always skips unpartitioned space too. If the partitions
+partition table. This always skips unpartitioned space too; leaving out the
+first partition moves the next one to where it started. If the partitions
 cannot be repacked, the read stops rather than including the ones you left out.
 
 Both options work together with **Compress during Read**.

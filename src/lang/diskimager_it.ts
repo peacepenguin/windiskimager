@@ -72,8 +72,12 @@
         <translation>Salta lo spazio non partizionato</translation>
     </message>
     <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
+        <translation>Legge l&apos;MBR o la GPT del dispositivo e lascia fuori lo spazio non partizionato tra le sue partizioni e dopo di esse. Tutto ciò che precede la prima partizione, dove si trova un bootloader, viene letto così com&apos;è, e la prima partizione non viene spostata. La GPT di backup viene spostata alla nuova fine dell&apos;immagine.</translation>
+    </message>
+    <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
-        <translation>Legge l&apos;MBR o la GPT del dispositivo e lascia fuori dall&apos;immagine lo spazio non partizionato, conservando le partizioni, la tabella delle partizioni e lo spazio che una GPT riserva prima delle sue partizioni. La GPT di backup viene spostata alla nuova fine dell&apos;immagine.</translation>
+        <translation type="vanished">Legge l&apos;MBR o la GPT del dispositivo e lascia fuori dall&apos;immagine lo spazio non partizionato, conservando le partizioni, la tabella delle partizioni e lo spazio che una GPT riserva prima delle sue partizioni. La GPT di backup viene spostata alla nuova fine dell&apos;immagine.</translation>
     </message>
     <message>
         <source>Compress during Read</source>
@@ -891,7 +895,7 @@ Rimuovere il dispositivo ORA e non reinserirlo qui. Inserirlo direttamente nell&
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
 
 Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
-        <translation>Saltando lo spazio non partizionato si conservano solo le partizioni e la tabella delle partizioni, oltre allo spazio che una GPT riserva prima delle sue partizioni.
+        <translation type="vanished">Saltando lo spazio non partizionato si conservano solo le partizioni e la tabella delle partizioni, oltre allo spazio che una GPT riserva prima delle sue partizioni.
 
 Alcune immagini avviabili, come quelle per i computer a scheda singola, conservano dati del bootloader fuori dalle partizioni. Un&apos;immagine di un dispositivo simile letta in questo modo potrebbe non avviarsi.</translation>
     </message>

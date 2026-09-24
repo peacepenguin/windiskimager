@@ -265,9 +265,10 @@ the path.
 
 ## Testing shrink-on-read
 
-"Skip unpartitioned space" repacks a GPT or MBR device to remove every
-unpartitioned gap — ahead of the first partition, between partitions, and
-after the last one — instead of reading the device byte for byte. It has no
+"Skip unpartitioned space" repacks a GPT or MBR device to remove the
+unpartitioned gaps between partitions and after the last one, keeping
+everything before the first partition as it is, instead of reading the device
+byte for byte. It has no
 automated harness of its own; `tools/make-test-images.sh` (Linux only, see
 above) instead builds seven device images purpose-built to exercise it, each
 with a gap or region that must (or must not) survive the shrink stamped with
@@ -285,7 +286,8 @@ test-shrink-mbr-multi.img      test-shrink-gpt-multi.img
 `-tight` is the negative case (nothing to shrink; the box should be a no-op),
 `-multi` has three partitions to test gaps *between* partitions specifically,
 and `-reserved` raises `FirstUsableLBA` the way an ARM board's U-Boot region
-does. The script's own `MANIFEST.txt`, written alongside the images, spells
+does, with more data above it before the partition, as Armbian's Rockchip
+images have. The script's own `MANIFEST.txt`, written alongside the images, spells
 out what each one expects and why -- read it before poking at any of them
 by hand, especially `test-shrink-gpt-reserved.img`: creating a volume in its
 reserved span in Disk Management is a good way to end up with a card stuck

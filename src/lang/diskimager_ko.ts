@@ -81,7 +81,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
-        <translation>장치의 MBR 또는 GPT를 읽고 파티션되지 않은 공간을 이미지에서 제외합니다. 파티션, 파티션 테이블, 그리고 GPT가 파티션 앞에 예약해 둔 공간은 유지합니다. 백업 GPT는 이미지의 새 끝으로 옮겨집니다.</translation>
+        <translation type="vanished">장치의 MBR 또는 GPT를 읽고 파티션되지 않은 공간을 이미지에서 제외합니다. 파티션, 파티션 테이블, 그리고 GPT가 파티션 앞에 예약해 둔 공간은 유지합니다. 백업 GPT는 이미지의 새 끝으로 옮겨집니다.</translation>
     </message>
     <message>
         <source>Compress during Read</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>고정 디스크도 함께 표시합니다. 내장 PCIe 카드 리더는 카드를 분리 불가능한 장치로 표시하는 경우가 많아, 그렇지 않으면 목록에 나타나지 않습니다. Windows가 실행 중인 디스크는 절대 표시되지 않습니다.</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
+        <translation>장치의 MBR 또는 GPT를 읽고 파티션 사이와 뒤에 있는 파티션되지 않은 공간을 제외합니다. 부트로더가 있는 첫 번째 파티션 앞의 모든 영역은 그대로 읽으며, 첫 번째 파티션은 옮기지 않습니다. 백업 GPT는 이미지의 새 끝으로 옮겨집니다.</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
@@ -843,7 +847,7 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
 
 Some bootable images, such as those for single-board computers, keep bootloader data outside the partitions. An image of such a device read this way may not boot.</source>
-        <translation>파티션되지 않은 공간을 건너뛰면 파티션과 파티션 테이블, 그리고 GPT가 파티션 앞에 예약해 둔 공간만 남습니다.
+        <translation type="vanished">파티션되지 않은 공간을 건너뛰면 파티션과 파티션 테이블, 그리고 GPT가 파티션 앞에 예약해 둔 공간만 남습니다.
 
 싱글 보드 컴퓨터용 이미지 같은 일부 부팅 가능한 이미지는 부트로더 데이터를 파티션 밖에 둡니다. 그런 장치를 이렇게 읽은 이미지는 부팅되지 않을 수 있습니다.</translation>
     </message>
