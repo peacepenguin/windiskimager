@@ -330,7 +330,7 @@ Physically remove the device NOW, before doing anything else, and do not re-inse
     <message>
         <source>Could not open the file to generate a checksum:
 %1</source>
-        <translation>無法開啟檔案以產生總和檢查碼：
+        <translation type="vanished">無法開啟檔案以產生總和檢查碼：
 %1</translation>
     </message>
     <message>
@@ -376,6 +376,26 @@ Write to this device anyway?</source>
     <message>
         <source>The device reports a size of zero. If it is a card reader, the card may have been removed.</source>
         <translation>裝置回報的大小為零。若這是讀卡機，記憶卡可能已被取出。</translation>
+    </message>
+    <message>
+        <source>Could not open the file to generate a hash:
+%1</source>
+        <translation>無法開啟檔案以計算雜湊值：
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing...</source>
+        <translation>正在計算雜湊值…</translation>
+    </message>
+    <message>
+        <source>Could not read the whole file to generate a hash:
+%1</source>
+        <translation>無法讀取整個檔案以計算雜湊值：
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing canceled.</source>
+        <translation>雜湊值計算已取消。</translation>
     </message>
     <message>
         <source>The image is larger than the device:
@@ -684,7 +704,7 @@ The image and the device differ only in the GPT.</source>
     <message>
         <source>Could not read the whole file to generate a checksum:
 %1</source>
-        <translation>無法讀取整個檔案以產生總和檢查碼：
+        <translation type="vanished">無法讀取整個檔案以產生總和檢查碼：
 %1</translation>
     </message>
     <message>
@@ -698,6 +718,18 @@ The image and the device differ only in the GPT.</source>
     <message>
         <source>Verifying: %1 MB/s</source>
         <translation>正在驗證：%1 MB/s</translation>
+    </message>
+    <message>
+        <source>Hashing: %1 MB/s</source>
+        <translation>正在計算雜湊值：%1 MB/s</translation>
+    </message>
+    <message>
+        <source>Generating checksum...</source>
+        <translation type="vanished">正在產生校驗和…</translation>
+    </message>
+    <message>
+        <source>Checksum canceled.</source>
+        <translation type="vanished">校驗和已取消。</translation>
     </message>
     <message>
         <source>%1 the primary GPT header points at sectors the partition entries are not in.

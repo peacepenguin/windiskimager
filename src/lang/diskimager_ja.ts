@@ -330,7 +330,7 @@ Physically remove the device NOW, before doing anything else, and do not re-inse
     <message>
         <source>Could not open the file to generate a checksum:
 %1</source>
-        <translation>チェックサムを生成するためにファイルを開けませんでした:
+        <translation type="vanished">チェックサムを生成するためにファイルを開けませんでした:
 %1</translation>
     </message>
     <message>
@@ -376,6 +376,26 @@ Write to this device anyway?</source>
     <message>
         <source>The device reports a size of zero. If it is a card reader, the card may have been removed.</source>
         <translation>デバイスがサイズ 0 を報告しています。カードリーダーの場合、カードが取り外された可能性があります。</translation>
+    </message>
+    <message>
+        <source>Could not open the file to generate a hash:
+%1</source>
+        <translation>ハッシュを計算するためにファイルを開けませんでした:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing...</source>
+        <translation>ハッシュ計算中…</translation>
+    </message>
+    <message>
+        <source>Could not read the whole file to generate a hash:
+%1</source>
+        <translation>ハッシュを計算するためにファイル全体を読み取れませんでした:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing canceled.</source>
+        <translation>ハッシュの計算をキャンセルしました。</translation>
     </message>
     <message>
         <source>The image is larger than the device:
@@ -684,7 +704,7 @@ The image and the device differ only in the GPT.</source>
     <message>
         <source>Could not read the whole file to generate a checksum:
 %1</source>
-        <translation>チェックサムを生成するためにファイル全体を読み取れませんでした:
+        <translation type="vanished">チェックサムを生成するためにファイル全体を読み取れませんでした:
 %1</translation>
     </message>
     <message>
@@ -698,6 +718,18 @@ The image and the device differ only in the GPT.</source>
     <message>
         <source>Verifying: %1 MB/s</source>
         <translation>検証中：%1 MB/s</translation>
+    </message>
+    <message>
+        <source>Hashing: %1 MB/s</source>
+        <translation>ハッシュ計算中：%1 MB/s</translation>
+    </message>
+    <message>
+        <source>Generating checksum...</source>
+        <translation type="vanished">チェックサムを生成中…</translation>
+    </message>
+    <message>
+        <source>Checksum canceled.</source>
+        <translation type="vanished">チェックサムの生成をキャンセルしました。</translation>
     </message>
     <message>
         <source>%1 the primary GPT header points at sectors the partition entries are not in.

@@ -281,21 +281,24 @@ bool MainWindow::imageTailHasData(ImageSource &image, unsigned long long from,
 }
 
 // Transfer rate, at most once a second.
+// unitbytes is the size of what sector counts: the device's sector size by
+// default, 1 for a hash, which counts bytes.
 void MainWindow::showThroughput(unsigned long long sector, unsigned long long total,
-                                unsigned long long *lastsector)
+                                unsigned long long *lastsector, unsigned long long unitbytes)
 {
     if (update_timer.elapsed() < ONE_SEC_IN_MS)
     {
         return;
     }
     const double mbpersec =
-        (((double)sectorsize * (sector - *lastsector))
+        (((double)(unitbytes ? unitbytes : sectorsize) * (sector - *lastsector))
          * ((double)ONE_SEC_IN_MS / update_timer.elapsed())) / 1024.0 / 1024.0;
     // Named, since the rate replaces the "Writing..." the run started with.
     // A canceled run ends on the plain rate rather than a wrong name.
     const QString rate = (status == STATUS_WRITING)   ? tr("Writing: %1 MB/s")
                        : (status == STATUS_READING)   ? tr("Reading: %1 MB/s")
                        : (status == STATUS_VERIFYING) ? tr("Verifying: %1 MB/s")
+                       : (status == STATUS_HASHING)   ? tr("Hashing: %1 MB/s")
                                                       : QString("%1 MB/s");
     statusbar->showMessage(rate.arg(mbpersec));
     elapsed_timer->update(sector, total);
@@ -552,6 +555,13 @@ void MainWindow::closeEvent(QCloseEvent *event)
         atstake = tr("Exiting now will cancel verifying image.\n"
                      "Are you sure you want to exit?");
     }
+    else if (status == STATUS_HASHING)
+    {
+        // Nothing to lose; the hashing loop closes the window once it stops.
+        status = STATUS_EXIT;
+        event->ignore();
+        return;
+    }
     else
     {
         return;      // nothing running: let the window close
@@ -684,43 +694,78 @@ void MainWindow::on_bHashCopy_clicked()
 
 void MainWindow::generateHash(const QString &filename, int hashish)
 {
-    hashLabel->setText(tr("Generating..."));
-    hashLabel->setVisible(true);
-    QApplication::processEvents();
-
-    QCryptographicHash filehash((QCryptographicHash::Algorithm)hashish);
-
-    // may take a few secs - display a wait cursor
-    QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
-
     QFile file(filename);
     if (!file.open(QFile::ReadOnly))
     {
         hashLabel->setText(tr("Error"));
+        hashLabel->setVisible(true);
         myHashReady = false;
         bHashCopy->setEnabled(false);
-        QApplication::restoreOverrideCursor();
         QMessageBox::critical(this, tr("File Error"),
-                              tr("Could not open the file to generate a checksum:\n%1").arg(file.errorString()));
-        return;
-    }
-    // A read that stops part-way still returns a well-formed digest -- of the
-    // wrong bytes. Reporting that as the file's checksum defeats the point.
-    if (!filehash.addData(&file))
-    {
-        hashLabel->setText(tr("Error"));
-        myHashReady = false;
-        bHashCopy->setEnabled(false);
-        QApplication::restoreOverrideCursor();
-        QMessageBox::critical(this, tr("File Error"),
-                              tr("Could not read the whole file to generate a checksum:\n%1").arg(file.errorString()));
+                              tr("Could not open the file to generate a hash:\n%1").arg(file.errorString()));
         return;
     }
 
-    hashLabel->setText(filehash.result().toHex());
-    myHashReady = true;
-    bHashCopy->setEnabled(true);
-    QApplication::restoreOverrideCursor();
+    // A run like Read, Write and Verify: everything else greyed out, Cancel
+    // live, progress shown. A large image takes minutes to hash.
+    status = STATUS_HASHING;
+    bCancel->setEnabled(true);
+    myHashReady = false;
+    setReadWriteButtonState();
+    hashLabel->setText(tr("Generating..."));
+    hashLabel->setVisible(true);
+    statusbar->showMessage(tr("Hashing..."));
+    showProgress(true);
+    const unsigned long long total = (unsigned long long)file.size();
+    unsigned long long done = 0ull, last = 0ull;
+    const int shift = beginProgress(total, &last);
+
+    QCryptographicHash filehash((QCryptographicHash::Algorithm)hashish);
+    QByteArray buffer(4 * 1024 * 1024, 0);
+    bool readfailed = false;
+    while (status == STATUS_HASHING)
+    {
+        const qint64 got = file.read(buffer.data(), buffer.size());
+        if (got < 0)
+        {
+            // A read that stops part-way still gives a well-formed digest --
+            // of the wrong bytes. Reporting that as the file's hash
+            // defeats the point.
+            readfailed = true;
+            break;
+        }
+        if (got == 0)
+        {
+            break;
+        }
+        filehash.addData(QByteArrayView(buffer.constData(), got));
+        done += (unsigned long long)got;
+        showThroughput(done, total, &last, 1ull);
+        progressbar->setValue((int)((done > total ? total : done) >> shift));
+        QCoreApplication::processEvents();
+    }
+    const QString readerror = file.errorString();
+    file.close();
+
+    if (status == STATUS_HASHING && !readfailed)
+    {
+        hashLabel->setText(filehash.result().toHex());
+        myHashReady = true;
+        endRun(tr("Done."));
+        return;
+    }
+    if (status == STATUS_HASHING)
+    {
+        hashLabel->setText(tr("Error"));
+        endRun(QString());
+        QMessageBox::critical(this, tr("File Error"),
+                              tr("Could not read the whole file to generate a hash:\n%1").arg(readerror));
+        return;
+    }
+    // Canceled, or the window is closing: no digest to show.
+    hashLabel->clear();
+    hashLabel->setVisible(false);
+    endRun(tr("Hashing canceled."));
 }
 
 
@@ -836,7 +881,7 @@ void MainWindow::on_bCheckGpt_clicked()
     locked.release();
 }
 
-// Defaults to SHA256, the checksum publishers most often quote, but only when
+// Defaults to SHA256, the hash publishers most often quote, but only when
 // the image changes: editingFinished fires on every focus loss, and resetting
 // each time would undo a hand-picked type.
 void MainWindow::defaultHashTypeForFile()
@@ -877,6 +922,11 @@ void MainWindow::on_bCancel_clicked()
         {
             status = STATUS_CANCELED;
         }
+    }
+    else if (status == STATUS_HASHING)
+    {
+        // Nothing is written, so nothing to confirm.
+        status = STATUS_CANCELED;
     }
     else if (status == STATUS_VERIFYING)
     {
@@ -1491,7 +1541,7 @@ void MainWindow::on_bRead_clicked()
         status = STATUS_READING;
         setReadWriteButtonState();
         // The file is about to be truncated: a digest of what was there
-        // before must not stay on screen as its checksum.
+        // before must not stay on screen as its hash.
         updateHashControls();
         showProgress(true);
         unsigned long long i, lasti, numsectors, filesize, spaceneeded = 0ull;

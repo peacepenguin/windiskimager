@@ -36,6 +36,10 @@ Every option is greyed out while a Write, Read or Verify runs -- the image
   the hash controls -- and each returns to its own state afterwards
 The status bar names the operation under way alongside its speed, as
   "Writing: 45.3 MB/s", where it used to show the speed alone
+Generating a hash is an operation like the others: every other control is
+  greyed out, progress and speed are shown ("Hashing: 232 MB/s"), and Cancel
+  stops it. It used to freeze the window until it finished, which on a large
+  image took minutes
 The CI package carries zstd's BSD licence as well as the GPL-2 text Fedora's
   package installs, as zstd is offered under either
 

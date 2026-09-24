@@ -330,7 +330,7 @@ Physically remove the device NOW, before doing anything else, and do not re-inse
     <message>
         <source>Could not open the file to generate a checksum:
 %1</source>
-        <translation>체크섬을 생성하기 위해 파일을 열 수 없습니다:
+        <translation type="vanished">체크섬을 생성하기 위해 파일을 열 수 없습니다:
 %1</translation>
     </message>
     <message>
@@ -376,6 +376,26 @@ Write to this device anyway?</source>
     <message>
         <source>The device reports a size of zero. If it is a card reader, the card may have been removed.</source>
         <translation>장치가 크기를 0으로 보고합니다. 카드 리더라면 카드가 제거되었을 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Could not open the file to generate a hash:
+%1</source>
+        <translation>해시를 계산하기 위해 파일을 열 수 없습니다:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing...</source>
+        <translation>해시 계산 중…</translation>
+    </message>
+    <message>
+        <source>Could not read the whole file to generate a hash:
+%1</source>
+        <translation>해시를 계산하기 위해 파일 전체를 읽을 수 없습니다:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing canceled.</source>
+        <translation>해시 계산이 취소되었습니다.</translation>
     </message>
     <message>
         <source>The image is larger than the device:
@@ -684,7 +704,7 @@ The image and the device differ only in the GPT.</source>
     <message>
         <source>Could not read the whole file to generate a checksum:
 %1</source>
-        <translation>체크섬을 생성하기 위해 파일 전체를 읽을 수 없습니다:
+        <translation type="vanished">체크섬을 생성하기 위해 파일 전체를 읽을 수 없습니다:
 %1</translation>
     </message>
     <message>
@@ -698,6 +718,18 @@ The image and the device differ only in the GPT.</source>
     <message>
         <source>Verifying: %1 MB/s</source>
         <translation>검증 중: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Hashing: %1 MB/s</source>
+        <translation>해시 계산 중: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Generating checksum...</source>
+        <translation type="vanished">체크섬 생성 중…</translation>
+    </message>
+    <message>
+        <source>Checksum canceled.</source>
+        <translation type="vanished">체크섬 생성이 취소되었습니다.</translation>
     </message>
     <message>
         <source>%1 the primary GPT header points at sectors the partition entries are not in.

@@ -330,7 +330,7 @@ Verwijder het apparaat NU fysiek, voordat u iets anders doet, en plaats het niet
     <message>
         <source>Could not open the file to generate a checksum:
 %1</source>
-        <translation>Kon het bestand niet openen om een controlesom te genereren:
+        <translation type="vanished">Kon het bestand niet openen om een controlesom te genereren:
 %1</translation>
     </message>
     <message>
@@ -376,6 +376,26 @@ Toch naar dit apparaat schrijven?</translation>
     <message>
         <source>The device reports a size of zero. If it is a card reader, the card may have been removed.</source>
         <translation>Het apparaat meldt een grootte van nul. Als het een kaartlezer is, is de kaart mogelijk verwijderd.</translation>
+    </message>
+    <message>
+        <source>Could not open the file to generate a hash:
+%1</source>
+        <translation>Het bestand kon niet worden geopend om een hash te berekenen:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing...</source>
+        <translation>Bezig met hash berekenen…</translation>
+    </message>
+    <message>
+        <source>Could not read the whole file to generate a hash:
+%1</source>
+        <translation>Het bestand kon niet volledig worden gelezen om een hash te berekenen:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing canceled.</source>
+        <translation>Hash berekenen geannuleerd.</translation>
     </message>
     <message>
         <source>The image is larger than the device:
@@ -684,7 +704,7 @@ De image en het apparaat verschillen alleen in de GPT.</translation>
     <message>
         <source>Could not read the whole file to generate a checksum:
 %1</source>
-        <translation>Kon het hele bestand niet lezen om een controlesom te genereren:
+        <translation type="vanished">Kon het hele bestand niet lezen om een controlesom te genereren:
 %1</translation>
     </message>
     <message>
@@ -698,6 +718,18 @@ De image en het apparaat verschillen alleen in de GPT.</translation>
     <message>
         <source>Verifying: %1 MB/s</source>
         <translation>Bezig met verifiëren: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Hashing: %1 MB/s</source>
+        <translation>Hash berekenen: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Generating checksum...</source>
+        <translation type="vanished">Bezig met controlesom genereren…</translation>
+    </message>
+    <message>
+        <source>Checksum canceled.</source>
+        <translation type="vanished">Controlesom geannuleerd.</translation>
     </message>
     <message>
         <source>%1 the primary GPT header points at sectors the partition entries are not in.

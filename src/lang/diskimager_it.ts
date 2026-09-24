@@ -364,13 +364,13 @@ Sei sicuro di voler uscire?</translation>
     <message>
         <source>Could not open the file to generate a checksum:
 %1</source>
-        <translation>Impossibile aprire il file per generare il codice di controllo:
+        <translation type="vanished">Impossibile aprire il file per generare il codice di controllo:
 %1</translation>
     </message>
     <message>
         <source>Could not read the whole file to generate a checksum:
 %1</source>
-        <translation>Impossibile leggere l&apos;intero file per generare il codice di controllo:
+        <translation type="vanished">Impossibile leggere l&apos;intero file per generare il codice di controllo:
 %1</translation>
     </message>
     <message>
@@ -422,6 +422,26 @@ Scrivere comunque su questo dispositivo?</translation>
     <message>
         <source>The device reports a size of zero. If it is a card reader, the card may have been removed.</source>
         <translation>Il dispositivo segnala dimensione zero. Se si tratta di un lettore di schede, la scheda potrebbe essere stata rimossa.</translation>
+    </message>
+    <message>
+        <source>Could not open the file to generate a hash:
+%1</source>
+        <translation>Impossibile aprire il file per calcolare un hash:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing...</source>
+        <translation>Calcolo dell&apos;hash…</translation>
+    </message>
+    <message>
+        <source>Could not read the whole file to generate a hash:
+%1</source>
+        <translation>Impossibile leggere l&apos;intero file per calcolare un hash:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing canceled.</source>
+        <translation>Calcolo dell&apos;hash annullato.</translation>
     </message>
     <message>
         <source>The image is larger than the device:
@@ -770,6 +790,18 @@ Riparare adesso la tabella delle partizioni?</translation>
     <message>
         <source>Verifying: %1 MB/s</source>
         <translation>Verifica: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Hashing: %1 MB/s</source>
+        <translation>Calcolo dell&apos;hash: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Generating checksum...</source>
+        <translation type="vanished">Generazione del checksum…</translation>
+    </message>
+    <message>
+        <source>Checksum canceled.</source>
+        <translation type="vanished">Checksum annullato.</translation>
     </message>
     <message>
         <source>Please select a device.</source>

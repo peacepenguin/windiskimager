@@ -330,7 +330,7 @@ Retirez physiquement le périphérique MAINTENANT, avant toute autre chose, et n
     <message>
         <source>Could not open the file to generate a checksum:
 %1</source>
-        <translation>Impossible d&apos;ouvrir le fichier pour calculer une somme de contrôle :
+        <translation type="vanished">Impossible d&apos;ouvrir le fichier pour calculer une somme de contrôle :
 %1</translation>
     </message>
     <message>
@@ -376,6 +376,26 @@ Vérifiez que %2 n&apos;est pas un lecteur que vous vouliez conserver.
     <message>
         <source>The device reports a size of zero. If it is a card reader, the card may have been removed.</source>
         <translation>Le périphérique indique une taille nulle. S&apos;il s&apos;agit d&apos;un lecteur de cartes, la carte a peut-être été retirée.</translation>
+    </message>
+    <message>
+        <source>Could not open the file to generate a hash:
+%1</source>
+        <translation>Impossible d&apos;ouvrir le fichier pour calculer une empreinte :
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing...</source>
+        <translation>Calcul de l&apos;empreinte…</translation>
+    </message>
+    <message>
+        <source>Could not read the whole file to generate a hash:
+%1</source>
+        <translation>Impossible de lire l&apos;intégralité du fichier pour calculer une empreinte :
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing canceled.</source>
+        <translation>Calcul de l&apos;empreinte annulé.</translation>
     </message>
     <message>
         <source>The image is larger than the device:
@@ -664,7 +684,7 @@ Cela n&apos;a pu être détecté qu&apos;à la fin du périphérique, car une im
     <message>
         <source>Could not read the whole file to generate a checksum:
 %1</source>
-        <translation>Impossible de lire le fichier en entier pour calculer une somme de contrôle :
+        <translation type="vanished">Impossible de lire le fichier en entier pour calculer une somme de contrôle :
 %1</translation>
     </message>
     <message>
@@ -678,6 +698,18 @@ Cela n&apos;a pu être détecté qu&apos;à la fin du périphérique, car une im
     <message>
         <source>Verifying: %1 MB/s</source>
         <translation>Vérification : %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Hashing: %1 MB/s</source>
+        <translation>Calcul de l&apos;empreinte : %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Generating checksum...</source>
+        <translation type="vanished">Génération de la somme de contrôle…</translation>
+    </message>
+    <message>
+        <source>Checksum canceled.</source>
+        <translation type="vanished">Somme de contrôle annulée.</translation>
     </message>
     <message>
         <source>%1 the primary GPT header points at sectors the partition entries are not in.

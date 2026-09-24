@@ -330,7 +330,7 @@ Retire físicamente el dispositivo AHORA, antes de hacer cualquier otra cosa, y 
     <message>
         <source>Could not open the file to generate a checksum:
 %1</source>
-        <translation>No se pudo abrir el archivo para generar la suma de comprobación:
+        <translation type="vanished">No se pudo abrir el archivo para generar la suma de comprobación:
 %1</translation>
     </message>
     <message>
@@ -376,6 +376,26 @@ Compruebe que %2 no es una unidad que quisiera conservar.
     <message>
         <source>The device reports a size of zero. If it is a card reader, the card may have been removed.</source>
         <translation>El dispositivo indica un tamaño de cero. Si es un lector de tarjetas, puede que se haya retirado la tarjeta.</translation>
+    </message>
+    <message>
+        <source>Could not open the file to generate a hash:
+%1</source>
+        <translation>No se pudo abrir el archivo para calcular un hash:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing...</source>
+        <translation>Calculando el hash…</translation>
+    </message>
+    <message>
+        <source>Could not read the whole file to generate a hash:
+%1</source>
+        <translation>No se pudo leer el archivo completo para calcular un hash:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing canceled.</source>
+        <translation>Cálculo del hash cancelado.</translation>
     </message>
     <message>
         <source>The image is larger than the device:
@@ -664,7 +684,7 @@ Esto solo se pudo detectar al llegar al final del dispositivo, porque una imagen
     <message>
         <source>Could not read the whole file to generate a checksum:
 %1</source>
-        <translation>No se pudo leer el archivo completo para generar la suma de comprobación:
+        <translation type="vanished">No se pudo leer el archivo completo para generar la suma de comprobación:
 %1</translation>
     </message>
     <message>
@@ -678,6 +698,18 @@ Esto solo se pudo detectar al llegar al final del dispositivo, porque una imagen
     <message>
         <source>Verifying: %1 MB/s</source>
         <translation>Verificando: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Hashing: %1 MB/s</source>
+        <translation>Calculando el hash: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Generating checksum...</source>
+        <translation type="vanished">Generando la suma de comprobación…</translation>
+    </message>
+    <message>
+        <source>Checksum canceled.</source>
+        <translation type="vanished">Suma de comprobación cancelada.</translation>
     </message>
     <message>
         <source>%1 the primary GPT header points at sectors the partition entries are not in.

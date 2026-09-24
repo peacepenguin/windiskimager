@@ -226,6 +226,10 @@ Are you sure you want to exit?</source>
         <translation>சரிபார்க்கப்படுகிறது: %1 MB/s</translation>
     </message>
     <message>
+        <source>Hashing: %1 MB/s</source>
+        <translation>ஹாஷ் கணக்கிடப்படுகிறது: %1 MB/s</translation>
+    </message>
+    <message>
         <source>Exiting now will result in a corrupt disk.
 Are you sure you want to exit?</source>
         <translation>இப்போது வெளியேறினால் வட்டு சிதைந்துவிடும்.
@@ -244,6 +248,14 @@ Are you sure you want to exit?</source>
     <message>
         <source>Generating...</source>
         <translation>உருவாக்குகிறது…</translation>
+    </message>
+    <message>
+        <source>Generating checksum...</source>
+        <translation type="vanished">சரிபார்ப்புத் தொகை உருவாக்குகிறது…</translation>
+    </message>
+    <message>
+        <source>Checksum canceled.</source>
+        <translation type="vanished">சரிபார்ப்புத் தொகை ரத்து செய்யப்பட்டது.</translation>
     </message>
     <message>
         <source>Cancel?</source>
@@ -419,13 +431,13 @@ This could only be detected at the end of the device, because the compressed ima
     <message>
         <source>Could not open the file to generate a checksum:
 %1</source>
-        <translation>சரிபார்ப்புத் தொகையை உருவாக்கக் கோப்பைத் திறக்க முடியவில்லை:
+        <translation type="vanished">சரிபார்ப்புத் தொகையை உருவாக்கக் கோப்பைத் திறக்க முடியவில்லை:
 %1</translation>
     </message>
     <message>
         <source>Could not read the whole file to generate a checksum:
 %1</source>
-        <translation>சரிபார்ப்புத் தொகையை உருவாக்க முழுக் கோப்பையும் படிக்க முடியவில்லை:
+        <translation type="vanished">சரிபார்ப்புத் தொகையை உருவாக்க முழுக் கோப்பையும் படிக்க முடியவில்லை:
 %1</translation>
     </message>
     <message>
@@ -467,6 +479,26 @@ Repair the partition table now?</source>
 &quot;எழுதிய பின் GPT-ஐச் சரிசெய்&quot; இல்லாமல் எழுதப்பட்ட அட்டையை Windows மீண்டும் வருடும்போது எஞ்சும் நிலை இதுவே. தரவு எதுவும் இழக்கப்படவில்லை, ஆனால் சாதனம் தொடங்காது; பெரும்பாலான கருவிகள் இந்த அட்டவணையை ஏற்காது.
 
 பகிர்வு அட்டவணையை இப்போது சரிசெய்யவா?</translation>
+    </message>
+    <message>
+        <source>Could not open the file to generate a hash:
+%1</source>
+        <translation>ஹாஷ் கணக்கிடக் கோப்பைத் திறக்க முடியவில்லை:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing...</source>
+        <translation>ஹாஷ் கணக்கிடப்படுகிறது…</translation>
+    </message>
+    <message>
+        <source>Could not read the whole file to generate a hash:
+%1</source>
+        <translation>ஹாஷ் கணக்கிட முழுக் கோப்பையும் படிக்க முடியவில்லை:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing canceled.</source>
+        <translation>ஹாஷ் கணக்கீடு ரத்து செய்யப்பட்டது.</translation>
     </message>
     <message>
         <source>Please select a device.</source>

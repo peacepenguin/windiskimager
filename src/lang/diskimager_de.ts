@@ -330,7 +330,7 @@ Entfernen Sie den Datenträger JETZT physisch, bevor Sie irgendetwas anderes tun
     <message>
         <source>Could not open the file to generate a checksum:
 %1</source>
-        <translation>Die Datei konnte zum Berechnen der Prüfsumme nicht geöffnet werden:
+        <translation type="vanished">Die Datei konnte zum Berechnen der Prüfsumme nicht geöffnet werden:
 %1</translation>
     </message>
     <message>
@@ -376,6 +376,26 @@ Trotzdem auf diesen Datenträger schreiben?</translation>
     <message>
         <source>The device reports a size of zero. If it is a card reader, the card may have been removed.</source>
         <translation>Der Datenträger meldet eine Größe von null. Falls es sich um einen Kartenleser handelt, wurde die Karte möglicherweise entfernt.</translation>
+    </message>
+    <message>
+        <source>Could not open the file to generate a hash:
+%1</source>
+        <translation>Die Datei konnte nicht geöffnet werden, um einen Hashwert zu berechnen:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing...</source>
+        <translation>Hashwert wird berechnet …</translation>
+    </message>
+    <message>
+        <source>Could not read the whole file to generate a hash:
+%1</source>
+        <translation>Die Datei konnte nicht vollständig gelesen werden, um einen Hashwert zu berechnen:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing canceled.</source>
+        <translation>Hashberechnung abgebrochen.</translation>
     </message>
     <message>
         <source>The image is larger than the device:
@@ -664,7 +684,7 @@ Dies konnte erst am Ende des Datenträgers festgestellt werden, weil ein gzip-Im
     <message>
         <source>Could not read the whole file to generate a checksum:
 %1</source>
-        <translation>Die Datei konnte zum Berechnen der Prüfsumme nicht vollständig gelesen werden:
+        <translation type="vanished">Die Datei konnte zum Berechnen der Prüfsumme nicht vollständig gelesen werden:
 %1</translation>
     </message>
     <message>
@@ -678,6 +698,18 @@ Dies konnte erst am Ende des Datenträgers festgestellt werden, weil ein gzip-Im
     <message>
         <source>Verifying: %1 MB/s</source>
         <translation>Überprüfen: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Hashing: %1 MB/s</source>
+        <translation>Hashwert wird berechnet: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Generating checksum...</source>
+        <translation type="vanished">Prüfsumme wird berechnet …</translation>
+    </message>
+    <message>
+        <source>Checksum canceled.</source>
+        <translation type="vanished">Prüfsumme abgebrochen.</translation>
     </message>
     <message>
         <source>%1 the primary GPT header points at sectors the partition entries are not in.

@@ -322,7 +322,7 @@ Physically remove the device NOW, before doing anything else, and do not re-inse
     <message>
         <source>Could not open the file to generate a checksum:
 %1</source>
-        <translation>Could not open the file to generate a checksum:
+        <translation type="vanished">Could not open the file to generate a checksum:
 %1</translation>
     </message>
     <message>
@@ -368,6 +368,26 @@ Write to this device anyway?</translation>
     <message>
         <source>The device reports a size of zero. If it is a card reader, the card may have been removed.</source>
         <translation>The device reports a size of zero. If it is a card reader, the card may have been removed.</translation>
+    </message>
+    <message>
+        <source>Could not open the file to generate a hash:
+%1</source>
+        <translation>Could not open the file to generate a hash:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing...</source>
+        <translation>Hashing...</translation>
+    </message>
+    <message>
+        <source>Could not read the whole file to generate a hash:
+%1</source>
+        <translation>Could not read the whole file to generate a hash:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing canceled.</source>
+        <translation>Hashing canceled.</translation>
     </message>
     <message>
         <source>The image is larger than the device:
@@ -678,14 +698,26 @@ This could only be detected at the end of the device, because a gzip image does 
         <translation>Verifying: %1 MB/s</translation>
     </message>
     <message>
+        <source>Hashing: %1 MB/s</source>
+        <translation>Hashing: %1 MB/s</translation>
+    </message>
+    <message>
         <source>Compressed Disk Images (*.gz *.xz *.bz2 *.zst)</source>
         <translation>Compressed Disk Images (*.gz *.xz *.bz2 *.zst)</translation>
     </message>
     <message>
+        <source>Generating checksum...</source>
+        <translation type="vanished">Generating checksum...</translation>
+    </message>
+    <message>
         <source>Could not read the whole file to generate a checksum:
 %1</source>
-        <translation>Could not read the whole file to generate a checksum:
+        <translation type="vanished">Could not read the whole file to generate a checksum:
 %1</translation>
+    </message>
+    <message>
+        <source>Checksum canceled.</source>
+        <translation type="vanished">Checksum canceled.</translation>
     </message>
     <message>
         <source>%1 the primary GPT header points at sectors the partition entries are not in.

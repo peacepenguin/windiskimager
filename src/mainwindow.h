@@ -58,7 +58,8 @@ class MainWindow : public QMainWindow, public Ui::MainWindow
 
         ~MainWindow();
         void closeEvent(QCloseEvent *event);
-        enum Status {STATUS_IDLE=0, STATUS_READING, STATUS_WRITING, STATUS_VERIFYING, STATUS_EXIT, STATUS_CANCELED};
+        enum Status {STATUS_IDLE=0, STATUS_READING, STATUS_WRITING, STATUS_VERIFYING, STATUS_EXIT, STATUS_CANCELED,
+                     STATUS_HASHING};
         bool nativeEvent(const QByteArray &type, void *vMsg, qintptr *result) override;
     protected slots:
         void on_tbBrowse_clicked();
@@ -98,7 +99,8 @@ private:
         int beginProgress(unsigned long long total, unsigned long long *lastsector);
         void showProgress(bool show);
         void showThroughput(unsigned long long sector, unsigned long long total,
-                            unsigned long long *lastsector);
+                            unsigned long long *lastsector,
+                            unsigned long long unitbytes = 0ull);
         void endRun(const QString &message);
         bool offerGptRepair(HANDLE hDisk, unsigned long long disksectorsize,
                             unsigned long long devicesectors,

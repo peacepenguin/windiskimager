@@ -331,7 +331,7 @@ Odłącz urządzenie fizycznie TERAZ, zanim zrobisz cokolwiek innego, i nie pod�
     <message>
         <source>Could not open the file to generate a checksum:
 %1</source>
-        <translation>Nie można otworzyć pliku, aby wygenerować sumę kontrolną:
+        <translation type="vanished">Nie można otworzyć pliku, aby wygenerować sumę kontrolną:
 %1</translation>
     </message>
     <message>
@@ -377,6 +377,26 @@ Zapisać mimo to na tym urządzeniu?</translation>
     <message>
         <source>The device reports a size of zero. If it is a card reader, the card may have been removed.</source>
         <translation>Urządzenie zgłasza zerowy rozmiar. Jeśli jest to czytnik kart, karta mogła zostać wyjęta.</translation>
+    </message>
+    <message>
+        <source>Could not open the file to generate a hash:
+%1</source>
+        <translation>Nie udało się otworzyć pliku, aby obliczyć skrót:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing...</source>
+        <translation>Obliczanie skrótu…</translation>
+    </message>
+    <message>
+        <source>Could not read the whole file to generate a hash:
+%1</source>
+        <translation>Nie udało się odczytać całego pliku, aby obliczyć skrót:
+%1</translation>
+    </message>
+    <message>
+        <source>Hashing canceled.</source>
+        <translation>Obliczanie skrótu anulowane.</translation>
     </message>
     <message>
         <source>The image is larger than the device:
@@ -685,7 +705,7 @@ Obraz i urządzenie różnią się wyłącznie w GPT.</translation>
     <message>
         <source>Could not read the whole file to generate a checksum:
 %1</source>
-        <translation>Nie można odczytać całego pliku, aby wygenerować sumę kontrolną:
+        <translation type="vanished">Nie można odczytać całego pliku, aby wygenerować sumę kontrolną:
 %1</translation>
     </message>
     <message>
@@ -699,6 +719,18 @@ Obraz i urządzenie różnią się wyłącznie w GPT.</translation>
     <message>
         <source>Verifying: %1 MB/s</source>
         <translation>Weryfikowanie: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Hashing: %1 MB/s</source>
+        <translation>Obliczanie skrótu: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Generating checksum...</source>
+        <translation type="vanished">Generowanie sumy kontrolnej…</translation>
+    </message>
+    <message>
+        <source>Checksum canceled.</source>
+        <translation type="vanished">Obliczanie sumy kontrolnej anulowane.</translation>
     </message>
     <message>
         <source>%1 the primary GPT header points at sectors the partition entries are not in.
