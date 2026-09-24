@@ -1196,6 +1196,10 @@ Fehler %2</translation>
         <translation>Sicherungs-GPT nach LBA %1 verschoben; letzte nutzbare LBA ist jetzt %2</translation>
     </message>
     <message>
+        <source>the device has a GPT, which its MBR only mirrors</source>
+        <translation>das Gerät hat eine GPT, die sein MBR nur widerspiegelt</translation>
+    </message>
+    <message>
         <source>the MBR holds no partitions to shrink to</source>
         <translation>der MBR enthält keine Partitionen, auf die verkleinert werden könnte</translation>
     </message>

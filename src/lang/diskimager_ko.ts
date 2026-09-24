@@ -1183,6 +1183,10 @@ Error %2</source>
         <translation>백업 GPT를 LBA %1(으)로 옮겼습니다. 마지막 사용 가능 LBA는 이제 %2입니다</translation>
     </message>
     <message>
+        <source>the device has a GPT, which its MBR only mirrors</source>
+        <translation>장치에 GPT가 있으며, MBR은 이를 반영할 뿐입니다</translation>
+    </message>
+    <message>
         <source>the MBR holds no partitions to shrink to</source>
         <translation>MBR에 축소할 파티션이 없습니다</translation>
     </message>

@@ -1199,6 +1199,10 @@ Erreur %2</translation>
         <translation>GPT de secours déplacée vers le LBA %1 ; le dernier LBA utilisable est maintenant %2</translation>
     </message>
     <message>
+        <source>the device has a GPT, which its MBR only mirrors</source>
+        <translation>le périphérique a une GPT, que son MBR ne fait que refléter</translation>
+    </message>
+    <message>
         <source>the MBR holds no partitions to shrink to</source>
         <translation>le MBR ne contient aucune partition vers laquelle réduire</translation>
     </message>

@@ -1211,6 +1211,10 @@ Error %2</translation>
         <translation>backup GPT moved to LBA %1; last usable LBA is now %2</translation>
     </message>
     <message>
+        <source>the device has a GPT, which its MBR only mirrors</source>
+        <translation>the device has a GPT, which its MBR only mirrors</translation>
+    </message>
+    <message>
         <source>the MBR holds no partitions to shrink to</source>
         <translation>the MBR holds no partitions to shrink to</translation>
     </message>

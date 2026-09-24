@@ -1109,10 +1109,17 @@ struct MbrSlot
     unsigned long long first, count;
 };
 
-// Read sector 0 into *sector0 if it has an MBR boot signature; otherwise
-// return false with *sector0 untouched.
+// Read sector 0 into *sector0 if it holds an MBR that is the disk's partition
+// table; otherwise return false with *sector0 untouched.
+//
+// A GPT disk's MBR is not: a 0xEE entry, or a GPT header at LBA 1, means the
+// MBR is only the protective one, or a hybrid copy of some GPT partitions.
+// Repacking those entries from sector 1 would zero the GPT and everything
+// before the first partition -- the bootloader reserved below FirstUsableLBA
+// included -- and Read tries the MBR plan whenever the GPT plan declines.
 static bool readValidMbr(HANDLE hRawDisk, unsigned long long sectorsize,
-                         unsigned long long devicesectors, QByteArray *sector0)
+                         unsigned long long devicesectors, QByteArray *sector0,
+                         QString *detail)
 {
     if (sectorsize < 512 || devicesectors < 3)
     {
@@ -1125,14 +1132,30 @@ static bool readValidMbr(HANDLE hRawDisk, unsigned long long sectorsize,
     {
         return false;
     }
+    bool gpt = false;
+    for (int i = 0; i < 4 && !gpt; ++i)
+    {
+        gpt = (mbr[446 + i * 16 + 4] == 0xEE);
+    }
+    if (!gpt)
+    {
+        QByteArray lba1(sectorsize, 0);
+        gpt = rawSeekRead(hRawDisk, sectorsize, lba1.data(), (DWORD)sectorsize)
+              && memcmp(lba1.constData() + GPT_OFF_SIGNATURE, "EFI PART", 8) == 0;
+    }
+    if (gpt)
+    {
+        if (detail) *detail = QObject::tr("the device has a GPT, which its MBR only mirrors");
+        return false;
+    }
     *sector0 = sector;
     return true;
 }
 
 // Append every in-use primary entry to *order, in slot order (callers sort).
-// Skips empty, zero-length and 0xEE (GPT protective) entries; extended/logical
-// partitions are not walked. Returns false, via *detail, on an impossible
-// range.
+// Skips empty and zero-length entries, and 0xEE ones, though readValidMbr()
+// already turns a disk with one away; extended/logical partitions are not
+// walked. Returns false, via *detail, on an impossible range.
 static bool walkMbrEntries(const unsigned char *mbr, unsigned long long devicesectors,
                            QList<MbrSlot> *order, QString *detail)
 {
@@ -1168,7 +1191,7 @@ bool listMbrPartitions(HANDLE hRawDisk, unsigned long long sectorsize,
                        QList<PartitionInfo> *partitions, QString *detail)
 {
     QByteArray sector0;
-    if (!readValidMbr(hRawDisk, sectorsize, devicesectors, &sector0))
+    if (!readValidMbr(hRawDisk, sectorsize, devicesectors, &sector0, detail))
     {
         return false;
     }
@@ -1207,7 +1230,7 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     }
 
     QByteArray sector0;
-    if (!readValidMbr(hRawDisk, sectorsize, devicesectors, &sector0))
+    if (!readValidMbr(hRawDisk, sectorsize, devicesectors, &sector0, detail))
     {
         return false;
     }

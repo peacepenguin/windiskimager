@@ -1,5 +1,11 @@
 Release 2.0.0
 =============
+Fix "Skip unpartitioned space" wiping a GPT image's bootloader and partition
+  table when the device also has a hybrid MBR. When the GPT could not be
+  shrunk -- a partition grown to fill the card, say -- the MBR copy was
+  repacked instead, from sector 1, zeroing everything below the first
+  partition. A disk with a GPT is now only ever shrunk by its GPT, and read in
+  full otherwise
 Write and Verify bzip2 (.bz2) and zstd (.zst) images, decompressed as they
   stream like gzip and xz. The format is recognised from the file's contents,
   not its name

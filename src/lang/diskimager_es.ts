@@ -1199,6 +1199,10 @@ Error %2</translation>
         <translation>GPT de respaldo movida al LBA %1; el último LBA utilizable es ahora %2</translation>
     </message>
     <message>
+        <source>the device has a GPT, which its MBR only mirrors</source>
+        <translation>el dispositivo tiene una GPT, que su MBR solo refleja</translation>
+    </message>
+    <message>
         <source>the MBR holds no partitions to shrink to</source>
         <translation>el MBR no contiene particiones a las que reducir</translation>
     </message>

@@ -1049,6 +1049,10 @@ Error %2</source>
         <translation>காப்பு GPT, LBA %1-க்கு நகர்த்தப்பட்டது; பயன்படுத்தக்கூடிய கடைசி LBA இப்போது %2</translation>
     </message>
     <message>
+        <source>the device has a GPT, which its MBR only mirrors</source>
+        <translation>சாதனத்தில் GPT உள்ளது, அதன் MBR அதைப் பிரதிபலிக்கிறது மட்டுமே</translation>
+    </message>
+    <message>
         <source>the MBR holds no partitions to shrink to</source>
         <translation>MBR-இல் சுருக்கத் தேவையான பகிர்வுகள் இல்லை</translation>
     </message>

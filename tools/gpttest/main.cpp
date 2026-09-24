@@ -846,31 +846,28 @@ static void caseMbrShrinkExclude()
     printf("\n");
 }
 
-// Both callers are exercised, since each has its own call into walkMbrEntries().
-static void caseMbrProtectiveEntrySkipped()
+// A 0xEE entry beside a real one is a hybrid MBR: the disk is a GPT, and the
+// real entry only mirrors a GPT partition. Neither caller may treat it as an
+// MBR disk, even with no GPT header present to say so; see readValidMbr().
+static void caseMbrProtectiveEntryDeclined()
 {
-    printf("walkMbrEntries() skips a 0xEE protective entry\n");
+    printf("an MBR with a 0xEE entry is not repacked or listed\n");
     const unsigned long long device = 2000;
     QList<MbrPart> parts = {
         {0, 1, (unsigned long long)(device - 1), 0xEE},   // protective, spans the device
-        {1, 100, 100, 0x0C},                              // the one real partition
+        {1, 100, 100, 0x0C},                              // a hybrid mirror of a GPT partition
     };
     HANDLE h = writeTestFile(buildMultiMbrDisk(device, parts));
     if (h == INVALID_HANDLE_VALUE) { return; }
 
     QList<PartitionInfo> found;
     QString detail;
-    bool listok = listMbrPartitions(h, SEC, device, &found, &detail);
-    check(listok, "listMbrPartitions reported success");
-    check(found.size() == 1 && found[0].slot == 1,
-          "only the real partition is listed, not the protective entry");
-
+    check(!listMbrPartitions(h, SEC, device, &found, &detail), "listMbrPartitions declines");
     PartitionShrinkPlan plan;
-    bool planok = planMbrShrink(h, SEC, device, 1ull, &plan, &detail);
+    const bool planok = planMbrShrink(h, SEC, device, 1ull, &plan, &detail);
     CloseHandle(h);
-    check(planok, "planMbrShrink reported success");
-    check(plan.ranges.size() == 1 && plan.ranges[0].srcfirst == 100 && plan.totalsectors == 101,
-          "only the real partition was packed, the protective entry was not treated as data");
+    check(!planok, "planMbrShrink declines");
+    check(detail.contains("GPT"), "and says the device has a GPT");
     printf("\n");
 }
 
@@ -1017,6 +1014,75 @@ static void caseGptShrinkEndToEnd(const char *name, const QList<int> &exclude)
         const char fill = (slot == 0) ? (char)0xA1 : (char)0xC3;
         check(noSectorFilledWith(img, fill), "no sector of an excluded partition was copied");
     }
+    printf("\n");
+}
+
+// Read tries planGptShrink() and, if that declines, planMbrShrink(). On a GPT
+// disk the second must decline too: its MBR is only a protective or hybrid
+// copy, and packing from sector 1 would zero the GPT and everything up to the
+// first partition, the bootloader reserved below FirstUsableLBA included.
+// Here the GPT plan declines honestly -- the partition already runs to the end
+// of the card, as one grown on first boot does -- and the hybrid MBR entry
+// that mirrors it must not be repacked in its place.
+static void caseGptFallbackToHybridMbr()
+{
+    printf("a GPT with a hybrid MBR, when the GPT plan declines\n");
+    const unsigned long long device = 40000, firstusable = 16384;
+    const unsigned long long partfirst = 16384, partlast = device - 34;
+    QList<GptPart> parts = { {0, partfirst, partlast, "rootfs"} };
+    QByteArray dev = buildMultiGptDisk(device, firstusable, parts);
+    unsigned char *d = (unsigned char *)dev.data();
+    // The hybrid entry, beside the protective 0xEE one in slot 0.
+    d[446 + 16 + 4] = 0x83;
+    wr32(d, 446 + 16 + 8, (unsigned int)partfirst);
+    wr32(d, 446 + 16 + 12, (unsigned int)(partlast - partfirst + 1));
+    fillSectors(dev, 64, 100, (char)0x1D);     // bootloader, below FirstUsableLBA
+    fillSectors(dev, partfirst, 100, (char)0xA1);
+
+    HANDLE h = writeTestFile(dev);
+    if (h == INVALID_HANDLE_VALUE) return;
+    PartitionShrinkPlan plan;
+    QString detail;
+    const bool gpt = planGptShrink(h, SEC, device, ALIGN_1MIB, &plan, &detail);
+    check(!gpt, "fixture: the GPT plan declines (nothing to gain)");
+    const bool mbr = !gpt && planMbrShrink(h, SEC, device, ALIGN_1MIB, &plan, &detail);
+    check(!mbr, "the hybrid MBR is not repacked in the GPT's place, so the Read is a full one");
+    if (mbr)
+    {
+        QByteArray img = applyPlan(dev, plan);
+        check(img.size() > (int)(165 * SEC) && img.mid(64 * SEC, 100 * SEC) == dev.mid(64 * SEC, 100 * SEC),
+              "(had it been) the bootloader below FirstUsableLBA survives");
+    }
+    QList<PartitionInfo> found;
+    check(!listMbrPartitions(h, SEC, device, &found, &detail),
+          "Choose partitions does not offer the hybrid MBR's entries either");
+    CloseHandle(h);
+    printf("\n");
+}
+
+// A GPT whose protective MBR has lost its 0xEE entry is still a GPT: the
+// header at LBA 1 is what says so.
+static void caseMbrPlanOnGptWithoutProtectiveEntry()
+{
+    printf("an MBR with no 0xEE entry in front of a GPT\n");
+    const unsigned long long device = 40000, firstusable = 2048;
+    QList<GptPart> parts = { {0, 4096, 6143, "A"} };
+    QByteArray dev = buildMultiGptDisk(device, firstusable, parts);
+    unsigned char *d = (unsigned char *)dev.data();
+    memset(d + 446, 0, 16);
+    d[446 + 4] = 0x0C;
+    wr32(d, 446 + 8, 4096);
+    wr32(d, 446 + 12, 2048);
+    HANDLE h = writeTestFile(dev);
+    if (h == INVALID_HANDLE_VALUE) return;
+    PartitionShrinkPlan plan;
+    QString detail;
+    check(!planMbrShrink(h, SEC, device, ALIGN_1MIB, &plan, &detail),
+          "planMbrShrink declines a disk with a GPT header at LBA 1");
+    QList<PartitionInfo> found;
+    check(!listMbrPartitions(h, SEC, device, &found, &detail),
+          "listMbrPartitions declines it too");
+    CloseHandle(h);
     printf("\n");
 }
 
@@ -1283,12 +1349,14 @@ int main(int argc, char **argv)
     caseGptShrinkExclude();
     caseListMbrOrder();
     caseMbrShrinkExclude();
-    caseMbrProtectiveEntrySkipped();
+    caseMbrProtectiveEntryDeclined();
 
     caseGptShrinkEndToEnd("GPT shrink applied end to end", {});
     caseGptShrinkEndToEnd("GPT shrink applied end to end, one partition excluded", {2});
     caseGptShrinkEndToEnd("GPT shrink applied end to end, first partition excluded", {0});
     caseGptShrinkUnalignedFirstUsable();
+    caseGptFallbackToHybridMbr();
+    caseMbrPlanOnGptWithoutProtectiveEntry();
     caseMbrShrinkEndToEnd("MBR shrink applied end to end", {});
     caseMbrShrinkEndToEnd("MBR shrink applied end to end, one partition excluded", {2});
 

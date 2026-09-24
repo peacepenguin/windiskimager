@@ -1186,6 +1186,10 @@ Błąd %2</translation>
         <translation>zapasowy GPT przeniesiony na LBA %1; ostatni użyteczny LBA to teraz %2</translation>
     </message>
     <message>
+        <source>the device has a GPT, which its MBR only mirrors</source>
+        <translation>urządzenie ma GPT, którą jego MBR jedynie odzwierciedla</translation>
+    </message>
+    <message>
         <source>the MBR holds no partitions to shrink to</source>
         <translation>MBR nie zawiera partycji, do których można by zmniejszyć</translation>
     </message>

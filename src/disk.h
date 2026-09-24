@@ -256,9 +256,11 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
 // planGptShrink() for a legacy MBR, packing from right after the boot sector.
 // Only the four primary entries are walked; an extended partition moves as a
 // whole with its logical ones inside.
-// Returns false, with *plan untouched, if the device holds no MBR, an entry
-// describes an impossible or overlapping range, a repacked start exceeds 32
-// bits, no partitions remain, or there is nothing to gain.
+// Returns false, with *plan untouched, if the device holds no MBR, has a GPT
+// (a 0xEE entry or a GPT header at LBA 1: its MBR is then protective or
+// hybrid, and repacking it would destroy the GPT and its reserved area), an
+// entry describes an impossible or overlapping range, a repacked start
+// exceeds 32 bits, no partitions remain, or there is nothing to gain.
 bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
                    unsigned long long devicesectors, unsigned long long alignsectors,
                    PartitionShrinkPlan *plan, QString *detail,

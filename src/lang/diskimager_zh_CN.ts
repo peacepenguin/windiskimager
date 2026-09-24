@@ -1183,6 +1183,10 @@ Error %2</source>
         <translation>备份 GPT 已移至 LBA %1; 最后可用 LBA 现为 %2</translation>
     </message>
     <message>
+        <source>the device has a GPT, which its MBR only mirrors</source>
+        <translation>设备使用 GPT，其 MBR 只是 GPT 的镜像</translation>
+    </message>
+    <message>
         <source>the MBR holds no partitions to shrink to</source>
         <translation>MBR 中没有可供缩小的分区</translation>
     </message>

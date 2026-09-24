@@ -1186,6 +1186,10 @@ Fout %2</translation>
         <translation>reserve-GPT verplaatst naar LBA %1; laatste bruikbare LBA is nu %2</translation>
     </message>
     <message>
+        <source>the device has a GPT, which its MBR only mirrors</source>
+        <translation>het apparaat heeft een GPT, die de MBR alleen weerspiegelt</translation>
+    </message>
+    <message>
         <source>the MBR holds no partitions to shrink to</source>
         <translation>de MBR bevat geen partities om naar te verkleinen</translation>
     </message>
