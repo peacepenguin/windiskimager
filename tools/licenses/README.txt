@@ -25,3 +25,6 @@ PCRE2's.
 mingw64-gettext installs COPYING, the GPL-3 that covers gettext's tools, but
 the libintl-8.dll that ships is LGPL-2.1-or-later. COPYING.LIB is that
 licence, from gettext's intl directory.
+
+mingw64-zstd installs COPYING, the GPL-2 half of zstd's dual licence. LICENSE
+is the BSD half, the one the MSYS2 package ships, so both packages carry it.
