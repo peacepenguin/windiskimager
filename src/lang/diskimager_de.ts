@@ -296,12 +296,12 @@ Entfernen Sie den Datenträger JETZT physisch, bevor Sie irgendetwas anderes tun
         <translation>Schreiben war erfolgreich.</translation>
     </message>
     <message>
-        <source>Disk Images (*.img *.IMG *.img.gz *.img.xz)</source>
-        <translation>Datenträger-Images (*.img *.IMG *.img.gz *.img.xz)</translation>
+        <source>Disk Images (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)</source>
+        <translation>Datenträger-Images (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)</translation>
     </message>
     <message>
-        <source>Compressed Disk Images (*.img.gz *.img.xz *.gz *.xz)</source>
-        <translation>Komprimierte Datenträger-Images (*.img.gz *.img.xz *.gz *.xz)</translation>
+        <source>Compressed Disk Images (*.gz *.xz *.bz2 *.zst)</source>
+        <translation>Komprimierte Datenträger-Images (*.gz *.xz *.bz2 *.zst)</translation>
     </message>
     <message>
         <source>Error</source>
@@ -1256,6 +1256,14 @@ Fehler %2</translation>
         <translation>Die Image-Datei konnte nicht zurückgespult werden (Fehler %1).</translation>
     </message>
     <message>
+        <source>The bzip2 decompressor could not be started (bzip2 error %1).</source>
+        <translation>Die bzip2-Dekomprimierung konnte nicht gestartet werden (bzip2-Fehler %1).</translation>
+    </message>
+    <message>
+        <source>The zstd decompressor could not be started (zstd error %1).</source>
+        <translation>Die zstd-Dekomprimierung konnte nicht gestartet werden (zstd-Fehler %1).</translation>
+    </message>
+    <message>
         <source>The gzip decompressor could not be started (zlib error %1).</source>
         <translation>Die gzip-Dekomprimierung konnte nicht gestartet werden (zlib-Fehler %1).</translation>
     </message>
@@ -1274,6 +1282,18 @@ Fehler %2</translation>
     <message>
         <source>The gzip image is damaged (zlib error %1).</source>
         <translation>Das gzip-Image ist beschädigt (zlib-Fehler %1).</translation>
+    </message>
+    <message>
+        <source>The bzip2 image could not be decompressed.</source>
+        <translation>Das bzip2-Image konnte nicht dekomprimiert werden.</translation>
+    </message>
+    <message>
+        <source>The bzip2 image is damaged (bzip2 error %1).</source>
+        <translation>Das bzip2-Image ist beschädigt (bzip2-Fehler %1).</translation>
+    </message>
+    <message>
+        <source>The zstd image is damaged (zstd error %1).</source>
+        <translation>Das zstd-Image ist beschädigt (zstd-Fehler %1).</translation>
     </message>
     <message>
         <source>The xz image is damaged (lzma error %1).</source>

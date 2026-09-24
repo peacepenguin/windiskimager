@@ -13,10 +13,12 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(APPSRC "${CMAKE_CURRENT_SOURCE_DIR}/../../src" CACHE PATH "application sources")
 
 # Core only: ImageSource needs no widgets, and the fixtures are built with the
-# same zlib and liblzma the application decodes with.
+# same zlib, liblzma, libbz2 and libzstd the application decodes with.
 find_package(Qt6 REQUIRED COMPONENTS Core)
 find_package(ZLIB REQUIRED)
 find_package(LibLZMA REQUIRED)
+find_package(BZip2 REQUIRED)
+find_package(zstd REQUIRED CONFIG)
 
 add_executable(imgtest
     main.cpp
@@ -32,7 +34,8 @@ target_compile_definitions(imgtest PRIVATE
     WINVER=0x0601
     _WIN32_WINNT=0x0601
 )
-target_link_libraries(imgtest PRIVATE Qt6::Core ZLIB::ZLIB LibLZMA::LibLZMA)
+target_link_libraries(imgtest PRIVATE Qt6::Core ZLIB::ZLIB LibLZMA::LibLZMA
+                      BZip2::BZip2 zstd::libzstd_shared)
 
 # Match the application build, which turns off Qt6's default UNICODE defines.
 qt6_disable_unicode_defines(imgtest)

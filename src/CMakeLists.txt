@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(WinDiskImager VERSION 1.9.2 LANGUAGES CXX)
+project(WinDiskImager VERSION 2.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_AUTOMOC ON)
@@ -11,9 +11,13 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 # iconengines/qsvgicon plugin the button icons need at runtime.
 find_package(Qt6 REQUIRED COMPONENTS Widgets Svg)
 
-# gzip/xz image support in imagesource.cpp.
+# gzip/xz/bzip2/zstd image support in imagesource.cpp. zstd has no
+# find module in CMake; its own package config is used, from MSYS2 and Fedora
+# alike, with the shared library so both builds ship the same libzstd.dll.
 find_package(ZLIB REQUIRED)
 find_package(LibLZMA REQUIRED)
+find_package(BZip2 REQUIRED)
+find_package(zstd REQUIRED CONFIG)
 
 # When cross-compiling, Qt6::lrelease resolves to a Windows .exe that cannot run
 # on the build host. Point LRELEASE_EXECUTABLE at the host's native lrelease
@@ -147,7 +151,8 @@ target_compile_definitions(WinDiskImager PRIVATE
     _WIN32_WINNT=0x0601
 )
 
-target_link_libraries(WinDiskImager PRIVATE Qt6::Widgets Qt6::Svg ZLIB::ZLIB LibLZMA::LibLZMA)
+target_link_libraries(WinDiskImager PRIVATE Qt6::Widgets Qt6::Svg ZLIB::ZLIB LibLZMA::LibLZMA
+                      BZip2::BZip2 zstd::libzstd_shared)
 
 # Some Win32 calls use the ANSI API (e.g. CreateFile with toLatin1()); Qt6
 # turns UNICODE on by default.

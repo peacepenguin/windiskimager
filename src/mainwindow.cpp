@@ -390,9 +390,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
             this, &MainWindow::rescanDevices);
 
     initializeHomeDir();
-    myFileType = tr("Disk Images (*.img *.IMG *.img.gz *.img.xz)");
-    myFileTypeList << tr("Disk Images (*.img *.IMG *.img.gz *.img.xz)")
-                   << tr("Compressed Disk Images (*.img.gz *.img.xz *.gz *.xz)")
+    // Opening decides the format by content (ImageSource::open), so these
+    // only choose what the dialog lists.
+    myFileType = tr("Disk Images (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)");
+    myFileTypeList << tr("Disk Images (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)")
+                   << tr("Compressed Disk Images (*.gz *.xz *.bz2 *.zst)")
                    << "*.*";
 
     // Last, once every string is set: the size needed depends on the
@@ -1104,7 +1106,8 @@ void MainWindow::on_bWrite_clicked()
             // size the loop may have stopped at the device end. Also with a
             // known size (unless the user chose to truncate), since only
             // reading to the end makes a decoder check the trailing checksum
-            // and, for xz, the index.
+            // and, for xz, the index -- and, for gzip, bzip2 and zstd, whether
+            // another stream follows.
             QString imagedamage;
             if (completed && (!image.sizeKnown() || numsectors == image.sizeInSectors()))
             {

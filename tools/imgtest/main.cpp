@@ -21,14 +21,14 @@
 // out are the bytes that went in.
 //
 // A decoder mistake corrupts an image on its way to a card without anything
-// saying so. The fixtures are built here with zlib and liblzma, so the test
-// needs no gzip or xz on the path and no compressed files in the repository.
+// saying so. The fixtures are built here with zlib, liblzma, libbz2 and
+// libzstd, so the test needs no compressors on the path and no compressed
+// files in the repository.
 //
-// Known gap: nextMemberFollows() keeps a single leftover byte when the input
-// buffer runs out with exactly one byte of the next gzip header in it. Reaching
-// that from here would mean sizing a member's *compressed* length to land one
-// byte short of the 1 MB input buffer, which these fixtures do not do. Removing
-// that line leaves every check below passing.
+// nextMemberFollows() keeps the leftover bytes when the input buffer runs out
+// part way into the next stream's header. The zstd "header split across the
+// input buffer" case reaches that; gzip and bzip2 share the code but have no
+// fixture of their own for it.
 
 #include <QCoreApplication>
 #include <QByteArray>
@@ -39,6 +39,8 @@
 #include <cstring>
 #include <zlib.h>
 #include <lzma.h>
+#include <bzlib.h>
+#include <zstd.h>
 #include "imagesource.h"
 
 static const unsigned long long SS = 512;
@@ -107,6 +109,100 @@ static QByteArray xzOf(const QByteArray &raw)
     }
     out.truncate((int)used);
     return out;
+}
+
+static QByteArray bzip2Of(const QByteArray &raw)
+{
+    unsigned int cap = (unsigned int)raw.size() + (unsigned int)raw.size() / 100 + 1024;
+    QByteArray out((int)cap, 0);
+    if (BZ2_bzBuffToBuffCompress(out.data(), &cap, (char *)raw.constData(),
+                                 (unsigned int)raw.size(), 9, 0, 0) != BZ_OK)
+    {
+        return QByteArray();
+    }
+    out.truncate((int)cap);
+    return out;
+}
+
+// One frame. With sizeFlag false the frame leaves out its content size, as
+// zstd does when it compresses from a pipe; with checksum true it carries the
+// content checksum the zstd tool adds by default.
+//
+// windowLog above 27 declares a window past what zstd decodes by default, as
+// zstd --long does; left unset, the level's own window is used.
+static QByteArray zstdOf(const QByteArray &raw, bool sizeFlag = true, bool checksum = false,
+                         int windowLog = 0)
+{
+    ZSTD_CCtx *cc = ZSTD_createCCtx();
+    if (cc == NULL)
+    {
+        return QByteArray();
+    }
+    ZSTD_CCtx_setParameter(cc, ZSTD_c_compressionLevel, 3);
+    if (windowLog)
+    {
+        ZSTD_CCtx_setParameter(cc, ZSTD_c_windowLog, windowLog);
+    }
+    ZSTD_CCtx_setParameter(cc, ZSTD_c_contentSizeFlag, sizeFlag ? 1 : 0);
+    ZSTD_CCtx_setParameter(cc, ZSTD_c_checksumFlag, checksum ? 1 : 0);
+    QByteArray out((int)ZSTD_compressBound((size_t)raw.size()), 0);
+    ZSTD_outBuffer o = { out.data(), (size_t)out.size(), 0 };
+    if (sizeFlag)
+    {
+        ZSTD_CCtx_setPledgedSrcSize(cc, (unsigned long long)raw.size());
+    }
+    // Fed a piece at a time, as from a pipe: given everything in one call
+    // zstd knows the size anyway and shrinks the window to fit it.
+    const size_t PIECE = 64 * 1024;
+    size_t left = 0;
+    for (size_t at = 0; !ZSTD_isError(left); )
+    {
+        const size_t n = qMin(PIECE, (size_t)raw.size() - at);
+        const bool last = (at + n == (size_t)raw.size());
+        ZSTD_inBuffer in = { raw.constData() + at, n, 0 };
+        do
+        {
+            left = ZSTD_compressStream2(cc, &o, &in, last ? ZSTD_e_end : ZSTD_e_continue);
+        } while (!ZSTD_isError(left) && (last ? left != 0 : in.pos < in.size));
+        at += n;
+        if (last)
+        {
+            break;
+        }
+    }
+    ZSTD_freeCCtx(cc);
+    if (ZSTD_isError(left))
+    {
+        return QByteArray();
+    }
+    out.truncate((int)o.pos);
+    return out;
+}
+
+// A zstd skippable frame, as pzstd writes ahead of its data frames.
+static QByteArray zstdSkippable(int payload)
+{
+    QByteArray b(8 + payload, '\x5a');
+    const unsigned char head[8] = { 0x50, 0x2a, 0x4d, 0x18,
+                                    (unsigned char)payload, (unsigned char)(payload >> 8),
+                                    (unsigned char)(payload >> 16), (unsigned char)(payload >> 24) };
+    memcpy(b.data(), head, 8);
+    return b;
+}
+
+// Bytes zstd cannot compress, so it stores them and a frame's compressed size
+// follows its input size exactly -- which is what lets a fixture put a frame
+// boundary at a chosen byte of the file.
+static QByteArray noise(int bytes, unsigned int seed)
+{
+    QByteArray b(bytes, 0);
+    unsigned int x = seed | 1u;
+    for (int i = 0; i < bytes; ++i)
+    {
+        x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+        b[i] = (char)(x >> 24);
+    }
+    return b;
 }
 
 static bool writeFile(const QString &name, const QByteArray &bytes)
@@ -484,13 +580,17 @@ int main(int argc, char **argv)
     const QByteArray raw = pattern(3 * 1024 * 1024) + QByteArray("TAIL");
     const QByteArray gz = gzipOf(raw);
     const QByteArray xz = xzOf(raw);
+    const QByteArray bz = bzip2Of(raw);
+    const QByteArray zst = zstdOf(raw);
 
     printf("fixtures\n");
     check(!gz.isEmpty(), "gzip fixture built");
     check(!xz.isEmpty(), "xz fixture built");
+    check(!bz.isEmpty(), "bzip2 fixture built");
+    check(!zst.isEmpty(), "zstd fixture built");
     check((raw.size() % (int)SS) != 0, "the image is not a whole number of sectors");
     printf("\n");
-    if (gz.isEmpty() || xz.isEmpty())
+    if (gz.isEmpty() || xz.isEmpty() || bz.isEmpty() || zst.isEmpty())
     {
         printf("%d checks, %d failures\n", checks, failures);
         return 1;
@@ -501,6 +601,8 @@ int main(int argc, char **argv)
     const int cut = 1234567;
     const QByteArray gz1 = gzipOf(raw.left(cut)), gz2 = gzipOf(raw.mid(cut));
     const QByteArray xz1 = xzOf(raw.left(cut)),   xz2 = xzOf(raw.mid(cut));
+    const QByteArray bz1 = bzip2Of(raw.left(cut)), bz2 = bzip2Of(raw.mid(cut));
+    const QByteArray zst1 = zstdOf(raw.left(cut)), zst2 = zstdOf(raw.mid(cut));
 
     // Checked: a failed write could leave a stale file from an earlier run to
     // be tested instead.
@@ -514,7 +616,22 @@ int main(int argc, char **argv)
           && writeFile("imgtest-trunc.img.gz", gz.left(gz.size() / 2))
           && writeFile("imgtest-trunc.img.xz", xz.left(xz.size() / 2))
           && writeFile("imgtest-gz-named.img", gz)
-          && writeFile("imgtest-raw-named.img.gz", raw),
+          && writeFile("imgtest-raw-named.img.gz", raw)
+          && writeFile("imgtest.img.bz2", bz)
+          && writeFile("imgtest.img.zst", zst)
+          && writeFile("imgtest-multi.img.bz2", bz1 + bz2)
+          && writeFile("imgtest-multi.img.zst", zst1 + zst2)
+          // pzstd's layout: a skippable frame ahead of each data frame.
+          && writeFile("imgtest-pzstd.img.zst", zstdSkippable(12) + zst1 + zstdSkippable(0) + zst2)
+          && writeFile("imgtest-nosize.img.zst", zstdOf(raw, false))
+          // No content size, so the frame keeps its declared 256 MiB window
+          // rather than one shrunk to fit the data.
+          && writeFile("imgtest-long.img.zst", zstdOf(raw, false, false, 28))
+          && writeFile("imgtest-padded.img.bz2", bz + QByteArray(512, '\0'))
+          && writeFile("imgtest-padded.img.zst", zst + QByteArray(512, '\0'))
+          && writeFile("imgtest-trunc.img.bz2", bz.left(bz.size() / 2))
+          && writeFile("imgtest-trunc.img.zst", zst.left(zst.size() / 2))
+          && writeFile("imgtest-zst-named.img", zst),
           "every fixture file was written");
     printf("\n");
 
@@ -524,13 +641,57 @@ int main(int argc, char **argv)
     caseRoundTrip("gzip, two members", "imgtest-multi.img.gz", raw);
     caseRoundTrip("xz, two streams", "imgtest-multi.img.xz", raw);
     caseRoundTrip("xz, two streams with padding between", "imgtest-padded.img.xz", raw);
+    caseRoundTrip("bzip2", "imgtest.img.bz2", raw);
+    caseRoundTrip("zstd", "imgtest.img.zst", raw);
+    // pbzip2/lbzip2 write one stream per chunk; stopping after the first is
+    // the multi-member gzip bug over again.
+    caseRoundTrip("bzip2, two streams", "imgtest-multi.img.bz2", raw);
+    caseRoundTrip("zstd, two frames", "imgtest-multi.img.zst", raw);
+    caseRoundTrip("zstd, skippable frames between data frames (pzstd)", "imgtest-pzstd.img.zst", raw);
+    caseRoundTrip("zstd, no content size in the frame", "imgtest-nosize.img.zst", raw);
+    caseRoundTrip("zstd with a 256 MiB window (zstd --long)", "imgtest-long.img.zst", raw);
+    // Zeros after the stream, as a block-oriented writer leaves: the image
+    // ends with the stream, as for gzip.
+    caseRoundTrip("bzip2 followed by zero padding", "imgtest-padded.img.bz2", raw);
+    caseRoundTrip("zstd followed by zero padding", "imgtest-padded.img.zst", raw);
+    {
+        // The first frame ends two bytes short of the 1 MiB input buffer, so
+        // the next frame's 4-byte magic is split across two reads.
+        const int INPUT = 1024 * 1024;
+        QByteArray head = noise(INPUT - 64, 7);
+        QByteArray f1 = zstdOf(head);
+        for (int i = 0; i < 4 && !f1.isEmpty() && f1.size() != INPUT - 2; ++i)
+        {
+            head = noise(head.size() + (INPUT - 2 - f1.size()), 7);
+            f1 = zstdOf(head);
+        }
+        check(f1.size() == INPUT - 2, "fixture: first zstd frame ends 2 bytes short of the input buffer");
+        const QByteArray tail = pattern(200000);
+        const QByteArray split = head + tail;
+        check(writeFile("imgtest-split.img.zst", f1 + zstdOf(tail)), "fixture: split-header zstd written");
+        caseRoundTrip("zstd, next frame's header split across the input buffer",
+                      "imgtest-split.img.zst", split);
+        DeleteFileA("imgtest-split.img.zst");
+    }
 
     // Truncation must be reported, or half an image is written and called done.
     caseRejected("gzip that stops in the middle", "imgtest-trunc.img.gz", raw);
     caseRejected("xz that stops in the middle", "imgtest-trunc.img.xz", raw);
+    caseRejected("bzip2 that stops in the middle", "imgtest-trunc.img.bz2", raw);
+    caseRejected("zstd that stops in the middle", "imgtest-trunc.img.zst", raw);
 
     caseMisnamed("gzip named .img", "imgtest-gz-named.img", raw, true);
     caseMisnamed("raw named .img.gz", "imgtest-raw-named.img.gz", raw, false);
+    caseMisnamed("zstd named .img", "imgtest-zst-named.img", raw, true);
+    {
+        // "BZh9" is four bytes a raw image could start with; without the block
+        // magic after it, it must stay raw.
+        QByteArray bzlike = raw;
+        bzlike.replace(0, 4, "BZh9");
+        writeFile("imgtest-bzlike.img", bzlike);
+        caseMisnamed("raw that starts with \"BZh9\"", "imgtest-bzlike.img", bzlike, false);
+        DeleteFileA("imgtest-bzlike.img");
+    }
 
     caseSize("raw", "imgtest.img", raw);
     caseSize("gzip", "imgtest.img.gz", raw);
@@ -539,6 +700,28 @@ int main(int argc, char **argv)
     caseSize("gzip, two members", "imgtest-multi.img.gz", raw);
     caseSize("xz, two streams", "imgtest-multi.img.xz", raw);
     caseSize("xz, two streams with padding between", "imgtest-padded.img.xz", raw);
+    caseSize("bzip2", "imgtest.img.bz2", raw);
+    caseSize("zstd", "imgtest.img.zst", raw);
+    // The first frame's size alone, which must not pass for the whole image's.
+    caseSize("zstd, two frames", "imgtest-multi.img.zst", raw);
+    caseSize("zstd, skippable frames between data frames (pzstd)", "imgtest-pzstd.img.zst", raw);
+    caseSize("zstd, no content size in the frame", "imgtest-nosize.img.zst", raw);
+    {
+        printf("size estimates\n");
+        ImageSource src;
+        check(src.open("imgtest.img.zst", SS) && !src.sizeKnown()
+                  && src.sizeInSectors() == sectorsOf(raw),
+              "zstd: one frame's declared size is the estimate, not claimed exact");
+        src.close();
+        check(src.open("imgtest-pzstd.img.zst", SS) && !src.sizeKnown()
+                  && src.sizeInSectors() == sectorsOf(raw.left(cut)),
+              "zstd: a leading skippable frame is stepped over to the first data frame");
+        src.close();
+        check(src.open("imgtest.img.bz2", SS) && !src.sizeKnown() && src.sizeInSectors() == 0,
+              "bzip2: no size and no estimate");
+        src.close();
+        printf("\n");
+    }
     // Mostly zeros, like a real disk image: small enough compressed that the
     // last member's size passes for the whole image's.
     {
@@ -555,10 +738,31 @@ int main(int argc, char **argv)
     caseSeek("raw", "imgtest.img", raw, false);
     caseSeek("gzip", "imgtest.img.gz", raw, true);
     caseSeek("xz", "imgtest.img.xz", raw, true);
+    caseSeek("bzip2", "imgtest.img.bz2", raw, true);
+    caseSeek("zstd", "imgtest.img.zst", raw, true);
 
     caseEndProbe("raw", "imgtest.img", raw, false);
     caseEndProbe("gzip", "imgtest.img.gz", raw, false);
     caseEndProbe("xz", "imgtest.img.xz", raw, false);
+    caseEndProbe("bzip2", "imgtest.img.bz2", raw, false);
+    caseEndProbe("zstd", "imgtest.img.zst", raw, false);
+    {
+        // bzip2's whole-stream CRC is in its last bytes. It is not byte
+        // aligned, but the final byte always holds at least one bit of it.
+        QByteArray badcrc = bz;
+        badcrc[badcrc.size() - 1] = (char)(badcrc.at(badcrc.size() - 1) ^ 0xFF);
+        check(writeFile("imgtest-badcrc.img.bz2", badcrc), "fixture: bzip2 with a bad CRC written");
+        caseEndProbe("bzip2 with a bad CRC", "imgtest-badcrc.img.bz2", raw, true);
+        DeleteFileA("imgtest-badcrc.img.bz2");
+
+        // The content checksum the zstd tool adds by default is the frame's
+        // last four bytes.
+        QByteArray badsum = zstdOf(raw, true, true);
+        badsum[badsum.size() - 1] = (char)(badsum.at(badsum.size() - 1) ^ 0xFF);
+        check(writeFile("imgtest-badsum.img.zst", badsum), "fixture: zstd with a bad checksum written");
+        caseEndProbe("zstd with a bad checksum", "imgtest-badsum.img.zst", raw, true);
+        DeleteFileA("imgtest-badsum.img.zst");
+    }
     {
         // The gzip CRC-32 is the trailer's first four bytes.
         QByteArray badcrc = gz;
@@ -582,6 +786,10 @@ int main(int argc, char **argv)
         "imgtest-sink.img.gz", "imgtest-sink.img.xz",
         "imgtest-abort.img.gz", "imgtest-abort.img.xz",
         "imgtest-gz-named.img", "imgtest-raw-named.img.gz",
+        "imgtest.img.bz2", "imgtest.img.zst", "imgtest-multi.img.bz2", "imgtest-multi.img.zst",
+        "imgtest-pzstd.img.zst", "imgtest-nosize.img.zst", "imgtest-long.img.zst",
+        "imgtest-padded.img.bz2", "imgtest-padded.img.zst",
+        "imgtest-trunc.img.bz2", "imgtest-trunc.img.zst", "imgtest-zst-named.img",
     };
     for (size_t i = 0; i < sizeof(leftovers) / sizeof(leftovers[0]); ++i)
     {

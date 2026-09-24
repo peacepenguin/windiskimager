@@ -28,7 +28,7 @@
 #include <windows.h>
 #include <vector>
 
-// Sector-oriented reader over a raw, gzip (.img.gz) or xz (.img.xz) image.
+// Sector-oriented reader over a raw, gzip, xz, bzip2 or zstd image.
 // Compressed images are decompressed on the fly, never expanded to disk.
 //
 // Raw images allow random access. Compressed ones are forward-only: read() may
@@ -36,12 +36,12 @@
 class ImageSource
 {
 public:
-    enum Format { FORMAT_RAW, FORMAT_GZIP, FORMAT_XZ };
+    enum Format { FORMAT_RAW, FORMAT_GZIP, FORMAT_XZ, FORMAT_BZIP2, FORMAT_ZSTD };
 
     ImageSource();
     ~ImageSource();
 
-    // "gzip" / "xz" / "raw", for messages.
+    // "gzip" / "xz" / "bzip2" / "zstd" / "raw", for messages.
     static QString formatName(Format f);
 
     // Detects the format and, where possible, the uncompressed size. Returns
@@ -51,9 +51,10 @@ public:
 
     bool isCompressed() const { return myFormat != FORMAT_RAW; }
     // True when sizeInSectors() is exact: always for raw, for xz whenever its
-    // index could be read, never for gzip (its trailer records only the last
-    // member's size, mod 4 GiB). When false, the image has to be written until
-    // the stream ends.
+    // index could be read, never for the others -- gzip's trailer records only
+    // the last member's size, mod 4 GiB; bzip2 records none; zstd records each
+    // frame's own, with nothing to say no more frames follow. When false, the
+    // image has to be written until the stream ends.
     bool sizeKnown() const { return mySizeKnown; }
     // Exact when sizeKnown(); otherwise a progress estimate, or 0. Never use it
     // to decide where the image ends unless sizeKnown().
@@ -73,6 +74,8 @@ private:
     // Decompresses up to len bytes into buf; *produced is short only at the
     // end of the stream. Returns false and sets errorString() on error.
     bool fill(char *buf, unsigned long long len, unsigned long long *produced);
+    // gzip, bzip2, zstd: whether another stream or frame starts right after
+    // the one that just ended, rather than padding or the end of the file.
     bool nextMemberFollows(bool *follows);
     bool skipTo(unsigned long long startsector);
     // Size probe convention: false alone means only "size unknown", which the
@@ -82,6 +85,9 @@ private:
     bool readAt(unsigned long long offset, void *buf, unsigned long len);
     bool readGzipSize(unsigned long long filesize);
     bool readXzSize(unsigned long long filesize);
+    bool readZstdSize(unsigned long long filesize);
+    static bool isBzip2Header(const unsigned char *p);
+    static bool isZstdFrame(const unsigned char *p);
 
     HANDLE myHandle;
     Format myFormat;
@@ -91,10 +97,10 @@ private:
     unsigned long long myPos;          // next sector the stream will produce
     bool mySizeKnown;
     bool myEof;
-    bool myFinishing;                  // xz: input ended, flushing the decoder
+    bool myFinishing;                  // xz/bzip2/zstd: input ended, flushing the decoder
     QString myError;
 
-    void *myDecoder;                   // z_stream or lzma_stream, owned
+    void *myDecoder;                   // z_stream, lzma_stream, bz_stream or ZSTD_DStream, owned
     bool refillInput(size_t kept, DWORD *got);
     std::vector<unsigned char> myInput;
     unsigned char *myNextIn;

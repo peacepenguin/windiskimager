@@ -252,14 +252,16 @@ tools/imgtest.sh
 ```
 
 It compiles the real `src/imagesource.cpp`, then reads images back through it
-and compares them with the bytes that went in -- raw, gzip, xz, two-member
-gzip, two-stream xz, padding between streams, and an image whose length is not
-a whole number of sectors. Two more must be *rejected*: a gzip and an xz that
-stop in the middle, because writing what did come out and calling it done would
-put half an image on a card.
+and compares them with the bytes that went in -- raw, gzip, xz, bzip2 and zstd;
+several gzip members, xz and bzip2 streams or zstd frames in one file, including
+pzstd's skippable frames; padding between or after streams; and an image whose
+length is not a whole number of sectors. Truncated gzip, xz, bzip2 and zstd files
+must be *rejected*, because writing what did come out and calling it done would
+put half an image on a card, as must a bad bzip2 CRC or zstd checksum.
 
-The fixtures are built by the harness itself with zlib and liblzma, so nothing
-compressed is checked in and neither `gzip` nor `xz` needs to be on the path.
+The fixtures are built by the harness itself with zlib, liblzma, libbz2 and
+libzstd, so nothing compressed is checked in and no compressor needs to be on
+the path.
 
 ## Testing shrink-on-read
 

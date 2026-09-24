@@ -296,12 +296,12 @@ Physically remove the device NOW, before doing anything else, and do not re-inse
         <translation>写入成功.</translation>
     </message>
     <message>
-        <source>Disk Images (*.img *.IMG *.img.gz *.img.xz)</source>
-        <translation>磁盘映像 (*.img *.IMG *.img.gz *.img.xz)</translation>
+        <source>Disk Images (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)</source>
+        <translation>磁盘映像 (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)</translation>
     </message>
     <message>
-        <source>Compressed Disk Images (*.img.gz *.img.xz *.gz *.xz)</source>
-        <translation>压缩磁盘映像 (*.img.gz *.img.xz *.gz *.xz)</translation>
+        <source>Compressed Disk Images (*.gz *.xz *.bz2 *.zst)</source>
+        <translation>压缩磁盘映像 (*.gz *.xz *.bz2 *.zst)</translation>
     </message>
     <message>
         <source>Error</source>
@@ -1243,6 +1243,14 @@ Error %2</source>
         <translation>无法将映像文件回退到开头 (错误 %1).</translation>
     </message>
     <message>
+        <source>The bzip2 decompressor could not be started (bzip2 error %1).</source>
+        <translation>无法启动 bzip2 解压程序 (bzip2 错误 %1).</translation>
+    </message>
+    <message>
+        <source>The zstd decompressor could not be started (zstd error %1).</source>
+        <translation>无法启动 zstd 解压程序 (zstd 错误 %1).</translation>
+    </message>
+    <message>
         <source>The gzip decompressor could not be started (zlib error %1).</source>
         <translation>无法启动 gzip 解压程序 (zlib 错误 %1).</translation>
     </message>
@@ -1261,6 +1269,18 @@ Error %2</source>
     <message>
         <source>The gzip image is damaged (zlib error %1).</source>
         <translation>该 gzip 映像已损坏 (zlib 错误 %1).</translation>
+    </message>
+    <message>
+        <source>The bzip2 image could not be decompressed.</source>
+        <translation>无法解压该 bzip2 映像.</translation>
+    </message>
+    <message>
+        <source>The bzip2 image is damaged (bzip2 error %1).</source>
+        <translation>该 bzip2 映像已损坏 (bzip2 错误 %1).</translation>
+    </message>
+    <message>
+        <source>The zstd image is damaged (zstd error %1).</source>
+        <translation>该 zstd 映像已损坏 (zstd 错误 %1).</translation>
     </message>
     <message>
         <source>The xz image is damaged (lzma error %1).</source>

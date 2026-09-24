@@ -296,12 +296,12 @@ Physically remove the device NOW, before doing anything else, and do not re-inse
         <translation>쓰기 성공.</translation>
     </message>
     <message>
-        <source>Disk Images (*.img *.IMG *.img.gz *.img.xz)</source>
-        <translation>디스크 이미지 (*.img *.IMG *.img.gz *.img.xz)</translation>
+        <source>Disk Images (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)</source>
+        <translation>디스크 이미지 (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)</translation>
     </message>
     <message>
-        <source>Compressed Disk Images (*.img.gz *.img.xz *.gz *.xz)</source>
-        <translation>압축 디스크 이미지 (*.img.gz *.img.xz *.gz *.xz)</translation>
+        <source>Compressed Disk Images (*.gz *.xz *.bz2 *.zst)</source>
+        <translation>압축 디스크 이미지 (*.gz *.xz *.bz2 *.zst)</translation>
     </message>
     <message>
         <source>Error</source>
@@ -1243,6 +1243,14 @@ Error %2</source>
         <translation>이미지 파일을 처음으로 되돌릴 수 없습니다 (오류 %1).</translation>
     </message>
     <message>
+        <source>The bzip2 decompressor could not be started (bzip2 error %1).</source>
+        <translation>bzip2 압축 해제기를 시작할 수 없습니다 (bzip2 오류 %1).</translation>
+    </message>
+    <message>
+        <source>The zstd decompressor could not be started (zstd error %1).</source>
+        <translation>zstd 압축 해제기를 시작할 수 없습니다 (zstd 오류 %1).</translation>
+    </message>
+    <message>
         <source>The gzip decompressor could not be started (zlib error %1).</source>
         <translation>gzip 압축 해제기를 시작할 수 없습니다 (zlib 오류 %1).</translation>
     </message>
@@ -1261,6 +1269,18 @@ Error %2</source>
     <message>
         <source>The gzip image is damaged (zlib error %1).</source>
         <translation>gzip 이미지가 손상되었습니다 (zlib 오류 %1).</translation>
+    </message>
+    <message>
+        <source>The bzip2 image could not be decompressed.</source>
+        <translation>bzip2 이미지의 압축을 해제할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>The bzip2 image is damaged (bzip2 error %1).</source>
+        <translation>bzip2 이미지가 손상되었습니다 (bzip2 오류 %1).</translation>
+    </message>
+    <message>
+        <source>The zstd image is damaged (zstd error %1).</source>
+        <translation>zstd 이미지가 손상되었습니다 (zstd 오류 %1).</translation>
     </message>
     <message>
         <source>The xz image is damaged (lzma error %1).</source>

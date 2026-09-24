@@ -22,8 +22,10 @@ corrupting the GPT of images like ARM board images. See
 
 ## Features
 
-- **Write** an `.img`, `.img.gz` or `.img.xz` to a device. Compressed images are
-  decompressed as they stream, so no expanded copy is ever written to disk.
+- **Write** a raw image (`.img`, `.raw`, `.bin`) or one compressed with gzip,
+  xz, bzip2 or zstd (`.gz`, `.xz`, `.bz2`, `.zst`) to a device. The format is
+  recognised from the file's contents, and compressed images are decompressed
+  as they stream, so no expanded copy is ever written to disk.
 - **Read** a device to an `.img`, `.img.gz` or `.img.xz`.
   - **Skip unpartitioned space** leaves out the space outside the partitions.
   - **Choose partitions to read** leaves out whole partitions you pick.

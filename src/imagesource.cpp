@@ -24,6 +24,8 @@
 #include <cstring>
 #include <zlib.h>
 #include <lzma.h>
+#include <bzlib.h>
+#include <zstd.h>
 
 // Compressed bytes read per ReadFile: large enough that syscalls do not limit
 // throughput.
@@ -55,6 +57,8 @@ QString ImageSource::formatName(Format f)
     {
         case FORMAT_GZIP: return QString("gzip");
         case FORMAT_XZ:   return QString("xz");
+        case FORMAT_BZIP2: return QString("bzip2");
+        case FORMAT_ZSTD: return QString("zstd");
         default:          return QString("raw");
     }
 }
@@ -72,6 +76,15 @@ void ImageSource::close()
         {
             lzma_end((lzma_stream *)myDecoder);
             delete (lzma_stream *)myDecoder;
+        }
+        else if (myFormat == FORMAT_BZIP2)
+        {
+            BZ2_bzDecompressEnd((bz_stream *)myDecoder);
+            delete (bz_stream *)myDecoder;
+        }
+        else if (myFormat == FORMAT_ZSTD)
+        {
+            ZSTD_freeDStream((ZSTD_DStream *)myDecoder);
         }
         myDecoder = NULL;
     }
@@ -125,7 +138,7 @@ bool ImageSource::open(const QString &path, unsigned long long sectorsize)
 
     // Decide by content, not by name: a renamed image should still work, and a
     // raw image called .img.gz should not be fed to a decompressor.
-    unsigned char magic[6];
+    unsigned char magic[10];
     DWORD magicread = 0;
     if (!ReadFile(myHandle, magic, sizeof(magic), &magicread, NULL))
     {
@@ -142,6 +155,18 @@ bool ImageSource::open(const QString &path, unsigned long long sectorsize)
     {
         myFormat = FORMAT_XZ;
     }
+    else if (magicread >= 10 && isBzip2Header(magic)
+             && (memcmp(magic + 4, "\x31\x41\x59\x26\x53\x59", 6) == 0     // first block
+                 || memcmp(magic + 4, "\x17\x72\x45\x38\x50\x90", 6) == 0))  // empty stream
+    {
+        // "BZh1" alone is four bytes a raw image could start with; the block
+        // magic after it is not.
+        myFormat = FORMAT_BZIP2;
+    }
+    else if (magicread >= 4 && isZstdFrame(magic))
+    {
+        myFormat = FORMAT_ZSTD;
+    }
     else
     {
         myFormat = FORMAT_RAW;
@@ -155,9 +180,16 @@ bool ImageSource::open(const QString &path, unsigned long long sectorsize)
         return true;
     }
 
-    // False is recoverable, a set myError is not; see imagesource.h.
-    bool gotsize = (myFormat == FORMAT_GZIP) ? readGzipSize(myCompressedSize)
-                                             : readXzSize(myCompressedSize);
+    // False is recoverable, a set myError is not; see imagesource.h. bzip2
+    // records no size anywhere, so it has not even an estimate.
+    bool gotsize = false;
+    switch (myFormat)
+    {
+        case FORMAT_GZIP: gotsize = readGzipSize(myCompressedSize); break;
+        case FORMAT_XZ:   gotsize = readXzSize(myCompressedSize); break;
+        case FORMAT_ZSTD: gotsize = readZstdSize(myCompressedSize); break;
+        default:          break;
+    }
     if (!myError.isEmpty())
     {
         close();
@@ -349,8 +381,101 @@ bool ImageSource::readXzSize(unsigned long long filesize)
     return true;
 }
 
+// zstd frames carry their own content size, but the first frame's is all that
+// can be read without decompressing: the format has no index or footer, and
+// pzstd, or zstd reading from a pipe, writes one frame after another (or none
+// at all). So like gzip the size is never exact, and it is a lower bound when
+// the first frame declares one. A skippable frame ahead of it, as pzstd
+// writes, is stepped over.
+//
+// Always returns false; mySectors is set whenever the value is usable.
+bool ImageSource::readZstdSize(unsigned long long filesize)
+{
+    unsigned long long pos = 0ull;
+    for (int skipped = 0; skipped < 16; ++skipped)
+    {
+        unsigned char head[18];                 // ZSTD_FRAMEHEADERSIZE_MAX
+        const DWORD n = (DWORD)qMin(filesize - pos, (unsigned long long)sizeof(head));
+        if (n < 8 || !readAt(pos, head, n))
+        {
+            return false;
+        }
+        if ((head[0] & 0xf0) == 0x50 && head[1] == 0x2a && head[2] == 0x4d && head[3] == 0x18)
+        {
+            const unsigned long long len = (unsigned long long)head[4] |
+                                           ((unsigned long long)head[5] << 8) |
+                                           ((unsigned long long)head[6] << 16) |
+                                           ((unsigned long long)head[7] << 24);
+            if (len > filesize - pos - 8ull)
+            {
+                return false;
+            }
+            pos += 8ull + len;
+            continue;
+        }
+        const unsigned long long size = ZSTD_getFrameContentSize(head, n);
+        if (size != ZSTD_CONTENTSIZE_UNKNOWN && size != ZSTD_CONTENTSIZE_ERROR)
+        {
+            mySectors = sectorsFor(size, mySectorSize);
+        }
+        return false;
+    }
+    return false;
+}
+
+bool ImageSource::isBzip2Header(const unsigned char *p)
+{
+    return p[0] == 'B' && p[1] == 'Z' && p[2] == 'h' && p[3] >= '1' && p[3] <= '9';
+}
+
+// A zstd frame, or a skippable frame (magic 0x184D2A50..5F).
+bool ImageSource::isZstdFrame(const unsigned char *p)
+{
+    return (p[0] == 0x28 && p[1] == 0xb5 && p[2] == 0x2f && p[3] == 0xfd)
+        || ((p[0] & 0xf0) == 0x50 && p[1] == 0x2a && p[2] == 0x4d && p[3] == 0x18);
+}
+
 bool ImageSource::initDecoder()
 {
+    if (myFormat == FORMAT_BZIP2)
+    {
+        bz_stream *bs = new bz_stream;
+        memset(bs, 0, sizeof(*bs));
+        int ret = BZ2_bzDecompressInit(bs, 0, 0);
+        if (ret != BZ_OK)
+        {
+            delete bs;
+            myError = QObject::tr("The bzip2 decompressor could not be started "
+                                  "(bzip2 error %1).").arg(ret);
+            return false;
+        }
+        myDecoder = bs;
+        return true;
+    }
+    if (myFormat == FORMAT_ZSTD)
+    {
+        ZSTD_DStream *ds = ZSTD_createDStream();
+        if (ds == NULL)
+        {
+            myError = QObject::tr("The zstd decompressor could not be started "
+                                  "(zstd error %1).").arg((int)ZSTD_error_memory_allocation);
+            return false;
+        }
+        // Past zstd's default 128 MiB window, so an image made with --long
+        // (up to 2 GiB) still decodes. The memory is only taken if a frame
+        // asks for it.
+        size_t ret = ZSTD_DCtx_setParameter(ds, ZSTD_d_windowLogMax, 31);
+        if (ZSTD_isError(ret))
+        {
+            ZSTD_freeDStream(ds);
+            myError = QObject::tr("The zstd decompressor could not be started "
+                                  "(zstd error %1).").arg((int)ZSTD_getErrorCode(ret));
+            return false;
+        }
+        myDecoder = ds;
+        return true;
+    }
+
     if (myFormat == FORMAT_GZIP)
     {
         z_stream *zs = new z_stream;
@@ -397,20 +522,22 @@ bool ImageSource::refillInput(size_t kept, DWORD *got)
     return true;
 }
 
-// gzip: sets *follows when the two bytes after the member that just ended are
-// a gzip header, refilling the input if needed. Returns false only on a read
-// error; running out of file means no member follows.
+// Sets *follows when the bytes after the stream that just ended start another
+// one -- a gzip member, a bzip2 stream, a zstd frame -- refilling the input if
+// needed. Returns false only on a read error; running out of file means none
+// follows.
 bool ImageSource::nextMemberFollows(bool *follows)
 {
     *follows = false;
-    if (myAvailIn < 2ull)
+    const unsigned long long need = (myFormat == FORMAT_GZIP) ? 2ull : 4ull;
+    if (myAvailIn < need)
     {
-        // Keep the odd leftover byte: it may be the first half of the header.
-        if (myAvailIn == 1ull)
-        {
-            myInput[0] = myNextIn[0];
-        }
+        // Keep the leftover bytes: they may be the start of the next header.
         size_t kept = (size_t)myAvailIn;
+        if (kept > 0)
+        {
+            memmove(&myInput[0], myNextIn, kept);
+        }
         DWORD got = 0;
         if (!refillInput(kept, &got))
         {
@@ -419,9 +546,15 @@ bool ImageSource::nextMemberFollows(bool *follows)
         myNextIn = &myInput[0];
         myAvailIn = (unsigned long long)kept + got;
     }
-    if (myAvailIn >= 2ull)
+    if (myAvailIn >= need)
     {
-        *follows = (myNextIn[0] == 0x1f && myNextIn[1] == 0x8b);
+        switch (myFormat)
+        {
+            case FORMAT_GZIP:  *follows = (myNextIn[0] == 0x1f && myNextIn[1] == 0x8b); break;
+            case FORMAT_BZIP2: *follows = isBzip2Header(myNextIn); break;
+            case FORMAT_ZSTD:  *follows = isZstdFrame(myNextIn); break;
+            default:           break;
+        }
     }
     return true;
 }
@@ -440,10 +573,12 @@ bool ImageSource::fill(char *buf, unsigned long long len, unsigned long long *pr
             }
             if (got == 0)
             {
-                // End of file. gzip signals its own end, so this means it is
-                // truncated; xz in LZMA_CONCATENATED mode must be told via
-                // LZMA_FINISH before it reports the end.
-                if (myFormat != FORMAT_XZ)
+                // End of file, with the stream not yet ended. gzip signals its
+                // own end, so this means it is truncated. xz in
+                // LZMA_CONCATENATED mode must be told via LZMA_FINISH before it
+                // reports the end; bzip2 and zstd may still hold decoded output
+                // to hand over before the cut shows.
+                if (myFormat == FORMAT_GZIP)
                 {
                     myError = QObject::tr("The image file ends in the middle of the "
                                           "compressed data. It is truncated or damaged.");
@@ -496,6 +631,98 @@ bool ImageSource::fill(char *buf, unsigned long long len, unsigned long long *pr
             else if (ret != Z_OK && ret != Z_BUF_ERROR)
             {
                 myError = QObject::tr("The gzip image is damaged (zlib error %1).").arg(ret);
+                return false;
+            }
+        }
+        else if (myFormat == FORMAT_BZIP2)
+        {
+            bz_stream *bs = (bz_stream *)myDecoder;
+            bs->next_in = (char *)myNextIn;
+            bs->avail_in = (unsigned int)((myAvailIn > 0xffffffffull) ? 0xffffffffull : myAvailIn);
+            bs->next_out = buf + *produced;
+            bs->avail_out = (unsigned int)((len - *produced > 0xffffffffull) ? 0xffffffffull
+                                                                             : (len - *produced));
+            const unsigned int availin = bs->avail_in;
+            const unsigned int availout = bs->avail_out;
+            int ret = BZ2_bzDecompress(bs);
+            const unsigned int madeout = availout - bs->avail_out;
+            *produced += madeout;
+            myAvailIn -= availin - bs->avail_in;
+            myNextIn = (unsigned char *)bs->next_in;
+            if (ret == BZ_STREAM_END)
+            {
+                // pbzip2 and lbzip2 write one stream per chunk of the image,
+                // so another may follow; anything else ends the image, as for
+                // gzip.
+                bool another = false;
+                if (!nextMemberFollows(&another))
+                {
+                    return false;
+                }
+                if (!another)
+                {
+                    myEof = true;
+                }
+                else
+                {
+                    BZ2_bzDecompressEnd(bs);
+                    memset(bs, 0, sizeof(*bs));
+                    if (BZ2_bzDecompressInit(bs, 0, 0) != BZ_OK)
+                    {
+                        // Freed by close(), which cannot tell it never started.
+                        delete bs;
+                        myDecoder = NULL;
+                        myError = QObject::tr("The bzip2 image could not be decompressed.");
+                        return false;
+                    }
+                }
+            }
+            else if (ret != BZ_OK)
+            {
+                myError = QObject::tr("The bzip2 image is damaged (bzip2 error %1).").arg(ret);
+                return false;
+            }
+            else if (myFinishing && madeout == 0)
+            {
+                myError = QObject::tr("The image file ends in the middle of the "
+                                      "compressed data. It is truncated or damaged.");
+                return false;
+            }
+        }
+        else if (myFormat == FORMAT_ZSTD)
+        {
+            ZSTD_DStream *ds = (ZSTD_DStream *)myDecoder;
+            ZSTD_inBuffer in = { myNextIn, (size_t)myAvailIn, 0 };
+            ZSTD_outBuffer out = { buf + *produced, (size_t)(len - *produced), 0 };
+            const size_t ret = ZSTD_decompressStream(ds, &out, &in);
+            *produced += out.pos;
+            myNextIn += in.pos;
+            myAvailIn -= in.pos;
+            if (ZSTD_isError(ret))
+            {
+                myError = QObject::tr("The zstd image is damaged (zstd error %1).")
+                              .arg((int)ZSTD_getErrorCode(ret));
+                return false;
+            }
+            if (ret == 0)
+            {
+                // A frame is complete and all of it handed over. The decoder
+                // starts on the next frame by itself, so the only question is
+                // whether one follows or the image ends here.
+                bool another = false;
+                if (!nextMemberFollows(&another))
+                {
+                    return false;
+                }
+                if (!another)
+                {
+                    myEof = true;
+                }
+            }
+            else if (myFinishing && out.pos == 0)
+            {
+                myError = QObject::tr("The image file ends in the middle of the "
+                                      "compressed data. It is truncated or damaged.");
                 return false;
             }
         }

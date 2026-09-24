@@ -41,7 +41,7 @@ CROSS_BASE_IMAGE="fedora:latest"
 CROSS_PACKAGES="cmake ninja-build file findutils binutils
                 mingw64-gcc-c++ mingw64-qt6-qtbase mingw64-qt6-qttools
                 mingw64-qt6-qttranslations mingw64-qt6-qtsvg
-                mingw64-zlib mingw64-xz
+                mingw64-zlib mingw64-xz mingw64-bzip2 mingw64-zstd
                 qt6-linguist
                 gcc-c++ qt6-qtbase-devel qt6-qtsvg-devel"
 
@@ -55,7 +55,9 @@ MSYS2_PACKAGES="mingw-w64-ucrt-x86_64-gcc
                 mingw-w64-ucrt-x86_64-qt6-translations
                 mingw-w64-ucrt-x86_64-qt6-svg
                 mingw-w64-ucrt-x86_64-zlib
-                mingw-w64-ucrt-x86_64-xz"
+                mingw-w64-ucrt-x86_64-xz
+                mingw-w64-ucrt-x86_64-bzip2
+                mingw-w64-ucrt-x86_64-zstd"
 
 # Where Fedora's mingw64 packages put things; each can be overridden from the
 # environment.

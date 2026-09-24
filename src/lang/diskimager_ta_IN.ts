@@ -373,12 +373,12 @@ This could only be detected at the end of the device, because the compressed ima
         <translation>எழுதுதல் வெற்றிகரமாக முடிந்தது.</translation>
     </message>
     <message>
-        <source>Disk Images (*.img *.IMG *.img.gz *.img.xz)</source>
-        <translation>வட்டுப் படிமங்கள் (*.img *.IMG *.img.gz *.img.xz)</translation>
+        <source>Disk Images (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)</source>
+        <translation>வட்டுப் படிமங்கள் (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)</translation>
     </message>
     <message>
-        <source>Compressed Disk Images (*.img.gz *.img.xz *.gz *.xz)</source>
-        <translation>சுருக்கப்பட்ட வட்டுப் படிமங்கள் (*.img.gz *.img.xz *.gz *.xz)</translation>
+        <source>Compressed Disk Images (*.gz *.xz *.bz2 *.zst)</source>
+        <translation>சுருக்கப்பட்ட வட்டுப் படிமங்கள் (*.gz *.xz *.bz2 *.zst)</translation>
     </message>
     <message>
         <source>Error</source>
@@ -1109,6 +1109,14 @@ Error %2</source>
         <translation>படிமக் கோப்பைத் தொடக்கத்திற்குத் திருப்ப முடியவில்லை (பிழை %1).</translation>
     </message>
     <message>
+        <source>The bzip2 decompressor could not be started (bzip2 error %1).</source>
+        <translation>bzip2 விரிவாக்கியைத் தொடங்க முடியவில்லை (bzip2 பிழை %1).</translation>
+    </message>
+    <message>
+        <source>The zstd decompressor could not be started (zstd error %1).</source>
+        <translation>zstd விரிவாக்கியைத் தொடங்க முடியவில்லை (zstd பிழை %1).</translation>
+    </message>
+    <message>
         <source>The gzip decompressor could not be started (zlib error %1).</source>
         <translation>gzip விரிவாக்கியைத் தொடங்க முடியவில்லை (zlib பிழை %1).</translation>
     </message>
@@ -1127,6 +1135,18 @@ Error %2</source>
     <message>
         <source>The gzip image is damaged (zlib error %1).</source>
         <translation>gzip படிமம் சிதைந்துள்ளது (zlib பிழை %1).</translation>
+    </message>
+    <message>
+        <source>The bzip2 image could not be decompressed.</source>
+        <translation>bzip2 படிமத்தை விரிவாக்க முடியவில்லை.</translation>
+    </message>
+    <message>
+        <source>The bzip2 image is damaged (bzip2 error %1).</source>
+        <translation>bzip2 படிமம் சிதைந்துள்ளது (bzip2 பிழை %1).</translation>
+    </message>
+    <message>
+        <source>The zstd image is damaged (zstd error %1).</source>
+        <translation>zstd படிமம் சிதைந்துள்ளது (zstd பிழை %1).</translation>
     </message>
     <message>
         <source>The xz image is damaged (lzma error %1).</source>

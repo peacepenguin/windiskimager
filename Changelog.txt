@@ -1,3 +1,18 @@
+Release 2.0.0
+=============
+Write and Verify bzip2 (.bz2) and zstd (.zst) images, decompressed as they
+  stream like gzip and xz. The format is recognised from the file's contents,
+  not its name
+Images from pbzip2, lbzip2 and pzstd, which hold several streams or frames in
+  one file, are written in full rather than stopping after the first
+zstd images made with --long, whose window is larger than zstd's default
+  128 MiB, can be written
+A truncated bzip2 or zstd file, a bad bzip2 CRC or a bad zstd checksum is
+  reported as an error rather than written as a complete image
+The Browse dialog lists .raw and .bin images, plain or compressed, alongside
+  .img, and the compressed list shows any .gz, .xz, .bz2 or .zst file
+Automated tests for bzip2 and zstd images
+
 Release 1.9.2
 =============
 The package no longer ships Qt's networking library, TUIO touch-table plugin,

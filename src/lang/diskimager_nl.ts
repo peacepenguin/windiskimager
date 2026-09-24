@@ -296,12 +296,12 @@ Verwijder het apparaat NU fysiek, voordat u iets anders doet, en plaats het niet
         <translation>Schrijven is gelukt.</translation>
     </message>
     <message>
-        <source>Disk Images (*.img *.IMG *.img.gz *.img.xz)</source>
-        <translation>Schijf-images (*.img *.IMG *.img.gz *.img.xz)</translation>
+        <source>Disk Images (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)</source>
+        <translation>Schijf-images (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)</translation>
     </message>
     <message>
-        <source>Compressed Disk Images (*.img.gz *.img.xz *.gz *.xz)</source>
-        <translation>Gecomprimeerde schijf-images (*.img.gz *.img.xz *.gz *.xz)</translation>
+        <source>Compressed Disk Images (*.gz *.xz *.bz2 *.zst)</source>
+        <translation>Gecomprimeerde schijf-images (*.gz *.xz *.bz2 *.zst)</translation>
     </message>
     <message>
         <source>Error</source>
@@ -1246,6 +1246,14 @@ Fout %2</translation>
         <translation>Het imagebestand kon niet worden teruggespoeld (fout %1).</translation>
     </message>
     <message>
+        <source>The bzip2 decompressor could not be started (bzip2 error %1).</source>
+        <translation>De bzip2-decompressor kon niet worden gestart (bzip2-fout %1).</translation>
+    </message>
+    <message>
+        <source>The zstd decompressor could not be started (zstd error %1).</source>
+        <translation>De zstd-decompressor kon niet worden gestart (zstd-fout %1).</translation>
+    </message>
+    <message>
         <source>The gzip decompressor could not be started (zlib error %1).</source>
         <translation>De gzip-decompressor kon niet worden gestart (zlib-fout %1).</translation>
     </message>
@@ -1264,6 +1272,18 @@ Fout %2</translation>
     <message>
         <source>The gzip image is damaged (zlib error %1).</source>
         <translation>De gzip-image is beschadigd (zlib-fout %1).</translation>
+    </message>
+    <message>
+        <source>The bzip2 image could not be decompressed.</source>
+        <translation>De bzip2-image kon niet worden gedecomprimeerd.</translation>
+    </message>
+    <message>
+        <source>The bzip2 image is damaged (bzip2 error %1).</source>
+        <translation>De bzip2-image is beschadigd (bzip2-fout %1).</translation>
+    </message>
+    <message>
+        <source>The zstd image is damaged (zstd error %1).</source>
+        <translation>De zstd-image is beschadigd (zstd-fout %1).</translation>
     </message>
     <message>
         <source>The xz image is damaged (lzma error %1).</source>
