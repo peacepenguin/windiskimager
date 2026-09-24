@@ -31,6 +31,9 @@ The Browse dialog lists .raw and .bin images, plain or compressed, alongside
 Automated tests for bzip2 and zstd images
 The progress bar fills to 100% when a Write or Verify of a compressed image
   finishes, rather than stopping wherever the size estimate left it
+Every option is greyed out while a Write, Read or Verify runs -- the image
+  field, Browse, the device list, the checkboxes, the compression dropdown and
+  the hash controls -- and each returns to its own state afterwards
 The CI package carries zstd's BSD licence as well as the GPL-2 text Fedora's
   package installs, as zstd is offered under either
 

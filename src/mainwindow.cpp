@@ -480,11 +480,29 @@ static bool hashableFile(const QString &file, int typeIndex)
            && fi.isReadable() && fi.size() > 0;
 }
 
+void MainWindow::setOptionsEnabled(bool enabled)
+{
+    leFile->setEnabled(enabled);
+    tbBrowse->setEnabled(enabled);
+    cboxDevice->setEnabled(enabled);
+    showAllDevicesCheckBox->setEnabled(enabled);
+    fixGptCheckBox->setEnabled(enabled);
+    compressReadCheckBox->setEnabled(enabled);
+    choosePartitionsCheckBox->setEnabled(enabled);
+    cboxHashType->setEnabled(enabled);
+    // These have idle states of their own to come back to.
+    shrinkOnReadCheckBox->setEnabled(enabled && !choosePartitionsCheckBox->isChecked());
+    compressFormatComboBox->setEnabled(enabled && compressReadCheckBox->isChecked());
+    bHashCopy->setEnabled(enabled && myHashReady);
+}
+
 void MainWindow::setReadWriteButtonState()
 {
-    // The image field and device list stay live during a run and both end up
-    // here; re-enabling the buttons would let a second run start inside the
-    // first from one of its processEvents() calls.
+    // Called when a run starts and ends, and from the image field and device
+    // list, which can still fire mid-run; re-enabling anything then would let
+    // a second run start inside the first from one of its processEvents()
+    // calls, or change an option the run has already read.
+    setOptionsEnabled(status == STATUS_IDLE);
     if (status != STATUS_IDLE)
     {
         bRead->setEnabled(false);
@@ -673,6 +691,7 @@ void MainWindow::generateHash(const QString &filename, int hashish)
     if (!file.open(QFile::ReadOnly))
     {
         hashLabel->setText(tr("Error"));
+        myHashReady = false;
         bHashCopy->setEnabled(false);
         QApplication::restoreOverrideCursor();
         QMessageBox::critical(this, tr("File Error"),
@@ -684,6 +703,7 @@ void MainWindow::generateHash(const QString &filename, int hashish)
     if (!filehash.addData(&file))
     {
         hashLabel->setText(tr("Error"));
+        myHashReady = false;
         bHashCopy->setEnabled(false);
         QApplication::restoreOverrideCursor();
         QMessageBox::critical(this, tr("File Error"),
@@ -692,6 +712,7 @@ void MainWindow::generateHash(const QString &filename, int hashish)
     }
 
     hashLabel->setText(filehash.result().toHex());
+    myHashReady = true;
     bHashCopy->setEnabled(true);
     QApplication::restoreOverrideCursor();
 }
@@ -931,10 +952,7 @@ void MainWindow::on_bWrite_clicked()
             status = STATUS_WRITING;
             showProgress(true);
             bCancel->setEnabled(true);
-            bWrite->setEnabled(false);
-            bRead->setEnabled(false);
-            bVerify->setEnabled(false);
-            bCheckGpt->setEnabled(false);
+            setReadWriteButtonState();
             unsigned long long i, lasti, availablesectors, numsectors;
             LockedVolumes locked;
             ImageSource image;
@@ -1464,11 +1482,8 @@ void MainWindow::on_bRead_clicked()
             }
         }
         bCancel->setEnabled(true);
-        bWrite->setEnabled(false);
-        bRead->setEnabled(false);
-        bVerify->setEnabled(false);
-        bCheckGpt->setEnabled(false);
         status = STATUS_READING;
+        setReadWriteButtonState();
         // The file is about to be truncated: a digest of what was there
         // before must not stay on screen as its checksum.
         updateHashControls();
@@ -1810,10 +1825,7 @@ void MainWindow::on_bVerify_clicked()
             status = STATUS_VERIFYING;
             showProgress(true);
             bCancel->setEnabled(true);
-            bWrite->setEnabled(false);
-            bRead->setEnabled(false);
-            bVerify->setEnabled(false);
-            bCheckGpt->setEnabled(false);
+            setReadWriteButtonState();
             unsigned long long i, lasti, availablesectors, numsectors, result;
             LockedVolumes locked;
             ImageSource image;
@@ -2359,6 +2371,7 @@ bool MainWindow::nativeEvent(const QByteArray &type, void *vMsg, qintptr *result
 
 void MainWindow::updateHashControls()
 {
+    myHashReady = false;
     bHashCopy->setEnabled(false);
     hashLabel->clear();
     // Hidden while empty and, unlike the progress bar, not keeping its

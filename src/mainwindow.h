@@ -87,6 +87,10 @@ private:
         int selectedDeviceID();
         bool fileIsOnSelectedDevice(const QString &file);
         void setReadWriteButtonState();
+        // Every option -- image field, device list, checkboxes, hash
+        // controls -- greyed out during a run, and back to their own
+        // idle states after it.
+        void setOptionsEnabled(bool enabled);
         void initializeHomeDir();
         void updateHashControls();
         void imageFileChanged();
@@ -129,6 +133,8 @@ private:
         QString myHashDefaultedFor;
         // "Skip unpartitioned space" as it was before "Choose partitions" forced it.
         bool myShrinkBeforeChoose = false;
+        // A digest is on screen, so Copy has something to copy.
+        bool myHashReady = false;
         QStringList myFileTypeList;
 };
 
