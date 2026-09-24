@@ -29,6 +29,8 @@ A truncated bzip2 or zstd file, a bad bzip2 CRC or a bad zstd checksum is
 The Browse dialog lists .raw and .bin images, plain or compressed, alongside
   .img, and the compressed list shows any .gz, .xz, .bz2 or .zst file
 Automated tests for bzip2 and zstd images
+The progress bar fills to 100% when a Write or Verify of a compressed image
+  finishes, rather than stopping wherever the size estimate left it
 The CI package carries zstd's BSD licence as well as the GPL-2 text Fedora's
   package installs, as zstd is offered under either
 

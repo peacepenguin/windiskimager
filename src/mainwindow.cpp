@@ -1134,6 +1134,14 @@ void MainWindow::on_bWrite_clicked()
                 delete[] extra;
                 imagetruncated = (leftover > 0ull);
             }
+            // The whole image went down: with only an estimated size the bar
+            // can stand anywhere short of the end, so fill it before any
+            // message about the result appears.
+            if (completed && imagedamage.isEmpty() && !imagetruncated)
+            {
+                progressbar->setValue(progressbar->maximum());
+                QCoreApplication::processEvents();
+            }
             // Everything up to CloseHandle() below runs with the volumes still
             // locked; see acquireDeviceAndImage().
             flushDevice(hRawDisk);
@@ -2014,6 +2022,12 @@ void MainWindow::on_bVerify_clicked()
                 }
                 delete[] extra;
                 imageunchecked = (leftover > 0ull);
+            }
+            // As after a write: all of it compared, so the bar is full.
+            if (status == STATUS_VERIFYING && passfail && !imageunchecked)
+            {
+                progressbar->setValue(progressbar->maximum());
+                QCoreApplication::processEvents();
             }
             // Data can match while the table is ruined: a Windows rescan gets
             // the primary header wrong, and the compare forgives GPT sectors.
