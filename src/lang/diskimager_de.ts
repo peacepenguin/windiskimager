@@ -93,7 +93,7 @@
     </message>
     <message>
         <source>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</source>
-        <translation>Das komprimierte Format zum Lesen: .img.gz ist schneller erstellt, .img.xz ist kleiner</translation>
+        <translation type="vanished">Das komprimierte Format zum Lesen: .img.gz ist schneller erstellt, .img.xz ist kleiner</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>Listet auch fest eingebaute Datenträger auf. Interne PCIe-Kartenleser melden die Karte oft als nicht wechselbares Gerät, das sonst ausgeblendet bleibt. Der Datenträger, von dem Windows läuft, wird nie aufgeführt.</translation>
+    </message>
+    <message>
+        <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>Das komprimierte Format zum Lesen: .img.zst ist am schnellsten, .img.xz am kleinsten und .img.gz am weitesten unterstützt</translation>
     </message>
     <message>
         <source>Progress</source>
@@ -1328,12 +1332,28 @@ Fehler %2</translation>
         <translation>Die xz-Komprimierung konnte nicht gestartet werden (lzma-Fehler %1).</translation>
     </message>
     <message>
+        <source>The bzip2 compressor could not be started (bzip2 error %1).</source>
+        <translation>Die bzip2-Komprimierung konnte nicht gestartet werden (bzip2-Fehler %1).</translation>
+    </message>
+    <message>
+        <source>The zstd compressor could not be started (zstd error %1).</source>
+        <translation>Die zstd-Komprimierung konnte nicht gestartet werden (zstd-Fehler %1).</translation>
+    </message>
+    <message>
         <source>The gzip compressor failed (zlib error %1).</source>
         <translation>Die gzip-Komprimierung ist fehlgeschlagen (zlib-Fehler %1).</translation>
     </message>
     <message>
         <source>The xz compressor failed (lzma error %1).</source>
         <translation>Die xz-Komprimierung ist fehlgeschlagen (lzma-Fehler %1).</translation>
+    </message>
+    <message>
+        <source>The bzip2 compressor failed (bzip2 error %1).</source>
+        <translation>Die bzip2-Komprimierung ist fehlgeschlagen (bzip2-Fehler %1).</translation>
+    </message>
+    <message>
+        <source>The zstd compressor failed (zstd error %1).</source>
+        <translation>Die zstd-Komprimierung ist fehlgeschlagen (zstd-Fehler %1).</translation>
     </message>
     <message>
         <source>The image file could not be written (error %1).</source>

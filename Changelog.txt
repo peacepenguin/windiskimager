@@ -10,7 +10,9 @@ zstd images made with --long, whose window is larger than zstd's default
 A truncated bzip2 or zstd file, a bad bzip2 CRC or a bad zstd checksum is
   reported as an error rather than written as a complete image
 "Read to .img.gz" and "Read to .img.xz" are one "Compress during Read" box,
-  with a dropdown below it choosing .img.gz (the default) or .img.xz
+  with a dropdown below it choosing .img.gz (the default), .img.xz, .img.bz2
+  or .img.zst. zstd and bzip2 images are written with the checksums their own
+  tools add, so bzip2 -t and zstd -t accept them
 The Browse dialog lists .raw and .bin images, plain or compressed, alongside
   .img, and the compressed list shows any .gz, .xz, .bz2 or .zst file
 Automated tests for bzip2 and zstd images

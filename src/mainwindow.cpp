@@ -66,6 +66,18 @@ static int progressShift(unsigned long long total)
     return shift;
 }
 
+// The format of each item in the .ui's "Compress during Read" dropdown, in
+// order: .img.gz, .img.xz, .img.bz2, .img.zst.
+static ImageSink::Format readFormatFor(int index)
+{
+    static const ImageSink::Format formats[] = {
+        ImageSink::FORMAT_GZIP, ImageSink::FORMAT_XZ,
+        ImageSink::FORMAT_BZIP2, ImageSink::FORMAT_ZSTD,
+    };
+    const int n = (int)(sizeof(formats) / sizeof(formats[0]));
+    return formats[(index >= 0 && index < n) ? index : 0];
+}
+
 // With only an estimated image size the loop runs to the device size, but the
 // bar tracks the estimate so it describes the image rather than the card.
 static unsigned long long progressTotalFor(const ImageSource &image,
@@ -376,7 +388,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     fixGptCheckBox->setChecked(true);
     shrinkOnReadCheckBox->setChecked(false);
     compressReadCheckBox->setChecked(false);
-    // Items in the .ui: 0 = .img.gz, the default, 1 = .img.xz.
+    // .img.gz, the first item, is the default; see readFormatFor().
     compressFormatComboBox->setCurrentIndex(0);
     compressFormatComboBox->setEnabled(false);
     choosePartitionsCheckBox->setChecked(false);
@@ -1409,10 +1421,9 @@ void MainWindow::on_bRead_clicked()
         {
             myFile = QDir::toNativeSeparators(QDir(myHomeDir).filePath(myFile));
         }
-        const bool compress = compressReadCheckBox->isChecked();
-        bool compressGz = compress && compressFormatComboBox->currentIndex() == 0;
-        bool compressXz = compress && compressFormatComboBox->currentIndex() == 1;
-        myFile = ImageSink::readTargetName(myFile, compressGz, compressXz);
+        const bool compressing = compressReadCheckBox->isChecked();
+        const ImageSink::Format compressformat = readFormatFor(compressFormatComboBox->currentIndex());
+        myFile = ImageSink::readTargetName(myFile, compressing, compressformat);
         // In step with myFile, or the overwrite prompt checks a different file
         // from the one getHandleOnFile truncates.
         QFileInfo fileinfo(myFile);
@@ -1559,7 +1570,6 @@ void MainWindow::on_bRead_clicked()
                 return;
             }
         }
-        bool compressing = compressGz || compressXz;
         ImageSink sink;
         // Failure cleanup for either output backend.
         auto failRead = [&]()
@@ -1581,7 +1591,7 @@ void MainWindow::on_bRead_clicked()
 
         if (compressing)
         {
-            if (!sink.open(myFile, compressGz ? ImageSink::FORMAT_GZIP : ImageSink::FORMAT_XZ))
+            if (!sink.open(myFile, compressformat))
             {
                 QString error = sink.errorString();
                 CloseHandle(hRawDisk);

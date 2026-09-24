@@ -107,22 +107,26 @@ private:
     unsigned long long myAvailIn;
 };
 
-// Streaming gzip/xz writer for "Read to .img.gz" / "Read to .img.xz". No
+// Streaming gzip/xz/bzip2/zstd writer for "Compress during Read". No
 // seeking: write() takes the image's bytes in order from the start, and a gap
 // must be written as explicit zeros, since a compressed stream cannot leave a
 // region unwritten the way a sparse raw file can.
 class ImageSink
 {
 public:
-    enum Format { FORMAT_GZIP, FORMAT_XZ };
+    enum Format { FORMAT_GZIP, FORMAT_XZ, FORMAT_BZIP2, FORMAT_ZSTD };
 
     ImageSink();
     ~ImageSink();
 
+    // ".gz", ".xz", ".bz2" or ".zst".
+    static QString extension(Format format);
+
     // The file a Read should write, given the name typed in: it ends in .img,
-    // .img.gz or .img.xz to match the chosen output, and is only ever appended
-    // to -- ".gz"/".xz" after a plain .img, otherwise the whole ending.
-    static QString readTargetName(const QString &typed, bool gz, bool xz);
+    // or .img plus the format's extension when compressed, and is only ever
+    // appended to -- the extension after a plain .img, otherwise the whole
+    // ending.
+    static QString readTargetName(const QString &typed, bool compressed, Format format);
 
     bool open(const QString &path, Format format);
 
@@ -142,11 +146,12 @@ public:
 
 private:
     bool drain(bool finishing);
+    void setInput(const unsigned char *in, size_t len);
 
     HANDLE myHandle;
     Format myFormat;
     QString myError;
-    void *myEncoder;                   // z_stream or lzma_stream, owned
+    void *myEncoder;                   // z_stream, lzma_stream, bz_stream or ZstdEncoder, owned
     std::vector<unsigned char> myOutput;
 };
 

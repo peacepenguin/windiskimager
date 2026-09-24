@@ -795,21 +795,41 @@ bool ImageSource::skipTo(unsigned long long startsector)
 // Compressed bytes per WriteFile; see INPUT_CHUNK.
 static const size_t OUTPUT_CHUNK = 1024ul * 1024ul;
 
+// zstd keeps the input position in a buffer the caller owns rather than in
+// its context, so the sink holds the two together.
+struct ZstdEncoder
+{
+    ZSTD_CCtx *cctx;
+    ZSTD_inBuffer in;
+};
+
 ImageSink::ImageSink()
     : myHandle(INVALID_HANDLE_VALUE), myFormat(FORMAT_GZIP), myEncoder(NULL)
 {
 }
 
-QString ImageSink::readTargetName(const QString &typed, bool gz, bool xz)
+QString ImageSink::extension(Format format)
 {
-    const QString want = gz ? ".img.gz" : xz ? ".img.xz" : ".img";
+    switch (format)
+    {
+        case FORMAT_GZIP:  return QString(".gz");
+        case FORMAT_XZ:    return QString(".xz");
+        case FORMAT_BZIP2: return QString(".bz2");
+        default:           return QString(".zst");
+    }
+}
+
+QString ImageSink::readTargetName(const QString &typed, bool compressed, Format format)
+{
+    const QString ext = compressed ? extension(format) : QString();
+    const QString want = ".img" + ext;
     if (typed.endsWith(want, Qt::CaseInsensitive))
     {
         return typed;
     }
-    if ((gz || xz) && typed.endsWith(".img", Qt::CaseInsensitive))
+    if (compressed && typed.endsWith(".img", Qt::CaseInsensitive))
     {
-        return typed + (gz ? ".gz" : ".xz");
+        return typed + ext;
     }
     return typed + want;
 }
@@ -823,15 +843,24 @@ void ImageSink::abort()
 {
     if (myEncoder != NULL)
     {
-        if (myFormat == FORMAT_GZIP)
+        switch (myFormat)
         {
-            deflateEnd((z_stream *)myEncoder);
-            delete (z_stream *)myEncoder;
-        }
-        else
-        {
-            lzma_end((lzma_stream *)myEncoder);
-            delete (lzma_stream *)myEncoder;
+            case FORMAT_GZIP:
+                deflateEnd((z_stream *)myEncoder);
+                delete (z_stream *)myEncoder;
+                break;
+            case FORMAT_XZ:
+                lzma_end((lzma_stream *)myEncoder);
+                delete (lzma_stream *)myEncoder;
+                break;
+            case FORMAT_BZIP2:
+                BZ2_bzCompressEnd((bz_stream *)myEncoder);
+                delete (bz_stream *)myEncoder;
+                break;
+            case FORMAT_ZSTD:
+                ZSTD_freeCCtx(((ZstdEncoder *)myEncoder)->cctx);
+                delete (ZstdEncoder *)myEncoder;
+                break;
         }
         myEncoder = NULL;
     }
@@ -870,13 +899,13 @@ bool ImageSink::open(const QString &path, Format format)
             delete zs;
             myError = QObject::tr("The gzip compressor could not be started "
                                   "(zlib error %1).").arg(ret);
-            CloseHandle(myHandle);
-            myHandle = INVALID_HANDLE_VALUE;
-            return false;
         }
-        myEncoder = zs;
+        else
+        {
+            myEncoder = zs;
+        }
     }
-    else
+    else if (myFormat == FORMAT_XZ)
     {
         lzma_stream *ls = new lzma_stream;
         memset(ls, 0, sizeof(*ls));
@@ -886,11 +915,70 @@ bool ImageSink::open(const QString &path, Format format)
             delete ls;
             myError = QObject::tr("The xz compressor could not be started "
                                   "(lzma error %1).").arg((int)ret);
-            CloseHandle(myHandle);
-            myHandle = INVALID_HANDLE_VALUE;
-            return false;
         }
-        myEncoder = ls;
+        else
+        {
+            myEncoder = ls;
+        }
+    }
+    else if (myFormat == FORMAT_BZIP2)
+    {
+        bz_stream *bs = new bz_stream;
+        memset(bs, 0, sizeof(*bs));
+        // 9: 900 KB blocks, what the bzip2 tool uses by default.
+        int ret = BZ2_bzCompressInit(bs, 9, 0, 0);
+        if (ret != BZ_OK)
+        {
+            delete bs;
+            myError = QObject::tr("The bzip2 compressor could not be started "
+                                  "(bzip2 error %1).").arg(ret);
+        }
+        else
+        {
+            myEncoder = bs;
+        }
+    }
+    else
+    {
+        // The zstd tool's defaults: level 3, with the content checksum that
+        // lets a damaged image be told from a good one. One thread: that is
+        // already faster than most devices read.
+        ZSTD_CCtx *cctx = ZSTD_createCCtx();
+        int code = (cctx == NULL) ? (int)ZSTD_error_memory_allocation : 0;
+        if (cctx != NULL)
+        {
+            size_t ret = ZSTD_CCtx_setParameter(cctx, ZSTD_c_compressionLevel,
+                                                ZSTD_CLEVEL_DEFAULT);
+            if (!ZSTD_isError(ret))
+            {
+                ret = ZSTD_CCtx_setParameter(cctx, ZSTD_c_checksumFlag, 1);
+            }
+            if (ZSTD_isError(ret))
+            {
+                code = (int)ZSTD_getErrorCode(ret);
+                ZSTD_freeCCtx(cctx);
+            }
+        }
+        if (code != 0)
+        {
+            myError = QObject::tr("The zstd compressor could not be started "
+                                  "(zstd error %1).").arg(code);
+        }
+        else
+        {
+            ZstdEncoder *enc = new ZstdEncoder;
+            enc->cctx = cctx;
+            enc->in.src = NULL;
+            enc->in.size = 0;
+            enc->in.pos = 0;
+            myEncoder = enc;
+        }
+    }
+    if (myEncoder == NULL)
+    {
+        CloseHandle(myHandle);
+        myHandle = INVALID_HANDLE_VALUE;
+        return false;
     }
     myOutput.resize(OUTPUT_CHUNK);
     return true;
@@ -905,6 +993,7 @@ bool ImageSink::drain(bool finishing)
     {
         size_t produced = 0;
         bool streamended = false;
+        bool inputleft = false;
         if (myFormat == FORMAT_GZIP)
         {
             z_stream *zs = (z_stream *)myEncoder;
@@ -918,8 +1007,9 @@ bool ImageSink::drain(bool finishing)
             }
             produced = myOutput.size() - zs->avail_out;
             streamended = (ret == Z_STREAM_END);
+            inputleft = zs->avail_in != 0;
         }
-        else
+        else if (myFormat == FORMAT_XZ)
         {
             lzma_stream *ls = (lzma_stream *)myEncoder;
             ls->next_out = &myOutput[0];
@@ -933,6 +1023,45 @@ bool ImageSink::drain(bool finishing)
             }
             produced = myOutput.size() - ls->avail_out;
             streamended = (ret == LZMA_STREAM_END);
+            inputleft = ls->avail_in != 0;
+        }
+        else if (myFormat == FORMAT_BZIP2)
+        {
+            bz_stream *bs = (bz_stream *)myEncoder;
+            bs->next_out = (char *)&myOutput[0];
+            bs->avail_out = (unsigned int)myOutput.size();
+            int ret = BZ2_bzCompress(bs, finishing ? BZ_FINISH : BZ_RUN);
+            // BZ_RUN reports making no progress as BZ_PARAM_ERROR, which with
+            // the input used up and nothing to flush is just "done".
+            if (!finishing && ret == BZ_PARAM_ERROR && bs->avail_in == 0)
+            {
+                return true;
+            }
+            if (ret != (finishing ? BZ_FINISH_OK : BZ_RUN_OK) && ret != BZ_STREAM_END)
+            {
+                myError = QObject::tr("The bzip2 compressor failed (bzip2 error %1).").arg(ret);
+                return false;
+            }
+            produced = myOutput.size() - bs->avail_out;
+            streamended = (ret == BZ_STREAM_END);
+            inputleft = bs->avail_in != 0;
+        }
+        else
+        {
+            ZstdEncoder *enc = (ZstdEncoder *)myEncoder;
+            ZSTD_outBuffer out = { &myOutput[0], myOutput.size(), 0 };
+            // With ZSTD_e_end the return is what is still to be flushed.
+            size_t ret = ZSTD_compressStream2(enc->cctx, &out, &enc->in,
+                                              finishing ? ZSTD_e_end : ZSTD_e_continue);
+            if (ZSTD_isError(ret))
+            {
+                myError = QObject::tr("The zstd compressor failed (zstd error %1).")
+                              .arg((int)ZSTD_getErrorCode(ret));
+                return false;
+            }
+            produced = out.pos;
+            streamended = finishing && ret == 0;
+            inputleft = enc->in.pos < enc->in.size;
         }
 
         if (produced > 0)
@@ -951,16 +1080,35 @@ bool ImageSink::drain(bool finishing)
         {
             return true;
         }
-        if (!finishing && produced == 0)
+        if (!finishing && produced == 0 && !inputleft)
         {
-            bool inputleft = (myFormat == FORMAT_GZIP)
-                ? ((z_stream *)myEncoder)->avail_in != 0
-                : ((lzma_stream *)myEncoder)->avail_in != 0;
-            if (!inputleft)
-            {
-                return true;
-            }
+            return true;
         }
+    }
+}
+
+// Points the encoder at len bytes of input, or at none.
+void ImageSink::setInput(const unsigned char *in, size_t len)
+{
+    switch (myFormat)
+    {
+        case FORMAT_GZIP:
+            ((z_stream *)myEncoder)->next_in = (Bytef *)in;
+            ((z_stream *)myEncoder)->avail_in = (uInt)len;
+            break;
+        case FORMAT_XZ:
+            ((lzma_stream *)myEncoder)->next_in = in;
+            ((lzma_stream *)myEncoder)->avail_in = len;
+            break;
+        case FORMAT_BZIP2:
+            ((bz_stream *)myEncoder)->next_in = (char *)in;
+            ((bz_stream *)myEncoder)->avail_in = (unsigned int)len;
+            break;
+        case FORMAT_ZSTD:
+            ((ZstdEncoder *)myEncoder)->in.src = in;
+            ((ZstdEncoder *)myEncoder)->in.size = len;
+            ((ZstdEncoder *)myEncoder)->in.pos = 0;
+            break;
     }
 }
 
@@ -976,20 +1124,10 @@ bool ImageSink::write(const char *data, unsigned long long len)
     const unsigned char *in = (const unsigned char *)data;
     while (len > 0ull)
     {
-        // zlib's avail_in is 32-bit; lzma uses the same chunk for simplicity.
+        // zlib's and bzip2's avail_in are 32-bit; the others use the same
+        // chunk for simplicity.
         size_t chunk = (len > 0xffffffffull) ? 0xffffffffu : (size_t)len;
-        if (myFormat == FORMAT_GZIP)
-        {
-            z_stream *zs = (z_stream *)myEncoder;
-            zs->next_in = (Bytef *)in;
-            zs->avail_in = (uInt)chunk;
-        }
-        else
-        {
-            lzma_stream *ls = (lzma_stream *)myEncoder;
-            ls->next_in = in;
-            ls->avail_in = chunk;
-        }
+        setInput(in, chunk);
         if (!drain(false))
         {
             return false;
@@ -1010,16 +1148,7 @@ bool ImageSink::finish()
         myError = QObject::tr("The image file is not open for writing.");
         return false;
     }
-    if (myFormat == FORMAT_GZIP)
-    {
-        ((z_stream *)myEncoder)->next_in = NULL;
-        ((z_stream *)myEncoder)->avail_in = 0;
-    }
-    else
-    {
-        ((lzma_stream *)myEncoder)->next_in = NULL;
-        ((lzma_stream *)myEncoder)->avail_in = 0;
-    }
+    setInput(NULL, 0);
     if (!drain(true))
     {
         return false;

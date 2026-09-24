@@ -27,7 +27,7 @@ corrupting the GPT of images like ARM board images. See
   recognised from the file's contents, and compressed images are decompressed
   as they stream, so no expanded copy is ever written to disk.
 - **Read** a device to an `.img`, or with **Compress during Read** to an
-  `.img.gz` (the default) or `.img.xz`.
+  `.img.gz` (the default), `.img.xz`, `.img.bz2` or `.img.zst`.
   - **Skip unpartitioned space** leaves out the space outside the partitions.
   - **Choose partitions to read** leaves out whole partitions you pick.
 - **Verify** a device against an image byte for byte, compressed images

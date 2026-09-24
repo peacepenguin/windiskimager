@@ -310,7 +310,7 @@
          <enum>QComboBox::AdjustToContents</enum>
         </property>
         <property name="toolTip">
-         <string>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</string>
+         <string>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</string>
         </property>
         <item>
          <property name="text">
@@ -320,6 +320,16 @@
         <item>
          <property name="text">
           <string notr="true">.img.xz</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string notr="true">.img.bz2</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string notr="true">.img.zst</string>
          </property>
         </item>
        </widget>

@@ -93,7 +93,7 @@
     </message>
     <message>
         <source>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</source>
-        <translation>读取时的压缩格式：.img.gz 生成更快，.img.xz 体积更小</translation>
+        <translation type="vanished">读取时的压缩格式：.img.gz 生成更快，.img.xz 体积更小</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>同时列出固定磁盘. 内置 PCIe 读卡器常把存储卡显示为不可移动设备, 否则将被隐藏. 运行 Windows 的磁盘永远不会被列出.</translation>
+    </message>
+    <message>
+        <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>读取时的压缩格式：.img.zst 最快，.img.xz 最小，.img.gz 兼容性最广</translation>
     </message>
     <message>
         <source>Progress</source>
@@ -1315,12 +1319,28 @@ Error %2</source>
         <translation>无法启动 xz 压缩程序 (lzma 错误 %1).</translation>
     </message>
     <message>
+        <source>The bzip2 compressor could not be started (bzip2 error %1).</source>
+        <translation>无法启动 bzip2 压缩程序 (bzip2 错误 %1).</translation>
+    </message>
+    <message>
+        <source>The zstd compressor could not be started (zstd error %1).</source>
+        <translation>无法启动 zstd 压缩程序 (zstd 错误 %1).</translation>
+    </message>
+    <message>
         <source>The gzip compressor failed (zlib error %1).</source>
         <translation>gzip 压缩失败 (zlib 错误 %1).</translation>
     </message>
     <message>
         <source>The xz compressor failed (lzma error %1).</source>
         <translation>xz 压缩失败 (lzma 错误 %1).</translation>
+    </message>
+    <message>
+        <source>The bzip2 compressor failed (bzip2 error %1).</source>
+        <translation>bzip2 压缩失败 (bzip2 错误 %1).</translation>
+    </message>
+    <message>
+        <source>The zstd compressor failed (zstd error %1).</source>
+        <translation>zstd 压缩失败 (zstd 错误 %1).</translation>
     </message>
     <message>
         <source>The image file could not be written (error %1).</source>

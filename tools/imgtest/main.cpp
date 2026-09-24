@@ -412,10 +412,15 @@ static void caseSinkRoundTrip(const char *name, const QString &file,
         head = f.read(6);
         f.close();
     }
-    check(format == ImageSink::FORMAT_GZIP
-              ? head.startsWith("\x1f\x8b")
-              : head == QByteArray("\xfd" "7zXZ\x00", 6),
-          "the file really is compressed in the chosen format");
+    bool right = false;
+    switch (format)
+    {
+        case ImageSink::FORMAT_GZIP:  right = head.startsWith("\x1f\x8b"); break;
+        case ImageSink::FORMAT_XZ:    right = head == QByteArray("\xfd" "7zXZ\x00", 6); break;
+        case ImageSink::FORMAT_BZIP2: right = head.startsWith("BZh9"); break;
+        case ImageSink::FORMAT_ZSTD:  right = head.startsWith("\x28\xb5\x2f\xfd"); break;
+    }
+    check(right, "the file really is compressed in the chosen format");
     printf("\n");
     caseRoundTrip("  ...read back", file, raw);
 }
@@ -548,22 +553,35 @@ static void caseLongPath(const QByteArray &raw)
 static void caseNames()
 {
     printf("output names for Read\n");
-    struct { const char *typed; bool gz, xz; const char *want; } cases[] = {
-        { "C:\\a\\myimage",          false, false, "C:\\a\\myimage.img" },
-        { "C:\\a\\myimage",          true,  false, "C:\\a\\myimage.img.gz" },
-        { "C:\\a\\myimage",          false, true,  "C:\\a\\myimage.img.xz" },
-        { "C:\\a\\myimage.img",      false, false, "C:\\a\\myimage.img" },
-        { "C:\\a\\myimage.img",      true,  false, "C:\\a\\myimage.img.gz" },
-        { "C:\\a\\myimage.IMG",      false, true,  "C:\\a\\myimage.IMG.xz" },
-        { "C:\\a\\myimage.img.gz",   true,  false, "C:\\a\\myimage.img.gz" },
-        { "C:\\a\\myimage.img.gz",   false, true,  "C:\\a\\myimage.img.gz.img.xz" },
-        { "C:\\a\\myimage.img.xz",   false, false, "C:\\a\\myimage.img.xz.img" },
-        { "C:\\a\\disk.bin",         false, false, "C:\\a\\disk.bin.img" },
+    // A null format means an uncompressed Read.
+    const ImageSink::Format GZ = ImageSink::FORMAT_GZIP, XZ = ImageSink::FORMAT_XZ,
+                            BZ = ImageSink::FORMAT_BZIP2, ZS = ImageSink::FORMAT_ZSTD;
+    struct { const char *typed; const ImageSink::Format *format; const char *want; } cases[] = {
+        { "C:\\a\\myimage",          NULL, "C:\\a\\myimage.img" },
+        { "C:\\a\\myimage",          &GZ,  "C:\\a\\myimage.img.gz" },
+        { "C:\\a\\myimage",          &XZ,  "C:\\a\\myimage.img.xz" },
+        { "C:\\a\\myimage",          &BZ,  "C:\\a\\myimage.img.bz2" },
+        { "C:\\a\\myimage",          &ZS,  "C:\\a\\myimage.img.zst" },
+        { "C:\\a\\myimage.img",      NULL, "C:\\a\\myimage.img" },
+        { "C:\\a\\myimage.img",      &GZ,  "C:\\a\\myimage.img.gz" },
+        { "C:\\a\\myimage.img",      &ZS,  "C:\\a\\myimage.img.zst" },
+        { "C:\\a\\myimage.IMG",      &XZ,  "C:\\a\\myimage.IMG.xz" },
+        { "C:\\a\\myimage.IMG",      &BZ,  "C:\\a\\myimage.IMG.bz2" },
+        { "C:\\a\\myimage.img.gz",   &GZ,  "C:\\a\\myimage.img.gz" },
+        { "C:\\a\\myimage.img.gz",   &XZ,  "C:\\a\\myimage.img.gz.img.xz" },
+        { "C:\\a\\myimage.img.zst",  &ZS,  "C:\\a\\myimage.img.zst" },
+        { "C:\\a\\myimage.img.bz2",  &ZS,  "C:\\a\\myimage.img.bz2.img.zst" },
+        { "C:\\a\\myimage.img.xz",   NULL, "C:\\a\\myimage.img.xz.img" },
+        { "C:\\a\\disk.bin",         NULL, "C:\\a\\disk.bin.img" },
     };
     for (const auto &c : cases)
     {
-        const QString got = ImageSink::readTargetName(QString::fromLatin1(c.typed), c.gz, c.xz);
-        const QByteArray what = QByteArray(c.typed) + (c.gz ? " +gz" : c.xz ? " +xz" : " raw")
+        const bool compressed = (c.format != NULL);
+        const ImageSink::Format format = compressed ? *c.format : GZ;
+        const QString got = ImageSink::readTargetName(QString::fromLatin1(c.typed), compressed, format);
+        const QByteArray what = QByteArray(c.typed)
+                                + (compressed ? " +" + ImageSink::extension(format).mid(1).toLatin1()
+                                              : QByteArray(" raw"))
                                 + " -> " + c.want;
         check(got == QString::fromLatin1(c.want), what.constData());
     }
@@ -776,15 +794,41 @@ int main(int argc, char **argv)
 
     caseSinkRoundTrip("ImageSink, gzip", "imgtest-sink.img.gz", ImageSink::FORMAT_GZIP, raw);
     caseSinkRoundTrip("ImageSink, xz", "imgtest-sink.img.xz", ImageSink::FORMAT_XZ, raw);
+    caseSinkRoundTrip("ImageSink, bzip2", "imgtest-sink.img.bz2", ImageSink::FORMAT_BZIP2, raw);
+    caseSinkRoundTrip("ImageSink, zstd", "imgtest-sink.img.zst", ImageSink::FORMAT_ZSTD, raw);
     caseSinkAbort("ImageSink, gzip aborted", "imgtest-abort.img.gz", ImageSink::FORMAT_GZIP, raw);
     caseSinkAbort("ImageSink, xz aborted", "imgtest-abort.img.xz", ImageSink::FORMAT_XZ, raw);
+    caseSinkAbort("ImageSink, bzip2 aborted", "imgtest-abort.img.bz2", ImageSink::FORMAT_BZIP2, raw);
+    caseSinkAbort("ImageSink, zstd aborted", "imgtest-abort.img.zst", ImageSink::FORMAT_ZSTD, raw);
+    {
+        // The zstd sink adds the content checksum the zstd tool does, so a
+        // damaged image it wrote is caught on the way back in.
+        printf("ImageSink, zstd: checksummed\n");
+        QFile f("imgtest-sink.img.zst");
+        QByteArray made;
+        if (f.open(QIODevice::ReadOnly))
+        {
+            made = f.readAll();
+            f.close();
+        }
+        check(made.size() > 4 && (made.at(4) & 0x04) != 0, "the frame header's checksum flag is set");
+        printf("\n");
+        if (!made.isEmpty())
+        {
+            made[made.size() - 1] = (char)(made.at(made.size() - 1) ^ 0xFF);
+            writeFile("imgtest-sink-badsum.img.zst", made);
+            caseEndProbe("ImageSink, zstd, last checksum byte changed",
+                         "imgtest-sink-badsum.img.zst", raw, true);
+            DeleteFileA("imgtest-sink-badsum.img.zst");
+        }
+    }
 
     const char *leftovers[] = {
         "imgtest.img", "imgtest.img.gz", "imgtest.img.xz",
         "imgtest-multi.img.gz", "imgtest-multi.img.xz", "imgtest-padded.img.xz",
         "imgtest-trunc.img.gz", "imgtest-trunc.img.xz",
-        "imgtest-sink.img.gz", "imgtest-sink.img.xz",
-        "imgtest-abort.img.gz", "imgtest-abort.img.xz",
+        "imgtest-sink.img.gz", "imgtest-sink.img.xz", "imgtest-sink.img.bz2", "imgtest-sink.img.zst",
+        "imgtest-abort.img.gz", "imgtest-abort.img.xz", "imgtest-abort.img.bz2", "imgtest-abort.img.zst",
         "imgtest-gz-named.img", "imgtest-raw-named.img.gz",
         "imgtest.img.bz2", "imgtest.img.zst", "imgtest-multi.img.bz2", "imgtest-multi.img.zst",
         "imgtest-pzstd.img.zst", "imgtest-nosize.img.zst", "imgtest-long.img.zst",

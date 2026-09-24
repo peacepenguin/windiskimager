@@ -93,7 +93,7 @@
     </message>
     <message>
         <source>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</source>
-        <translation>読み取り時の圧縮形式: .img.gz は作成が速く、.img.xz はサイズが小さくなります</translation>
+        <translation type="vanished">読み取り時の圧縮形式: .img.gz は作成が速く、.img.xz はサイズが小さくなります</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>固定ディスクも一覧に表示します。内蔵 PCIe カードリーダーはカードをリムーバブルでないデバイスとして見せることが多く、その場合は通常表示されません。Windows が起動しているディスクが一覧に出ることはありません。</translation>
+    </message>
+    <message>
+        <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>読み取り時の圧縮形式: .img.zst が最も速く、.img.xz が最も小さく、.img.gz が最も広く対応しています</translation>
     </message>
     <message>
         <source>Progress</source>
@@ -1315,12 +1319,28 @@ Error %2</source>
         <translation>xz 圧縮処理を開始できませんでした (lzma エラー %1)。</translation>
     </message>
     <message>
+        <source>The bzip2 compressor could not be started (bzip2 error %1).</source>
+        <translation>bzip2 圧縮処理を開始できませんでした (bzip2 エラー %1)。</translation>
+    </message>
+    <message>
+        <source>The zstd compressor could not be started (zstd error %1).</source>
+        <translation>zstd 圧縮処理を開始できませんでした (zstd エラー %1)。</translation>
+    </message>
+    <message>
         <source>The gzip compressor failed (zlib error %1).</source>
         <translation>gzip 圧縮に失敗しました (zlib エラー %1)。</translation>
     </message>
     <message>
         <source>The xz compressor failed (lzma error %1).</source>
         <translation>xz 圧縮に失敗しました (lzma エラー %1)。</translation>
+    </message>
+    <message>
+        <source>The bzip2 compressor failed (bzip2 error %1).</source>
+        <translation>bzip2 圧縮に失敗しました (bzip2 エラー %1)。</translation>
+    </message>
+    <message>
+        <source>The zstd compressor failed (zstd error %1).</source>
+        <translation>zstd 圧縮に失敗しました (zstd エラー %1)。</translation>
     </message>
     <message>
         <source>The image file could not be written (error %1).</source>

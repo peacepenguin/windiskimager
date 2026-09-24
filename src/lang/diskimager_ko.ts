@@ -93,7 +93,7 @@
     </message>
     <message>
         <source>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</source>
-        <translation>읽을 때의 압축 형식: .img.gz는 만들기가 빠르고, .img.xz는 더 작습니다</translation>
+        <translation type="vanished">읽을 때의 압축 형식: .img.gz는 만들기가 빠르고, .img.xz는 더 작습니다</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>고정 디스크도 함께 표시합니다. 내장 PCIe 카드 리더는 카드를 분리 불가능한 장치로 표시하는 경우가 많아, 그렇지 않으면 목록에 나타나지 않습니다. Windows가 실행 중인 디스크는 절대 표시되지 않습니다.</translation>
+    </message>
+    <message>
+        <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>읽을 때의 압축 형식: .img.zst가 가장 빠르고, .img.xz가 가장 작으며, .img.gz가 가장 널리 지원됩니다</translation>
     </message>
     <message>
         <source>Progress</source>
@@ -1315,12 +1319,28 @@ Error %2</source>
         <translation>xz 압축기를 시작할 수 없습니다 (lzma 오류 %1).</translation>
     </message>
     <message>
+        <source>The bzip2 compressor could not be started (bzip2 error %1).</source>
+        <translation>bzip2 압축기를 시작할 수 없습니다 (bzip2 오류 %1).</translation>
+    </message>
+    <message>
+        <source>The zstd compressor could not be started (zstd error %1).</source>
+        <translation>zstd 압축기를 시작할 수 없습니다 (zstd 오류 %1).</translation>
+    </message>
+    <message>
         <source>The gzip compressor failed (zlib error %1).</source>
         <translation>gzip 압축이 실패했습니다 (zlib 오류 %1).</translation>
     </message>
     <message>
         <source>The xz compressor failed (lzma error %1).</source>
         <translation>xz 압축이 실패했습니다 (lzma 오류 %1).</translation>
+    </message>
+    <message>
+        <source>The bzip2 compressor failed (bzip2 error %1).</source>
+        <translation>bzip2 압축이 실패했습니다 (bzip2 오류 %1).</translation>
+    </message>
+    <message>
+        <source>The zstd compressor failed (zstd error %1).</source>
+        <translation>zstd 압축이 실패했습니다 (zstd 오류 %1).</translation>
     </message>
     <message>
         <source>The image file could not be written (error %1).</source>

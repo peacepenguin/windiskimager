@@ -93,7 +93,7 @@
     </message>
     <message>
         <source>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</source>
-        <translation>படிப்பதற்கான அமுக்க வடிவம்: .img.gz விரைவாக உருவாகும், .img.xz அளவில் சிறியது</translation>
+        <translation type="vanished">படிப்பதற்கான அமுக்க வடிவம்: .img.gz விரைவாக உருவாகும், .img.xz அளவில் சிறியது</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
@@ -146,6 +146,10 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>நிலையான வட்டுகளையும் பட்டியலிடும். உள்ளக PCIe அட்டை வாசிப்பான்கள் பெரும்பாலும் அட்டையை அகற்ற முடியாத சாதனமாகக் காட்டுகின்றன; இல்லையெனில் அது மறைக்கப்பட்டிருக்கும். Windows இயங்கிக்கொண்டிருக்கும் வட்டு ஒருபோதும் பட்டியலிடப்படாது.</translation>
+    </message>
+    <message>
+        <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>படிப்பதற்கான அமுக்க வடிவம்: .img.zst மிக விரைவானது, .img.xz மிகச் சிறியது, .img.gz மிகப் பரவலாக ஆதரிக்கப்படுவது</translation>
     </message>
     <message>
         <source>Progress</source>
@@ -1181,12 +1185,28 @@ Error %2</source>
         <translation>xz அமுக்கியைத் தொடங்க முடியவில்லை (lzma பிழை %1).</translation>
     </message>
     <message>
+        <source>The bzip2 compressor could not be started (bzip2 error %1).</source>
+        <translation>bzip2 அமுக்கியைத் தொடங்க முடியவில்லை (bzip2 பிழை %1).</translation>
+    </message>
+    <message>
+        <source>The zstd compressor could not be started (zstd error %1).</source>
+        <translation>zstd அமுக்கியைத் தொடங்க முடியவில்லை (zstd பிழை %1).</translation>
+    </message>
+    <message>
         <source>The gzip compressor failed (zlib error %1).</source>
         <translation>gzip அமுக்கம் தோல்வியடைந்தது (zlib பிழை %1).</translation>
     </message>
     <message>
         <source>The xz compressor failed (lzma error %1).</source>
         <translation>xz அமுக்கம் தோல்வியடைந்தது (lzma பிழை %1).</translation>
+    </message>
+    <message>
+        <source>The bzip2 compressor failed (bzip2 error %1).</source>
+        <translation>bzip2 அமுக்கம் தோல்வியடைந்தது (bzip2 பிழை %1).</translation>
+    </message>
+    <message>
+        <source>The zstd compressor failed (zstd error %1).</source>
+        <translation>zstd அமுக்கம் தோல்வியடைந்தது (zstd பிழை %1).</translation>
     </message>
     <message>
         <source>The image file could not be written (error %1).</source>
