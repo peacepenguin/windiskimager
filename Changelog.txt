@@ -34,6 +34,8 @@ The progress bar fills to 100% when a Write or Verify of a compressed image
 Every option is greyed out while a Write, Read or Verify runs -- the image
   field, Browse, the device list, the checkboxes, the compression dropdown and
   the hash controls -- and each returns to its own state afterwards
+The status bar names the operation under way alongside its speed, as
+  "Writing: 45.3 MB/s", where it used to show the speed alone
 The CI package carries zstd's BSD licence as well as the GPL-2 text Fedora's
   package installs, as zstd is offered under either
 

@@ -760,6 +760,18 @@ Repair the partition table now?</source>
 Riparare adesso la tabella delle partizioni?</translation>
     </message>
     <message>
+        <source>Writing: %1 MB/s</source>
+        <translation>Scrittura: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Reading: %1 MB/s</source>
+        <translation>Lettura: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Verifying: %1 MB/s</source>
+        <translation>Verifica: %1 MB/s</translation>
+    </message>
+    <message>
         <source>Please select a device.</source>
         <translation>Seleziona un dispositivo.</translation>
     </message>

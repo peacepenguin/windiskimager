@@ -291,7 +291,13 @@ void MainWindow::showThroughput(unsigned long long sector, unsigned long long to
     const double mbpersec =
         (((double)sectorsize * (sector - *lastsector))
          * ((double)ONE_SEC_IN_MS / update_timer.elapsed())) / 1024.0 / 1024.0;
-    statusbar->showMessage(QString("%1 MB/s").arg(mbpersec));
+    // Named, since the rate replaces the "Writing..." the run started with.
+    // A canceled run ends on the plain rate rather than a wrong name.
+    const QString rate = (status == STATUS_WRITING)   ? tr("Writing: %1 MB/s")
+                       : (status == STATUS_READING)   ? tr("Reading: %1 MB/s")
+                       : (status == STATUS_VERIFYING) ? tr("Verifying: %1 MB/s")
+                                                      : QString("%1 MB/s");
+    statusbar->showMessage(rate.arg(mbpersec));
     elapsed_timer->update(sector, total);
     update_timer.start();
     *lastsector = sector;

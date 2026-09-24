@@ -668,6 +668,18 @@ Cela n&apos;a pu être détecté qu&apos;à la fin du périphérique, car une im
 %1</translation>
     </message>
     <message>
+        <source>Writing: %1 MB/s</source>
+        <translation>Écriture : %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Reading: %1 MB/s</source>
+        <translation>Lecture : %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Verifying: %1 MB/s</source>
+        <translation>Vérification : %1 MB/s</translation>
+    </message>
+    <message>
         <source>%1 the primary GPT header points at sectors the partition entries are not in.
 
 This is what Windows leaves behind when it rescans a card written without &quot;Fix GPT after write&quot;. No data has been lost, but the device will not boot and most tools will refuse the table.

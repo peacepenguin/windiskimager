@@ -688,6 +688,18 @@ The image and the device differ only in the GPT.</source>
 %1</translation>
     </message>
     <message>
+        <source>Writing: %1 MB/s</source>
+        <translation>쓰는 중: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Reading: %1 MB/s</source>
+        <translation>읽는 중: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Verifying: %1 MB/s</source>
+        <translation>검증 중: %1 MB/s</translation>
+    </message>
+    <message>
         <source>%1 the primary GPT header points at sectors the partition entries are not in.
 
 This is what Windows leaves behind when it rescans a card written without &quot;Fix GPT after write&quot;. No data has been lost, but the device will not boot and most tools will refuse the table.

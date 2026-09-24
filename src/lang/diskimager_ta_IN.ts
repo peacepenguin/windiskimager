@@ -214,6 +214,18 @@ Are you sure you want to exit?</source>
 நிச்சயமாக வெளியேற வேண்டுமா?</translation>
     </message>
     <message>
+        <source>Writing: %1 MB/s</source>
+        <translation>எழுதப்படுகிறது: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Reading: %1 MB/s</source>
+        <translation>படிக்கப்படுகிறது: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Verifying: %1 MB/s</source>
+        <translation>சரிபார்க்கப்படுகிறது: %1 MB/s</translation>
+    </message>
+    <message>
         <source>Exiting now will result in a corrupt disk.
 Are you sure you want to exit?</source>
         <translation>இப்போது வெளியேறினால் வட்டு சிதைந்துவிடும்.

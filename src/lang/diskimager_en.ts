@@ -666,6 +666,18 @@ This could only be detected at the end of the device, because a gzip image does 
         <translation>Disk Images (*.img *.IMG *.raw *.bin *.img.gz *.img.xz *.img.bz2 *.img.zst *.raw.gz *.raw.xz *.raw.bz2 *.raw.zst)</translation>
     </message>
     <message>
+        <source>Writing: %1 MB/s</source>
+        <translation>Writing: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Reading: %1 MB/s</source>
+        <translation>Reading: %1 MB/s</translation>
+    </message>
+    <message>
+        <source>Verifying: %1 MB/s</source>
+        <translation>Verifying: %1 MB/s</translation>
+    </message>
+    <message>
         <source>Compressed Disk Images (*.gz *.xz *.bz2 *.zst)</source>
         <translation>Compressed Disk Images (*.gz *.xz *.bz2 *.zst)</translation>
     </message>
