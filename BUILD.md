@@ -293,7 +293,7 @@ refusing writes until physically reseated (a Windows/VDS issue, not this
 app's).
 
 To exercise one: write it to a device, Read it back with the box checked
-(and optionally "Read to .img.gz"/".img.xz", which apply to any Read and have
+(and optionally "Compress during Read", which applies to any Read and has
 no fixture of their own), and confirm the result matches what the manifest
 says it should.
 

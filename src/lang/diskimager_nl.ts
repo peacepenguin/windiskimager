@@ -33,19 +33,19 @@
     </message>
     <message>
         <source>Read to .img.gz</source>
-        <translation>Lezen naar .img.gz</translation>
+        <translation type="vanished">Lezen naar .img.gz</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with gz</source>
-        <translation>Comprimeert de van het apparaat gelezen image met gz</translation>
+        <translation type="vanished">Comprimeert de van het apparaat gelezen image met gz</translation>
     </message>
     <message>
         <source>Read to .img.xz</source>
-        <translation>Lezen naar .img.xz</translation>
+        <translation type="vanished">Lezen naar .img.xz</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with xz</source>
-        <translation>Comprimeert de van het apparaat gelezen image met xz</translation>
+        <translation type="vanished">Comprimeert de van het apparaat gelezen image met xz</translation>
     </message>
     <message>
         <source>Choose partitions to read</source>
@@ -82,6 +82,18 @@
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
         <translation>Leest de MBR of GPT van het apparaat en laat de niet-gepartitioneerde ruimte weg uit de image. De partities, de partitietabel en de ruimte die een GPT vóór zijn partities reserveert blijven behouden. De reserve-GPT wordt naar het nieuwe einde van de image verplaatst.</translation>
+    </message>
+    <message>
+        <source>Compress during Read</source>
+        <translation>Comprimeren tijdens lezen</translation>
+    </message>
+    <message>
+        <source>Compress the Image Read from the Device, in the format chosen below</source>
+        <translation>Comprimeert de van het apparaat gelezen image in het hieronder gekozen formaat</translation>
+    </message>
+    <message>
+        <source>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</source>
+        <translation>Het gecomprimeerde formaat om naar te lezen: .img.gz is sneller gemaakt, .img.xz is kleiner</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

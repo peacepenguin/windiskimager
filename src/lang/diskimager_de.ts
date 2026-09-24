@@ -33,19 +33,19 @@
     </message>
     <message>
         <source>Read to .img.gz</source>
-        <translation>Als .img.gz lesen</translation>
+        <translation type="vanished">Als .img.gz lesen</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with gz</source>
-        <translation>Komprimiert das vom Gerät gelesene Image mit gz</translation>
+        <translation type="vanished">Komprimiert das vom Gerät gelesene Image mit gz</translation>
     </message>
     <message>
         <source>Read to .img.xz</source>
-        <translation>Als .img.xz lesen</translation>
+        <translation type="vanished">Als .img.xz lesen</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with xz</source>
-        <translation>Komprimiert das vom Gerät gelesene Image mit xz</translation>
+        <translation type="vanished">Komprimiert das vom Gerät gelesene Image mit xz</translation>
     </message>
     <message>
         <source>Choose partitions to read</source>
@@ -82,6 +82,18 @@
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
         <translation>Liest den MBR oder die GPT des Datenträgers und lässt den nicht partitionierten Speicherplatz aus dem Image weg. Erhalten bleiben die Partitionen, die Partitionstabelle und jeder Bereich, den eine GPT vor ihren Partitionen reserviert. Die Sicherungs-GPT wird an das neue Ende des Images verschoben.</translation>
+    </message>
+    <message>
+        <source>Compress during Read</source>
+        <translation>Beim Lesen komprimieren</translation>
+    </message>
+    <message>
+        <source>Compress the Image Read from the Device, in the format chosen below</source>
+        <translation>Komprimiert das vom Gerät gelesene Image im darunter gewählten Format</translation>
+    </message>
+    <message>
+        <source>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</source>
+        <translation>Das komprimierte Format zum Lesen: .img.gz ist schneller erstellt, .img.xz ist kleiner</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

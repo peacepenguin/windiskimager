@@ -26,7 +26,8 @@ corrupting the GPT of images like ARM board images. See
   xz, bzip2 or zstd (`.gz`, `.xz`, `.bz2`, `.zst`) to a device. The format is
   recognised from the file's contents, and compressed images are decompressed
   as they stream, so no expanded copy is ever written to disk.
-- **Read** a device to an `.img`, `.img.gz` or `.img.xz`.
+- **Read** a device to an `.img`, or with **Compress during Read** to an
+  `.img.gz` (the default) or `.img.xz`.
   - **Skip unpartitioned space** leaves out the space outside the partitions.
   - **Choose partitions to read** leaves out whole partitions you pick.
 - **Verify** a device against an image byte for byte, compressed images
@@ -78,7 +79,7 @@ if they have one. Anything you uncheck is removed from the image and from its
 partition table. This always skips unpartitioned space too. If the partitions
 cannot be repacked, the read stops rather than including the ones you left out.
 
-Both options work together with `.img.gz` / `.img.xz` compression.
+Both options work together with **Compress during Read**.
 
 ## The Windows GPT problem
 

@@ -70,9 +70,9 @@ class MainWindow : public QMainWindow, public Ui::MainWindow
         void on_leFile_editingFinished();
         void on_bHashCopy_clicked();
         void on_showAllDevicesCheckBox_toggled(bool checked);
-        // .gz and .xz are mutually exclusive: checking one unchecks the other.
-        void on_readGzCheckBox_toggled(bool checked);
-        void on_readXzCheckBox_toggled(bool checked);
+        // The format dropdown only applies, and so is only enabled, while
+        // compressing.
+        void on_compressReadCheckBox_toggled(bool checked);
         void on_choosePartitionsCheckBox_toggled(bool checked);
         void on_shrinkOnReadCheckBox_toggled(bool checked);
 private slots:

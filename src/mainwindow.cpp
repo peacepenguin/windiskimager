@@ -375,8 +375,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     // listed at first, so a fixed disk is never preselected.
     fixGptCheckBox->setChecked(true);
     shrinkOnReadCheckBox->setChecked(false);
-    readGzCheckBox->setChecked(false);
-    readXzCheckBox->setChecked(false);
+    compressReadCheckBox->setChecked(false);
+    // Items in the .ui: 0 = .img.gz, the default, 1 = .img.xz.
+    compressFormatComboBox->setCurrentIndex(0);
+    compressFormatComboBox->setEnabled(false);
     choosePartitionsCheckBox->setChecked(false);
     showAllDevicesCheckBox->setChecked(false);
     // After showAllDevicesCheckBox is set, which the scan reads. Deferred
@@ -1407,8 +1409,9 @@ void MainWindow::on_bRead_clicked()
         {
             myFile = QDir::toNativeSeparators(QDir(myHomeDir).filePath(myFile));
         }
-        bool compressGz = readGzCheckBox->isChecked();
-        bool compressXz = readXzCheckBox->isChecked();
+        const bool compress = compressReadCheckBox->isChecked();
+        bool compressGz = compress && compressFormatComboBox->currentIndex() == 0;
+        bool compressXz = compress && compressFormatComboBox->currentIndex() == 1;
         myFile = ImageSink::readTargetName(myFile, compressGz, compressXz);
         // In step with myFile, or the overwrite prompt checks a different file
         // from the one getHandleOnFile truncates.
@@ -2242,20 +2245,9 @@ void MainWindow::on_showAllDevicesCheckBox_toggled(bool)
     QTimer::singleShot(SCAN_SETTLE_MS, this, [this]() { rescanDevices(); });
 }
 
-void MainWindow::on_readGzCheckBox_toggled(bool checked)
+void MainWindow::on_compressReadCheckBox_toggled(bool checked)
 {
-    if (checked)
-    {
-        readXzCheckBox->setChecked(false);
-    }
-}
-
-void MainWindow::on_readXzCheckBox_toggled(bool checked)
-{
-    if (checked)
-    {
-        readGzCheckBox->setChecked(false);
-    }
+    compressFormatComboBox->setEnabled(checked);
 }
 
 // Also fires when "Choose partitions to read" forces the box on, which is the

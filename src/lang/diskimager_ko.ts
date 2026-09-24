@@ -33,19 +33,19 @@
     </message>
     <message>
         <source>Read to .img.gz</source>
-        <translation>.img.gz로 읽기</translation>
+        <translation type="vanished">.img.gz로 읽기</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with gz</source>
-        <translation>장치에서 읽은 이미지를 gz로 압축합니다</translation>
+        <translation type="vanished">장치에서 읽은 이미지를 gz로 압축합니다</translation>
     </message>
     <message>
         <source>Read to .img.xz</source>
-        <translation>.img.xz로 읽기</translation>
+        <translation type="vanished">.img.xz로 읽기</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with xz</source>
-        <translation>장치에서 읽은 이미지를 xz로 압축합니다</translation>
+        <translation type="vanished">장치에서 읽은 이미지를 xz로 압축합니다</translation>
     </message>
     <message>
         <source>Choose partitions to read</source>
@@ -82,6 +82,18 @@
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
         <translation>장치의 MBR 또는 GPT를 읽고 파티션되지 않은 공간을 이미지에서 제외합니다. 파티션, 파티션 테이블, 그리고 GPT가 파티션 앞에 예약해 둔 공간은 유지합니다. 백업 GPT는 이미지의 새 끝으로 옮겨집니다.</translation>
+    </message>
+    <message>
+        <source>Compress during Read</source>
+        <translation>읽는 동안 압축</translation>
+    </message>
+    <message>
+        <source>Compress the Image Read from the Device, in the format chosen below</source>
+        <translation>장치에서 읽은 이미지를 아래에서 선택한 형식으로 압축합니다</translation>
+    </message>
+    <message>
+        <source>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</source>
+        <translation>읽을 때의 압축 형식: .img.gz는 만들기가 빠르고, .img.xz는 더 작습니다</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

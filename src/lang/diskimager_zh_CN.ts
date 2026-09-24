@@ -33,19 +33,19 @@
     </message>
     <message>
         <source>Read to .img.gz</source>
-        <translation>读取为 .img.gz</translation>
+        <translation type="vanished">读取为 .img.gz</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with gz</source>
-        <translation>使用 gz 压缩从设备读取的映像</translation>
+        <translation type="vanished">使用 gz 压缩从设备读取的映像</translation>
     </message>
     <message>
         <source>Read to .img.xz</source>
-        <translation>读取为 .img.xz</translation>
+        <translation type="vanished">读取为 .img.xz</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with xz</source>
-        <translation>使用 xz 压缩从设备读取的映像</translation>
+        <translation type="vanished">使用 xz 压缩从设备读取的映像</translation>
     </message>
     <message>
         <source>Choose partitions to read</source>
@@ -82,6 +82,18 @@
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
         <translation>读取设备的 MBR 或 GPT，并在映像中省去未分区空间，保留分区、分区表以及 GPT 在其分区之前预留的空间。备份 GPT 会移到映像新的末尾。</translation>
+    </message>
+    <message>
+        <source>Compress during Read</source>
+        <translation>读取时压缩</translation>
+    </message>
+    <message>
+        <source>Compress the Image Read from the Device, in the format chosen below</source>
+        <translation>以下方选择的格式压缩从设备读取的映像</translation>
+    </message>
+    <message>
+        <source>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</source>
+        <translation>读取时的压缩格式：.img.gz 生成更快，.img.xz 体积更小</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

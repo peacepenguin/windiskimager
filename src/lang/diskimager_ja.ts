@@ -33,19 +33,19 @@
     </message>
     <message>
         <source>Read to .img.gz</source>
-        <translation>.img.gz として読み取る</translation>
+        <translation type="vanished">.img.gz として読み取る</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with gz</source>
-        <translation>デバイスから読み取ったイメージを gz で圧縮します</translation>
+        <translation type="vanished">デバイスから読み取ったイメージを gz で圧縮します</translation>
     </message>
     <message>
         <source>Read to .img.xz</source>
-        <translation>.img.xz として読み取る</translation>
+        <translation type="vanished">.img.xz として読み取る</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with xz</source>
-        <translation>デバイスから読み取ったイメージを xz で圧縮します</translation>
+        <translation type="vanished">デバイスから読み取ったイメージを xz で圧縮します</translation>
     </message>
     <message>
         <source>Choose partitions to read</source>
@@ -82,6 +82,18 @@
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
         <translation>デバイスのMBRまたはGPTを読み取り、未パーティション領域をイメージから除きます。パーティション、パーティションテーブル、およびGPTがパーティションの前に予約している領域は残します。バックアップGPTはイメージの新しい末尾に移動します。</translation>
+    </message>
+    <message>
+        <source>Compress during Read</source>
+        <translation>読み取り時に圧縮</translation>
+    </message>
+    <message>
+        <source>Compress the Image Read from the Device, in the format chosen below</source>
+        <translation>デバイスから読み取ったイメージを、下で選択した形式で圧縮します</translation>
+    </message>
+    <message>
+        <source>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</source>
+        <translation>読み取り時の圧縮形式: .img.gz は作成が速く、.img.xz はサイズが小さくなります</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

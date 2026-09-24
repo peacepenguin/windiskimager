@@ -33,19 +33,19 @@
     </message>
     <message>
         <source>Read to .img.gz</source>
-        <translation>.img.gz ஆகப் படி</translation>
+        <translation type="vanished">.img.gz ஆகப் படி</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with gz</source>
-        <translation>சாதனத்திலிருந்து படிக்கப்பட்ட படிமத்தை gz கொண்டு அமுக்குகிறது</translation>
+        <translation type="vanished">சாதனத்திலிருந்து படிக்கப்பட்ட படிமத்தை gz கொண்டு அமுக்குகிறது</translation>
     </message>
     <message>
         <source>Read to .img.xz</source>
-        <translation>.img.xz ஆகப் படி</translation>
+        <translation type="vanished">.img.xz ஆகப் படி</translation>
     </message>
     <message>
         <source>Compress the Image Read from the Device with xz</source>
-        <translation>சாதனத்திலிருந்து படிக்கப்பட்ட படிமத்தை xz கொண்டு அமுக்குகிறது</translation>
+        <translation type="vanished">சாதனத்திலிருந்து படிக்கப்பட்ட படிமத்தை xz கொண்டு அமுக்குகிறது</translation>
     </message>
     <message>
         <source>Choose partitions to read</source>
@@ -82,6 +82,18 @@
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
         <translation>சாதனத்தின் MBR அல்லது GPT-ஐப் படித்து, பகிரப்படாத இடத்தைப் படிமத்திலிருந்து விலக்குகிறது. பகிர்வுகள், பகிர்வு அட்டவணை, GPT தன் பகிர்வுகளுக்கு முன் ஒதுக்கிய இடம் ஆகியவை வைக்கப்படும். காப்பு GPT படிமத்தின் புதிய முடிவுக்கு நகர்த்தப்படும்.</translation>
+    </message>
+    <message>
+        <source>Compress during Read</source>
+        <translation>படிக்கும்போது அமுக்கு</translation>
+    </message>
+    <message>
+        <source>Compress the Image Read from the Device, in the format chosen below</source>
+        <translation>சாதனத்திலிருந்து படிக்கப்பட்ட படிமத்தைக் கீழே தேர்ந்தெடுத்த வடிவத்தில் அமுக்குகிறது</translation>
+    </message>
+    <message>
+        <source>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</source>
+        <translation>படிப்பதற்கான அமுக்க வடிவம்: .img.gz விரைவாக உருவாகும், .img.xz அளவில் சிறியது</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

@@ -280,7 +280,7 @@
        </widget>
           </item>
           <item>
-       <widget class="QCheckBox" name="readGzCheckBox">
+       <widget class="QCheckBox" name="compressReadCheckBox">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
           <horstretch>0</horstretch>
@@ -288,27 +288,40 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>Read to .img.gz</string>
+         <string>Compress during Read</string>
         </property>
         <property name="toolTip">
-         <string>Compress the Image Read from the Device with gz</string>
+         <string>Compress the Image Read from the Device, in the format chosen below</string>
         </property>
        </widget>
           </item>
           <item>
-       <widget class="QCheckBox" name="readXzCheckBox">
+       <widget class="QComboBox" name="compressFormatComboBox">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
-        <property name="text">
-         <string>Read to .img.xz</string>
+        <property name="sizeAdjustPolicy">
+         <enum>QComboBox::AdjustToContents</enum>
         </property>
         <property name="toolTip">
-         <string>Compress the Image Read from the Device with xz</string>
+         <string>The compressed format to Read to: .img.gz is faster to make, .img.xz is smaller</string>
         </property>
+        <item>
+         <property name="text">
+          <string notr="true">.img.gz</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string notr="true">.img.xz</string>
+         </property>
+        </item>
        </widget>
           </item>
           <item>
