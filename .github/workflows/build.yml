@@ -12,12 +12,11 @@ jobs:
   # podman: the two scripts below build the Fedora image from
   # tools/Containerfile.build (Ubuntu has no MinGW Qt6 packages; Fedora does)
   # and run the build and the packaging inside it. The runner itself only
-  # needs podman, zip and gh, which ubuntu-latest has.
+  # needs podman, which ubuntu-latest has.
   windows-x86_64:
     runs-on: ubuntu-latest
-    # Needed only by the release step, which creates a GitHub release.
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v7
@@ -35,33 +34,98 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+  # The same for Windows on ARM64, in the image tools/Containerfile.arm64
+  # builds: llvm-mingw, and zlib, xz, zstd, bzip2 and Qt compiled from
+  # Fedora's source RPMs. The image is built fresh every run, so this job
+  # takes most of an hour, nearly all of it Qt; it runs alongside the x64 one.
+  windows-arm64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Qt's build tree and the image's layers together need more room than
+      # the runner leaves free. These are preinstalled SDKs nothing here uses.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
+          df -h /
+
+      # GITHUB_TOKEN: the run's own token, for the GitHub API lookup of
+      # llvm-mingw's newest release, which anonymously is limited to 60
+      # requests an hour. container_run passes it into the image build as a
+      # secret, so it is not stored in the image.
+      - name: Build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tools/build-container-arm64.sh
+
+      - name: Package
+        run: bash tools/deploy-container-arm64.sh
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: WinDiskImager-arm64
+          path: dist-arm64/
+          if-no-files-found: error
+
+  # One release for both builds, made only once both have succeeded, so a tag
+  # never publishes one architecture without the other.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows-x86_64, windows-arm64]
+    runs-on: ubuntu-latest
+    # Needed to create the GitHub release.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
       # A tag that disagrees with src/CMakeLists.txt would ship a binary whose
       # own version string contradicts the release it is attached to.
       - name: Check the tag matches the project version
-        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           version=$(sed -n 's/^project(WinDiskImager VERSION \([0-9.]*\).*/\1/p' src/CMakeLists.txt)
           echo "project version: $version, tag: ${GITHUB_REF_NAME}"
           test "v$version" = "${GITHUB_REF_NAME}"
 
-      - name: Build the release zip
-        if: startsWith(github.ref, 'refs/tags/v')
+      - uses: actions/download-artifact@v8
+        with:
+          name: WinDiskImager-win64
+          path: WinDiskImager-${{ github.ref_name }}-win64
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: WinDiskImager-arm64
+          path: WinDiskImager-${{ github.ref_name }}-arm64
+
+      - name: Build the release zips
         run: |
-          name="WinDiskImager-${GITHUB_REF_NAME}-win64"
-          mv dist "$name"
-          zip -qr "$name.zip" "$name"
-          sha256sum "$name.zip" > "$name.zip.sha256"
-          cat "$name.zip.sha256"
+          for arch in win64 arm64; do
+            name="WinDiskImager-${GITHUB_REF_NAME}-$arch"
+            zip -qr "$name.zip" "$name"
+            sha256sum "$name.zip" > "$name.zip.sha256"
+            cat "$name.zip.sha256"
+          done
 
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          name="WinDiskImager-${GITHUB_REF_NAME}-win64"
+          base="WinDiskImager-${GITHUB_REF_NAME}"
           cat > notes.md <<'EOF'
-          Standalone win64 build.
-          Unzip and run `WinDiskImager.exe` as Administrator.
+          Standalone builds for Windows:
+
+          - `win64`: x64 PCs.
+          - `arm64`: Windows on ARM (Snapdragon and other ARM64 devices).
+
+          Unzip the one for your machine and run `WinDiskImager.exe` as Administrator.
 
           Verify the download against the published `.sha256` before running it.
 
@@ -70,7 +134,8 @@ jobs:
           # --repo makes gh resolve the target over the API rather than by
           # inspecting the local git remote.
           gh release create "${GITHUB_REF_NAME}" \
-            "$name.zip" "$name.zip.sha256" \
+            "$base-win64.zip" "$base-win64.zip.sha256" \
+            "$base-arm64.zip" "$base-arm64.zip.sha256" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "${GITHUB_REF_NAME}" \
             --notes-file notes.md \

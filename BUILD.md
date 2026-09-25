@@ -65,8 +65,8 @@ Everything that cross-builds reads **`tools/build-env.sh`** for the packages,
 toolchain paths, cmake flags and podman plumbing — including
 `tools/Containerfile.build` when it builds the image, and
 [.github/workflows/build.yml](.github/workflows/build.yml), which runs
-`tools/build-container.sh` and `tools/deploy-container.sh` the same as anyone
-with podman.
+`tools/build-container.sh` and `tools/deploy-container.sh` (and their
+`-arm64` counterparts) the same as anyone with podman.
 
 ## Windows, natively
 
@@ -237,6 +237,22 @@ in the ARM64 image, whose environment points them at the ARM64 toolchain,
 sysroot, `llvm-objdump` and `llvm-strip` (`tools/woa64-env.sh env` prints it).
 Output goes to `build-arm64/` and `dist-arm64/`, apart from the x64 build's.
 The same `clean` and `test` arguments apply.
+
+CI runs both as the `windows-arm64` job, beside the x64 one. It builds the
+image fresh each run, so the job takes most of an hour, and it frees disk
+space on the runner first, since Qt's build tree and the image's layers need
+more than an `ubuntu-latest` runner leaves free. A tag's release waits for
+both jobs and carries both zips, `-win64` and `-arm64`.
+
+The one GitHub API call in the image build -- the lookup of llvm-mingw's
+newest release -- is limited to 60 an hour without a token. With
+`GITHUB_TOKEN` set, `container_run` passes it into the build as a podman
+secret, mounted for that step only and never stored in the image; CI sets it
+to the run's own token. Locally, if the limit is ever hit:
+
+```
+GITHUB_TOKEN=$(gh auth token) tools/build-container-arm64.sh
+```
 
 Nothing in the toolkit is pinned. The libraries and Qt are built from the
 upstream tarballs in Fedora's own source RPMs, fetched and signature-checked

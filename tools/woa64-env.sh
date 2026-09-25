@@ -89,12 +89,20 @@ declare -A WOA64_SRC_VERSION=() WOA64_SRC_URL=()
 # newest release's tag (or WOA64_LLVM_MINGW_PIN's), its Linux x86_64 UCRT
 # build, and the SHA-256 GitHub computed for that file on upload. A release
 # without one is refused, since the download could not then be checked.
+#
+# A GitHub token, when there is one, lifts the API's limit of 60 anonymous
+# requests an hour: the build secret container_run passes into the image
+# build, or GITHUB_TOKEN (the stale check). It reaches curl on stdin, not its
+# command line, where any process could read it.
 woa64_llvm_mingw_release()
 {
     local api="https://api.github.com/repos/$WOA64_LLVM_MINGW_REPO/releases/latest" json line
     [ -z "$WOA64_LLVM_MINGW_PIN" ] ||
         api="https://api.github.com/repos/$WOA64_LLVM_MINGW_REPO/releases/tags/$WOA64_LLVM_MINGW_PIN"
-    json=$(curl -fsSL "$api") || {
+    local tok=${GITHUB_TOKEN:-}
+    [ ! -r /run/secrets/github_token ] || tok=$(cat /run/secrets/github_token)
+    json=$( { [ -z "$tok" ] || printf 'header = "Authorization: Bearer %s"\n' "$tok"; } |
+            curl -fsSL -K - "$api") || {
         echo "error: could not read llvm-mingw's release ${WOA64_LLVM_MINGW_PIN:-latest} from $api" >&2
         return 1
     }

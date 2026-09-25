@@ -416,7 +416,7 @@ container_stale()
         echo "$image is Fedora ${was:-?}; $base is now Fedora $now." >&2
         return 0
     fi
-    podman run --rm "$image" bash "$script" stale >&2 || rc=$?
+    podman run --rm ${GITHUB_TOKEN:+-e GITHUB_TOKEN} "$image" bash "$script" stale >&2 || rc=$?
     case $rc in
         0) return 1 ;;
         1) return 0 ;;
@@ -455,13 +455,19 @@ container_run()
     local base=${CONTAINER_BASE:-$CROSS_BASE_IMAGE}
     local file=${CONTAINER_FILE:-tools/Containerfile.build}
     local stale=${CONTAINER_STALE:-/usr/local/lib/build-env.sh}
+    # GITHUB_TOKEN, if set, goes into the build as a secret: mounted for the
+    # RUN steps that ask for it (Containerfile.arm64's, for GitHub's API),
+    # never stored in the image or its history, as --build-arg or ENV would be.
+    local -a secret=()
+    [ -z "${GITHUB_TOKEN:-}" ] || secret=(--secret id=github_token,env=GITHUB_TOKEN)
     if ! podman image exists "$image"; then
         echo "building $image..." >&2
-        podman build --pull=newer -t "$image" --build-arg BASE="$base" -f "$repo/$file" "$repo"
+        podman build --pull=newer ${secret[@]+"${secret[@]}"} -t "$image" \
+            --build-arg BASE="$base" -f "$repo/$file" "$repo"
     elif [ "${CONTAINER_REFRESH:-0}" = 1 ] && container_stale "$image" "$base" "$stale"; then
         echo "rebuilding $image with the updates..." >&2
-        podman build --pull=newer --no-cache -t "$image" --build-arg BASE="$base" \
-            -f "$repo/$file" "$repo"
+        podman build --pull=newer --no-cache ${secret[@]+"${secret[@]}"} -t "$image" \
+            --build-arg BASE="$base" -f "$repo/$file" "$repo"
     fi
     # label=disable: on an SELinux host (Fedora, RHEL) the bind-mounted repo
     # is otherwise unreadable in the container. The ${a[@]+...} form: bash

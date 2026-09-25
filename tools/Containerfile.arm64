@@ -18,7 +18,10 @@ ARG BASE=quay.io/fedora/fedora-minimal:latest
 FROM ${BASE}
 
 COPY tools/build-env.sh tools/woa64-env.sh /usr/local/lib/
-RUN bash /usr/local/lib/woa64-env.sh install && dnf clean all
+# The secret is the optional GitHub token container_run passes (see
+# woa64_llvm_mingw_release); it is mounted for this step only, not stored.
+RUN --mount=type=secret,id=github_token \
+    bash /usr/local/lib/woa64-env.sh install && dnf clean all
 
 ENV PATH=/opt/llvm-mingw/bin:$PATH \
     CROSS_TOOLCHAIN=/opt/woa64/sysroot/lib/cmake/Qt6/qt.toolchain.cmake \
