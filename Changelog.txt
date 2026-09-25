@@ -1,3 +1,27 @@
+Release 2.0.2
+=============
+Compress during Read to .img.xz or .img.zst uses every CPU core. xz was the
+  slowest part of a compressed Read, often slower than the card; it is now
+  several times faster. The files are the same kind the xz and zstd tools
+  write with -T0
+Writing or verifying an .img.xz made in several blocks, as distributions
+  build theirs, decompresses on every core
+The image is read and decompressed on a separate thread while the device is
+  written or verified, and a compressed Read compresses on its own thread
+  while the next part of the device is read, so neither waits for the other
+Transfers move 4 MB at a time instead of 512 KB, matching the erase block of
+  most SD cards and cutting per-request overhead on USB 3 readers
+Every disk is found however many the machine has: disks numbered 128 and
+  above were never listed
+Volumes spread over more than one disk extent -- spanned, striped or
+  mirrored -- show their drive letters in the device list, the overwrite
+  confirmation and "Choose partitions to read", and are locked before a
+  Write however many extents they have
+The check that refuses an image stored on the target device also works for
+  images under mount folders whose paths run past 260 characters
+A compressed Read that fails while compressing now says why; it used to end
+  with no explanation
+
 Release 2.0.1
 =============
 "Skip unpartitioned space" can again remove space before the first partition,
