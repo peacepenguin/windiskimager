@@ -15,4 +15,5 @@ set -euo pipefail
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 . "$REPO/tools/build-env.sh"
 
-container_run "$REPO" env BUILD_DIR=/src/build /src/tools/build-cross.sh "$@"
+# Checked for updates first (container_stale); the deploy wrapper never is.
+CONTAINER_REFRESH=1 container_run "$REPO" env BUILD_DIR=/src/build /src/tools/build-cross.sh "$@"

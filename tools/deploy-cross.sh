@@ -89,7 +89,7 @@ command -v "$objdump" >/dev/null 2>&1 || {
 }
 
 # liblzma comes from cross_build_xz's prefix rather than Fedora's sysroot; see
-# CROSS_XZ_VERSION in tools/build-env.sh.
+# CROSS_XZ_PREFIX in tools/build-env.sh.
 deploy_resolve_closure "$objdump" "$CROSS_XZ_PREFIX/bin:$bin" "$dist"
 if [ ! -f "$dist/liblzma.dll" ]; then
     echo "error: liblzma.dll was not found in $CROSS_XZ_PREFIX/bin, so the package" >&2

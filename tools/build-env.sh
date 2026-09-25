@@ -17,6 +17,7 @@
 #
 #   tools/build-env.sh install            # dnf install the toolchain
 #   tools/build-env.sh check              # assert the layout is as expected
+#   tools/build-env.sh stale              # in the image: have updates come out?
 #   tools/build-env.sh configure SRC BUILD [extra cmake args...]
 #   tools/build-env.sh packages           # print the package list
 #   tools/build-env.sh packages-msys2     # print the MSYS2 list, for a native build
@@ -28,9 +29,9 @@
 
 # Fedora is not a preference: Debian and Ubuntu ship no MinGW Qt6 packages, so
 # there is nothing to link against there. The container and CI both build from
-# this. A local image is cached under a tag derived from this string, so it
-# keeps the Fedora it was built from until it is removed and rebuilt; CI builds
-# its image fresh each run.
+# this. CI builds its image fresh each run; a local one is checked for updates
+# before each build (container_stale), so it follows this -- a new Fedora
+# release included -- the same way.
 CROSS_BASE_IMAGE="fedora:latest"
 
 # qt6-linguist is the *native* Linguist: lrelease-qt6 compiles lang/*.ts for the
@@ -38,24 +39,27 @@ CROSS_BASE_IMAGE="fedora:latest"
 # Windows .exe files and cannot run here. gcc-c++ and the native qt6 -devel
 # packages are only for tools/mkicon, which renders the icon during the build
 # and so must run on the build host.
-CROSS_PACKAGES="cmake ninja-build file findutils binutils curl tar xz
+# cpio unpacks source RPMs (srpm_fetch).
+CROSS_PACKAGES="cmake ninja-build file findutils binutils curl tar xz cpio
                 mingw64-gcc-c++ mingw64-qt6-qtbase mingw64-qt6-qttools
                 mingw64-qt6-qttranslations mingw64-qt6-qtsvg
                 mingw64-zlib mingw64-bzip2 mingw64-zstd
                 qt6-linguist
                 gcc-c++ qt6-qtbase-devel qt6-qtsvg-devel"
 
-# liblzma for the cross build is built from xz's own release instead of taken
-# from Fedora: mingw64-xz has stayed at 5.2.4 (2018), and the multi-threaded
-# decoder imagesource.cpp uses needs 5.4. It goes in a prefix of its own, so
-# no file an rpm owns is overwritten, and it names its DLL liblzma.dll where
-# Fedora's is liblzma-5.dll, so the two cannot be mistaken for each other.
-# cross_build_xz builds it; cross_configure and the deploy functions find it
-# there. The checksum is the release tarball's, as GitHub publishes it.
-CROSS_XZ_VERSION=5.8.4
-CROSS_XZ_SHA256=4ce24038fd4221e0d13bc1a2de7a4db56e90b92b3bf75321f6c14be73f65de4b
-CROSS_XZ_URL="https://github.com/tukaani-project/xz/releases/download/v$CROSS_XZ_VERSION/xz-$CROSS_XZ_VERSION.tar.xz"
+# liblzma for the cross build is not Fedora's mingw64-xz, which has stayed at
+# 5.2.4 (2018) where the multi-threaded decoder imagesource.cpp uses needs
+# 5.4 (CROSS_XZ_MIN). cross_build_xz builds it instead from the source of
+# Fedora's own xz package, which follows upstream. It goes in a prefix of its
+# own, so no file an rpm owns is overwritten, and it names its DLL liblzma.dll
+# where Fedora's is liblzma-5.dll, so the two cannot be mistaken for each
+# other. cross_configure and the deploy functions find it there.
+CROSS_XZ_MIN=5.4.0
 CROSS_XZ_PREFIX="${CROSS_XZ_PREFIX:-/opt/mingw64-xz}"
+
+# Every source RPM an image's toolkit was built from (srpm_fetch), for
+# srpm_stale to compare with the repositories.
+SRPM_LOCK="${SRPM_LOCK:-/usr/local/share/windiskimager/sources.lock}"
 
 # The MSYS2 UCRT64 packages for a native Windows build. Nothing here installs
 # them -- that is done by hand, once -- but the list belongs with the others.
@@ -88,15 +92,15 @@ CROSS_NATIVE_QTSVG="${CROSS_NATIVE_QTSVG:-/usr/lib64/cmake/Qt6Svg/Qt6SvgConfig.c
 CROSS_DNF_FLAGS="--setopt=tsflags="
 
 # The image tools/Containerfile.build produces. Override with IMAGE=...
-# The tag is a checksum of the base image, package list, install flags and
-# the xz release built from source:
-# container_run only builds an image that does not exist yet, so a changed
-# toolchain needs a new name.
-# CROSS_IMAGE_REVISION counts changes to what install does beyond those values
-# (2: cross_build_xz records its licence manifest), so an image built by an
-# older install gets a new name too.
-CROSS_IMAGE_REVISION=2
-CROSS_IMAGE="${IMAGE:-w32di-build:$(printf '%s' "$CROSS_BASE_IMAGE$CROSS_PACKAGES$CROSS_DNF_FLAGS$CROSS_XZ_VERSION$CROSS_XZ_SHA256$CROSS_IMAGE_REVISION" | cksum | cut -d' ' -f1)}"
+# The tag is a checksum of what the image is asked to be -- base image,
+# package list and install flags -- so changing any of them builds a new one.
+# What the repositories deliver for those is not in the tag: container_stale
+# rebuilds the image in place when that changes.
+# CROSS_IMAGE_REVISION counts changes to the install steps below (3: xz from
+# Fedora's source RPM), which both images run, so an image an older install
+# built gets a new name too.
+CROSS_IMAGE_REVISION=3
+CROSS_IMAGE="${IMAGE:-w32di-build:$(printf '%s' "$CROSS_BASE_IMAGE$CROSS_PACKAGES$CROSS_DNF_FLAGS$CROSS_IMAGE_REVISION" | cksum | cut -d' ' -f1)}"
 
 # Extra "podman run" arguments a caller wants, as an array.
 CONTAINER_ENV=()
@@ -113,39 +117,142 @@ cross_install()
 {
     # shellcheck disable=SC2046
     dnf -y install $CROSS_DNF_FLAGS $(cross_packages)
+    srpm_keys
     cross_build_xz
     cross_check
 }
 
+# cross_stale
+#
+# Whether the repositories have moved on since this image was built: an
+# update to any installed package (the mingw64 libraries the package ships
+# among them), or a newer source RPM for anything srpm_fetch built from.
+# Prints what changed. 0: current, 1: stale, 2: could not tell.
+cross_stale()
+{
+    local out rc=0
+    out=$(dnf -q check-upgrade 2>&1) || rc=$?
+    case $rc in
+        0)   ;;
+        100) printf 'updates:\n%s\n' "$out" ;;
+        *)   printf '%s\n' "$out" >&2; return 2 ;;
+    esac
+    local src=0
+    srpm_stale || src=$?
+    [ "$src" -le 1 ] || return 2
+    [ "$rc" = 0 ] && [ "$src" = 0 ]
+}
+
+# srpm_keys
+#
+# Fedora's key for this release, into rpm's keyring, so srpm_fetch can check
+# the signature on each source RPM. dnf checks its binary packages itself.
+srpm_keys()
+{
+    rpm --import "/etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$(rpm -E %fedora)-primary"
+}
+
+# srpm_fetch PACKAGE TARBALL_GLOB [VERSION-RELEASE]
+#
+# Downloads the source RPM the binary package PACKAGE is built from -- the
+# newest in the enabled repositories, updates included, or VERSION-RELEASE's --
+# checks Fedora's signature on it, and unpacks the one tarball in it matching
+# TARBALL_GLOB into the current directory. That tarball is the project's own
+# release, as Fedora ships it; Fedora's patches and spec file are not used.
+# Sets
+#   SRPM_VERSION  the project's version
+#   SRPM_URL      the source RPM on Fedora's build system, where it is kept
+#   SRPM_SRCDIR   the unpacked source tree
+# and records the source RPM in SRPM_LOCK.
+srpm_fetch()
+{
+    local pkg=${1:?usage: srpm_fetch PACKAGE TARBALL_GLOB [VERSION-RELEASE]} glob=${2:?}
+    local spec=$pkg${3:+-$3}
+    local dir rpmf sig tarball top n v r
+    dir=$(mktemp -d "$PWD/srpm.XXXXXX")
+    dnf -q download --srpm --destdir="$dir" "$spec" || return 1
+    rpmf=$(find "$dir" -maxdepth 1 -name '*.src.rpm')
+    if [ -z "$rpmf" ] || [ "$(printf '%s\n' "$rpmf" | wc -l)" -ne 1 ]; then
+        echo "error: expected one source rpm for $spec, got: ${rpmf:-none}" >&2
+        return 1
+    fi
+    sig=$(rpm -K "$rpmf" 2>&1) || true
+    case "$sig" in
+        *": digests signatures OK") ;;
+        *) echo "error: bad or missing signature on ${rpmf##*/}: $sig" >&2; return 1 ;;
+    esac
+    (cd "$dir" && rpm2cpio "$rpmf" | cpio -idm --quiet --no-absolute-filenames) || return 1
+    tarball=$(find "$dir" -maxdepth 1 -name "$glob" ! -name '*.sig' ! -name '*.asc')
+    if [ -z "$tarball" ] || [ "$(printf '%s\n' "$tarball" | wc -l)" -ne 1 ]; then
+        echo "error: expected one '$glob' in ${rpmf##*/}, got: ${tarball:-none}" >&2
+        return 1
+    fi
+    # sed reads to the end, so tar is never cut off mid-listing under pipefail.
+    top=$(tar -tf "$tarball" | sed -n '1{s|^\./||;s|/.*||;p;}') || return 1
+    tar -xf "$tarball" || return 1
+    IFS=$'\t' read -r n v r < <(rpm -qp --qf '%{NAME}\t%{VERSION}\t%{RELEASE}\n' "$rpmf")
+    SRPM_VERSION=$v
+    SRPM_URL="https://kojipkgs.fedoraproject.org/packages/$n/$v/$r/src/$n-$v-$r.src.rpm"
+    SRPM_SRCDIR="$PWD/$top"
+
+    mkdir -p "${SRPM_LOCK%/*}"
+    touch "$SRPM_LOCK"
+    awk -F '\t' -v p="$pkg" '$1 != p' "$SRPM_LOCK" > "$SRPM_LOCK.new"
+    printf '%s\t%s\n' "$pkg" "${rpmf##*/}" >> "$SRPM_LOCK.new"
+    mv "$SRPM_LOCK.new" "$SRPM_LOCK"
+    rm -rf "$dir"
+}
+
+# srpm_stale
+#
+# Whether the repositories now carry a different source RPM for any package
+# in SRPM_LOCK; prints each. 0: none, 1: some, 2: could not tell.
+srpm_stale()
+{
+    local pkg have now stale=0
+    [ -f "$SRPM_LOCK" ] || { echo "no $SRPM_LOCK: built before it was kept" ; return 1; }
+    while IFS=$'\t' read -r pkg have; do
+        [ -n "$pkg" ] || continue
+        now=$(dnf -q repoquery --available --latest-limit=1 --qf '%{sourcerpm}\n' "$pkg" \
+              | sed -n '1p') || return 2
+        if [ "$now" != "$have" ]; then
+            echo "$pkg: $have -> ${now:-gone}"
+            stale=1
+        fi
+    done < "$SRPM_LOCK"
+    return $stale
+}
+
 # cross_build_xz
 #
-# Builds liblzma CROSS_XZ_VERSION for win64 into CROSS_XZ_PREFIX, from the
-# release tarball, checked against CROSS_XZ_SHA256 before anything in it runs.
-# Only the library: none of the xz tools, translations, documentation or tests.
+# Builds liblzma for win64 into CROSS_XZ_PREFIX, from the source of Fedora's
+# xz package (srpm_fetch): the version Fedora ships, with its updates. Only
+# the library: none of the xz tools, translations, documentation or tests.
 # Its licence comes from the same source tree -- COPYING says which licence
 # covers what, COPYING.0BSD is liblzma's -- and is kept where an rpm would put
 # it, in share/licenses/xz/, for deploy_write_licenses to ship.
 cross_build_xz()
 {
-    local work src
+    local work
     work=$(mktemp -d)
-    src="$work/xz-$CROSS_XZ_VERSION"
-    curl -fsSL -o "$work/xz.tar.xz" "$CROSS_XZ_URL"
-    echo "$CROSS_XZ_SHA256  $work/xz.tar.xz" | sha256sum -c --quiet -
-    tar -xf "$work/xz.tar.xz" -C "$work"
-    cmake -S "$src" -B "$work/build" -G Ninja \
-        -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$CROSS_XZ_PREFIX" \
-        -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF \
-        -DXZ_NLS=OFF -DXZ_DOC=OFF \
-        -DXZ_TOOL_XZ=OFF -DXZ_TOOL_XZDEC=OFF -DXZ_TOOL_LZMADEC=OFF -DXZ_TOOL_LZMAINFO=OFF
-    cmake --build "$work/build"
-    cmake --install "$work/build"
-    mkdir -p "$CROSS_XZ_PREFIX/share/licenses/xz"
-    cp "$src/COPYING" "$src/COPYING.0BSD" "$CROSS_XZ_PREFIX/share/licenses/xz/"
-    # liblzma is 0BSD; COPYING, shipped with it, says so.
-    manifest_add "$CROSS_XZ_PREFIX" liblzma.dll xz "$CROSS_XZ_VERSION" 0BSD "$CROSS_XZ_URL"
+    (
+        set -e
+        cd "$work"
+        srpm_fetch xz 'xz-*.tar.*'
+        cmake -S "$SRPM_SRCDIR" -B build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$CROSS_XZ_PREFIX" \
+            -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF \
+            -DXZ_NLS=OFF -DXZ_DOC=OFF \
+            -DXZ_TOOL_XZ=OFF -DXZ_TOOL_XZDEC=OFF -DXZ_TOOL_LZMADEC=OFF -DXZ_TOOL_LZMAINFO=OFF
+        cmake --build build
+        cmake --install build
+        mkdir -p "$CROSS_XZ_PREFIX/share/licenses/xz"
+        cp "$SRPM_SRCDIR/COPYING" "$SRPM_SRCDIR/COPYING.0BSD" "$CROSS_XZ_PREFIX/share/licenses/xz/"
+        # liblzma is 0BSD; COPYING, shipped with it, says so.
+        manifest_add "$CROSS_XZ_PREFIX" liblzma.dll xz "$SRPM_VERSION" 0BSD "$SRPM_URL"
+    )
     rm -rf "$work"
 }
 
@@ -188,14 +295,15 @@ cross_check()
         echo "missing $CROSS_NATIVE_QT (qt6-qtbase-devel), which tools/mkicon needs" >&2; bad=1; }
     [ -f "$CROSS_NATIVE_QTSVG" ] || {
         echo "missing $CROSS_NATIVE_QTSVG (qt6-qtsvg-devel), which tools/mkicon needs" >&2; bad=1; }
-    # The header's version, so a prefix left over from an older
-    # CROSS_XZ_VERSION is not taken for this one.
+    # The header's version, so a prefix too old for the multi-threaded
+    # decoder is not taken for a usable one.
     local xzh="$CROSS_XZ_PREFIX/include/lzma/version.h" xzv
     xzv=$(sed -n 's/^#define LZMA_VERSION_\(MAJOR\|MINOR\|PATCH\) \([0-9]*\)$/\2/p' "$xzh" 2>/dev/null \
           | paste -sd.)
-    [ "$xzv" = "$CROSS_XZ_VERSION" ] && [ -f "$CROSS_XZ_PREFIX/lib/liblzma.dll.a" ] \
+    [ -n "$xzv" ] && [ "$(printf '%s\n' "$CROSS_XZ_MIN" "$xzv" | sort -V | sed -n 1p)" = "$CROSS_XZ_MIN" ] \
+        && [ -f "$CROSS_XZ_PREFIX/lib/liblzma.dll.a" ] \
         && [ -f "$CROSS_XZ_PREFIX/share/licenses/xz/COPYING" ] || {
-        echo "missing liblzma $CROSS_XZ_VERSION in $CROSS_XZ_PREFIX (found '${xzv:-none}');" \
+        echo "missing liblzma $CROSS_XZ_MIN or later in $CROSS_XZ_PREFIX (found '${xzv:-none}');" \
              "tools/build-env.sh install builds it" >&2; bad=1; }
     return $bad
 }
@@ -282,14 +390,51 @@ drop_foreign_cache()
     rm -rf "$build"
 }
 
+# container_stale IMAGE BASE SCRIPT
+#
+# Whether IMAGE, built from BASE, should be rebuilt to pick up updates: BASE
+# is now a newer Fedora release (fedora:latest after a release), or SCRIPT's
+# "stale" command, run in the image, finds the repositories have moved on
+# (cross_stale, woa64_stale). Only asked by the build wrappers, never by the
+# deploy ones, so a package is made from the image its build used.
+# W32DI_REFRESH=0 skips it, for working offline or in a hurry. If the check
+# itself cannot run, it says so and the image is used as it is.
+container_stale()
+{
+    local image=$1 base=$2 script=$3 was now rc=0
+    [ "${W32DI_REFRESH:-1}" != 0 ] || return 1
+    echo "checking $image for updates (W32DI_REFRESH=0 skips this)..." >&2
+    if ! podman pull -q "$base" >/dev/null; then
+        echo "warning: could not pull $base; building with $image as it is." >&2
+        return 1
+    fi
+    was=$(podman run --rm "$image" rpm -E %fedora) || was=""
+    now=$(podman run --rm "$base" rpm -E %fedora) || now=""
+    if [ -n "$now" ] && [ "$was" != "$now" ]; then
+        echo "$image is Fedora ${was:-?}; $base is now Fedora $now." >&2
+        return 0
+    fi
+    podman run --rm "$image" bash "$script" stale >&2 || rc=$?
+    case $rc in
+        0) return 1 ;;
+        1) return 0 ;;
+        *) echo "warning: could not check $image for updates; building with it as it is." >&2
+           return 1 ;;
+    esac
+}
+
 # container_run REPO COMMAND...
 #
 # Runs COMMAND in the Fedora image with REPO mounted at /src, building the image
-# first if it is not there yet.
+# first if it is not there yet. With CONTAINER_REFRESH=1 (the build wrappers)
+# an existing image is first checked with container_stale, and rebuilt from
+# scratch under the same tag if it is behind; the old one is left untagged,
+# for "podman image prune" to reclaim.
 #
-# The x64 image by default. CONTAINER_IMAGE, CONTAINER_BASE and CONTAINER_FILE
-# (the Containerfile, relative to REPO) select another: the ARM64 wrappers set
-# them from tools/woa64-env.sh.
+# The x64 image by default. CONTAINER_IMAGE, CONTAINER_BASE, CONTAINER_FILE
+# (the Containerfile, relative to REPO) and CONTAINER_STALE (the script in the
+# image with the "stale" command) select another: the ARM64 wrappers set them
+# from tools/woa64-env.sh.
 #
 # W32DI_IN_CONTAINER tells the script inside where it is, so one that falls back
 # to the container cannot recurse forever when the image is missing something.
@@ -307,9 +452,14 @@ container_run()
     local image=${CONTAINER_IMAGE:-$CROSS_IMAGE}
     local base=${CONTAINER_BASE:-$CROSS_BASE_IMAGE}
     local file=${CONTAINER_FILE:-tools/Containerfile.build}
+    local stale=${CONTAINER_STALE:-/usr/local/lib/build-env.sh}
     if ! podman image exists "$image"; then
-        echo "building $image (one time)..." >&2
-        podman build -t "$image" --build-arg BASE="$base" -f "$repo/$file" "$repo"
+        echo "building $image..." >&2
+        podman build --pull=newer -t "$image" --build-arg BASE="$base" -f "$repo/$file" "$repo"
+    elif [ "${CONTAINER_REFRESH:-0}" = 1 ] && container_stale "$image" "$base" "$stale"; then
+        echo "rebuilding $image with the updates..." >&2
+        podman build --pull=newer --no-cache -t "$image" --build-arg BASE="$base" \
+            -f "$repo/$file" "$repo"
     fi
     # label=disable: on an SELinux host (Fedora, RHEL) the bind-mounted repo
     # is otherwise unreadable in the container. The ${a[@]+...} form: bash
@@ -678,7 +828,7 @@ deploy_write_licenses()
                 cp "$lf" "$dest"
                 n=$((n + 1))
             done < <(case "$via:$kind" in
-                         # Copied from the source tree by cross_build_xz.
+                         # Copied from the source tree by whatever built it.
                          built:licence)  find "${built_of[$pkg]}/share/licenses/$pkg" -type f 2>/dev/null | sort || true ;;
                          built:readme)   ;;
                          pacman:licence|pacman:readme) printf '%s' "${list_of[$pkg]:-}" ;;
@@ -785,6 +935,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     case "$cmd" in
         install)         cross_install ;;
         check)           cross_check ;;
+        stale)           cross_stale ;;
         configure)       cross_configure "$@" ;;
         packages)        cross_packages ;;
         packages-msys2)  echo $MSYS2_PACKAGES ;;

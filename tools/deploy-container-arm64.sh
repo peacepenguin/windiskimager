@@ -17,4 +17,5 @@ REPO=$(cd "$(dirname "$0")/.." && pwd)
 CONTAINER_IMAGE=$WOA64_IMAGE
 CONTAINER_BASE=$WOA64_BASE_IMAGE
 CONTAINER_FILE=tools/Containerfile.arm64
+CONTAINER_STALE=/usr/local/lib/woa64-env.sh
 container_run "$REPO" /src/tools/deploy-cross.sh /src/build-arm64 /src/dist-arm64

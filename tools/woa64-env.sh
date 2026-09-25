@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The Windows-on-ARM64 cross toolkit, in one place: what tools/Containerfile.arm64
-# builds, pinned to exact versions and checksums, and how the ARM64 build uses it.
+# builds, where its sources come from, and how the ARM64 build uses it.
 #
 # Fedora packages MinGW only for x86, so for ARM64 the toolkit the x64 build
 # gets from dnf is built here instead: llvm-mingw (clang for aarch64 Windows),
@@ -10,13 +10,24 @@
 # every library with its version, licence and source. arm64qtcross.md has the
 # same steps worked through by hand, with what each one showed.
 #
+# Nothing is pinned. The libraries and Qt are built from the upstream
+# tarballs in Fedora's own source RPMs (srpm_fetch in tools/build-env.sh), so
+# they are the versions the base image's Fedora ships, updates included: Qt
+# the same build as the host Qt it cross-compiles with, zlib, zstd and bzip2
+# what Fedora's mingw64 packages -- the x64 build's -- are built from, and xz
+# what the x64 build's liblzma is. llvm-mingw is its newest GitHub release,
+# unless WOA64_LLVM_MINGW_PIN names one. The image records what it was built
+# from, and `stale` compares that with what is available now, so the build
+# wrapper rebuilds it when any of it has been updated.
+#
 # The ARM64 build itself is the x64 one -- tools/build-cross.sh and
 # tools/deploy-cross.sh, unchanged -- run with the variables `env` prints.
 #
 #   tools/woa64-env.sh install       # build the toolkit (what the image runs)
 #   tools/woa64-env.sh check         # assert it is all there
+#   tools/woa64-env.sh stale         # in the image: have updates come out?
 #   tools/woa64-env.sh env           # the exports the ARM64 build needs
-#   tools/woa64-env.sh print NAME    # one value (IMAGE, BASE_IMAGE, SYSROOT, ...)
+#   tools/woa64-env.sh print NAME    # one value (IMAGE, BASE_IMAGE, SYSROOT, TOOLCHAIN)
 #
 # Copyright (C) 2026 peacepenguin, GPL-2.0-or-later.
 
@@ -24,43 +35,21 @@
 
 # --------------------------------------------------------------- versions ---
 
-# Fedora 44, not :latest: the host Qt below must be the same version as the
-# Qt source built for the target, and 44's release repository keeps
-# qt6-qtbase-devel 6.11.2 whatever its updates later bring.
-WOA64_BASE_IMAGE="fedora:44"
+# The same Fedora as the x64 image. Whatever its release, the host Qt and the
+# Qt source are one build (woa64_build_qt), so they cannot disagree.
+WOA64_BASE_IMAGE="fedora:latest"
 
-WOA64_LLVM_MINGW_VERSION=20260922      # LLVM 23.1.2, UCRT
-WOA64_LLVM_MINGW_SHA256=bb7bb7654b33d5aa8712acb837c963b2e0c56352560c76105270a3268c665c21
-WOA64_LLVM_MINGW_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/$WOA64_LLVM_MINGW_VERSION/llvm-mingw-$WOA64_LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64.tar.xz"
+# A release tag (e.g. 20260922) to hold llvm-mingw at, when the newest one
+# breaks something; empty for the newest.
+WOA64_LLVM_MINGW_PIN=""
+WOA64_LLVM_MINGW_REPO=mstorsjo/llvm-mingw
 
-# The libraries, at the versions MSYS2 builds the x64 package with. xz is
-# CROSS_XZ_VERSION, built by the same cross_build_xz the x64 image uses.
-WOA64_ZLIB_VERSION=1.3.2
-WOA64_ZLIB_SHA256=bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
-WOA64_ZLIB_URL="https://github.com/madler/zlib/releases/download/v$WOA64_ZLIB_VERSION/zlib-$WOA64_ZLIB_VERSION.tar.gz"
-WOA64_ZSTD_VERSION=1.5.7
-WOA64_ZSTD_SHA256=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3
-WOA64_ZSTD_URL="https://github.com/facebook/zstd/releases/download/v$WOA64_ZSTD_VERSION/zstd-$WOA64_ZSTD_VERSION.tar.gz"
-# sourceware publishes SHA-512 for bzip2.
-WOA64_BZIP2_VERSION=1.0.8
-WOA64_BZIP2_SHA512=083f5e675d73f3233c7930ebe20425a533feedeaaa9d8cc86831312a6581cefbe6ed0d08d2fa89be81082f2a5abdabca8b3c080bf97218a1bd59dc118a30b9f3
-WOA64_BZIP2_URL="https://sourceware.org/pub/bzip2/bzip2-$WOA64_BZIP2_VERSION.tar.gz"
-
-# Qt: the checksums are the SHA-256 on each file's .mirrorlist page on
-# download.qt.io, which agree with the MD5 sums in its md5sums.txt.
-WOA64_QT_VERSION=6.11.2
-WOA64_QT_URL="https://download.qt.io/official_releases/qt/${WOA64_QT_VERSION%.*}/$WOA64_QT_VERSION/submodules"
-WOA64_QTBASE_SHA256=5b2e00eccaf5a4d8c14134ffa0ea8dfd0a35ae1ffc7f8d87fa4305a1ed23cf22
-WOA64_QTSVG_SHA256=d594337feca84c26fb67fe87b85e6a5c12fda404b611d905f9d138210c311876
-WOA64_QTTRANSLATIONS_SHA256=021684c1a7937a9fabc3b056a6698ad5978794caf9ac190fd6cc11399e67c014
-
-# Host packages. The Qt ones are pinned to WOA64_QT_VERSION: they are the
-# host Qt the cross build takes moc, rcc and uic from (and tools/mkicon and
-# lrelease-qt6 for the app, as in the x64 build).
-WOA64_PACKAGES="cmake ninja-build file findutils curl tar xz make perl-interpreter python3
+# Host packages: the host Qt the cross build takes moc, rcc and uic from (and
+# tools/mkicon and lrelease-qt6 for the app, as in the x64 build); cpio for
+# srpm_fetch; python3 to read GitHub's release list.
+WOA64_PACKAGES="cmake ninja-build file findutils curl tar xz cpio make perl-interpreter python3
                 gcc-c++
-                qt6-qtbase-devel-$WOA64_QT_VERSION qt6-qtsvg-devel-$WOA64_QT_VERSION
-                qt6-linguist-$WOA64_QT_VERSION"
+                qt6-qtbase-devel qt6-qtsvg-devel qt6-linguist"
 
 # ------------------------------------------------------------------ paths ---
 
@@ -74,28 +63,59 @@ WOA64_TOOLCHAIN="$WOA64_ROOT/toolchain-aarch64-mingw.cmake"
 # and adds the target Qt and the host tools. The app is built with this.
 WOA64_QT_TOOLCHAIN="$WOA64_SYSROOT/lib/cmake/Qt6/qt.toolchain.cmake"
 
-# The image tools/Containerfile.arm64 produces, tagged by everything above
-# and WOA64_IMAGE_REVISION, bumped when install changes in ways they do not
-# show. Override with WOA64_IMAGE=...
-WOA64_IMAGE_REVISION=1
+# Where the image records which llvm-mingw it was built with, for woa64_stale.
+WOA64_LLVM_MINGW_STAMP="$WOA64_ROOT/llvm-mingw.version"
+
+# The image tools/Containerfile.arm64 produces, tagged by what it is asked to
+# be -- everything above, CROSS_IMAGE_REVISION for the install steps it shares
+# with the x64 image, and WOA64_IMAGE_REVISION, bumped when the steps below
+# change. Updates to what they fetch rebuild it in place (container_stale).
+# Override with WOA64_IMAGE=...
+WOA64_IMAGE_REVISION=2
 WOA64_IMAGE="${WOA64_IMAGE:-w32di-build-arm64:$(printf '%s' \
-    "$WOA64_BASE_IMAGE$WOA64_PACKAGES$WOA64_LLVM_MINGW_SHA256$WOA64_ZLIB_SHA256$WOA64_ZSTD_SHA256$WOA64_BZIP2_SHA512$CROSS_XZ_SHA256$WOA64_QTBASE_SHA256$WOA64_QTSVG_SHA256$WOA64_QTTRANSLATIONS_SHA256$WOA64_IMAGE_REVISION" \
+    "$WOA64_BASE_IMAGE$WOA64_PACKAGES$WOA64_LLVM_MINGW_PIN$CROSS_IMAGE_REVISION$WOA64_IMAGE_REVISION" \
     | cksum | cut -d' ' -f1)}"
+
+# What each library was built from, for woa64_record_sources: version and
+# source address by package name, filled in by woa64_got.
+declare -A WOA64_SRC_VERSION=() WOA64_SRC_URL=()
 
 # -------------------------------------------------------------- functions ---
 
-# woa64_fetch URL CHECKSUM -- downloads URL into the current directory and
-# checks it before anything in it is used: SHA-256, or SHA-512 by length.
-woa64_fetch()
+# woa64_llvm_mingw_release
+#
+# Sets WOA64_LLVM_MINGW_VERSION, _URL and _SHA256 from GitHub's API: the
+# newest release's tag (or WOA64_LLVM_MINGW_PIN's), its Linux x86_64 UCRT
+# build, and the SHA-256 GitHub computed for that file on upload. A release
+# without one is refused, since the download could not then be checked.
+woa64_llvm_mingw_release()
 {
-    local url=${1:?usage: woa64_fetch URL CHECKSUM} sum=${2:?}
-    local file=${url##*/}
-    curl -fsSL -o "$file" "$url"
-    if [ "${#sum}" -eq 128 ]; then
-        echo "$sum  $file" | sha512sum -c --quiet -
-    else
-        echo "$sum  $file" | sha256sum -c --quiet -
-    fi
+    local api="https://api.github.com/repos/$WOA64_LLVM_MINGW_REPO/releases/latest" json line
+    [ -z "$WOA64_LLVM_MINGW_PIN" ] ||
+        api="https://api.github.com/repos/$WOA64_LLVM_MINGW_REPO/releases/tags/$WOA64_LLVM_MINGW_PIN"
+    json=$(curl -fsSL "$api") || {
+        echo "error: could not read llvm-mingw's release ${WOA64_LLVM_MINGW_PIN:-latest} from $api" >&2
+        return 1
+    }
+    line=$(printf '%s' "$json" | python3 -c '
+import fnmatch, json, sys
+r = json.load(sys.stdin)
+a = sorted((x for x in r["assets"]
+            if fnmatch.fnmatch(x["name"], "llvm-mingw-*-ucrt-ubuntu-*-x86_64.tar.xz")),
+           key=lambda x: x["name"])
+if not a or not (a[0].get("digest") or "").startswith("sha256:"):
+    sys.exit("error: llvm-mingw %s has no checksummed ucrt-ubuntu x86_64 build"
+             % r.get("tag_name", "?"))
+print(r["tag_name"], a[0]["browser_download_url"], a[0]["digest"][7:])
+') || return 1
+    read -r WOA64_LLVM_MINGW_VERSION WOA64_LLVM_MINGW_URL WOA64_LLVM_MINGW_SHA256 <<< "$line"
+}
+
+# woa64_got PACKAGE -- notes the source srpm_fetch just fetched as PACKAGE's.
+woa64_got()
+{
+    WOA64_SRC_VERSION[$1]=$SRPM_VERSION
+    WOA64_SRC_URL[$1]=$SRPM_URL
 }
 
 # woa64_licences PACKAGE FILE... -- keeps a library's licence files where
@@ -110,10 +130,13 @@ woa64_licences()
 
 woa64_install_toolchain()
 {
-    woa64_fetch "$WOA64_LLVM_MINGW_URL" "$WOA64_LLVM_MINGW_SHA256"
-    tar -xf "${WOA64_LLVM_MINGW_URL##*/}"
+    woa64_llvm_mingw_release
+    local file=${WOA64_LLVM_MINGW_URL##*/}
+    curl -fsSL -o "$file" "$WOA64_LLVM_MINGW_URL"
+    echo "$WOA64_LLVM_MINGW_SHA256  $file" | sha256sum -c --quiet -
+    tar -xf "$file"
     rm -rf "$WOA64_LLVM_MINGW"
-    mv "llvm-mingw-$WOA64_LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64" "$WOA64_LLVM_MINGW"
+    mv "${file%.tar.xz}" "$WOA64_LLVM_MINGW"
 
     # The ARM64 counterpart of Fedora's toolchain-mingw64.cmake.
     cat > "$WOA64_TOOLCHAIN" <<EOF
@@ -151,35 +174,38 @@ woa64_build_libraries()
     local X=(-G Ninja -DCMAKE_TOOLCHAIN_FILE="$WOA64_TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release
              -DCMAKE_INSTALL_PREFIX="$WOA64_SYSROOT")
 
-    woa64_fetch "$WOA64_ZLIB_URL" "$WOA64_ZLIB_SHA256"
-    tar -xf "zlib-$WOA64_ZLIB_VERSION.tar.gz"
-    cmake -S "zlib-$WOA64_ZLIB_VERSION" -B b-zlib "${X[@]}"
+    # zlib, zstd and bzip2 from the source RPMs of the x64 build's mingw64
+    # packages. Not Fedora's native zlib: that is zlib-ng.
+    srpm_fetch mingw64-zlib 'zlib-*.tar.*'
+    woa64_got zlib
+    cmake -S "$SRPM_SRCDIR" -B b-zlib "${X[@]}"
     cmake --build b-zlib
     cmake --install b-zlib
-    woa64_licences zlib "zlib-$WOA64_ZLIB_VERSION/LICENSE"
+    woa64_licences zlib "$SRPM_SRCDIR/LICENSE"
 
     # The x64 image's own build of it, into this sysroot; it records itself
     # in the manifest.
     CROSS_TOOLCHAIN="$WOA64_TOOLCHAIN" CROSS_XZ_PREFIX="$WOA64_SYSROOT" cross_build_xz
 
-    woa64_fetch "$WOA64_ZSTD_URL" "$WOA64_ZSTD_SHA256"
-    tar -xf "zstd-$WOA64_ZSTD_VERSION.tar.gz"
-    cmake -S "zstd-$WOA64_ZSTD_VERSION/build/cmake" -B b-zstd "${X[@]}" \
+    srpm_fetch mingw64-zstd 'zstd-*.tar.*'
+    woa64_got zstd
+    cmake -S "$SRPM_SRCDIR/build/cmake" -B b-zstd "${X[@]}" \
         -DZSTD_BUILD_PROGRAMS=OFF -DZSTD_BUILD_TESTS=OFF \
         -DZSTD_BUILD_STATIC=OFF -DZSTD_BUILD_SHARED=ON -DZSTD_MULTITHREAD_SUPPORT=ON
     cmake --build b-zstd
     cmake --install b-zstd
-    woa64_licences zstd "zstd-$WOA64_ZSTD_VERSION/LICENSE" "zstd-$WOA64_ZSTD_VERSION/COPYING"
+    woa64_licences zstd "$SRPM_SRCDIR/LICENSE" "$SRPM_SRCDIR/COPYING"
 
     # 1.0.8 has only a Unix Makefile, so its seven sources are built
     # directly. bzlib.h's _WIN32 branch declares every function as a pointer
     # for loading the DLL by hand; MinGW builds (Fedora's, MSYS2's) take the
     # ordinary branch, and so does this one. LLD exports every function, as
     # GNU ld does for MinGW, since none is marked for export.
-    woa64_fetch "$WOA64_BZIP2_URL" "$WOA64_BZIP2_SHA512"
-    tar -xf "bzip2-$WOA64_BZIP2_VERSION.tar.gz"
+    srpm_fetch mingw64-bzip2 'bzip2-*.tar.*'
+    woa64_got bzip2
+    local bz=$SRPM_SRCDIR
     (
-        cd "bzip2-$WOA64_BZIP2_VERSION"
+        cd "$bz"
         grep -q '^#ifdef _WIN32$' bzlib.h
         sed -i 's/^#ifdef _WIN32$/#if defined(_WIN32) \&\& !defined(__MINGW32__)/' bzlib.h
         local f
@@ -194,21 +220,35 @@ woa64_build_libraries()
         cp libbz2.dll.a "$WOA64_SYSROOT/lib/"
         cp bzlib.h "$WOA64_SYSROOT/include/"
     )
-    woa64_licences bzip2 "bzip2-$WOA64_BZIP2_VERSION/LICENSE"
+    woa64_licences bzip2 "$bz/LICENSE"
 }
 
 woa64_build_qt()
 {
-    local v=$WOA64_QT_VERSION
-    woa64_fetch "$WOA64_QT_URL/qtbase-everywhere-src-$v.tar.xz" "$WOA64_QTBASE_SHA256"
-    woa64_fetch "$WOA64_QT_URL/qtsvg-everywhere-src-$v.tar.xz" "$WOA64_QTSVG_SHA256"
-    woa64_fetch "$WOA64_QT_URL/qttranslations-everywhere-src-$v.tar.xz" "$WOA64_QTTRANSLATIONS_SHA256"
+    # The source of the very builds the host Qt was installed from, so the
+    # two are the same version by construction. qttranslations has no host
+    # package here, so its newest is taken and checked against that version.
+    local v base svg tr
+    v=$(rpm -q --qf '%{VERSION}' qt6-qtbase)
+    srpm_fetch qt6-qtbase 'qtbase-everywhere-*src-*.tar.*' "$(rpm -q --qf '%{VERSION}-%{RELEASE}' qt6-qtbase)"
+    woa64_got qt6-base
+    base=$SRPM_SRCDIR
+    srpm_fetch qt6-qtsvg 'qtsvg-everywhere-*src-*.tar.*' "$(rpm -q --qf '%{VERSION}-%{RELEASE}' qt6-qtsvg)"
+    woa64_got qt6-svg
+    svg=$SRPM_SRCDIR
+    srpm_fetch qt6-qttranslations 'qttranslations-everywhere-*src-*.tar.*'
+    woa64_got qt6-translations
+    tr=$SRPM_SRCDIR
     local m
-    for m in qtbase qtsvg qttranslations; do
-        tar -xf "$m-everywhere-src-$v.tar.xz"
+    for m in qt6-base qt6-svg qt6-translations; do
+        if [ "${WOA64_SRC_VERSION[$m]}" != "$v" ]; then
+            echo "error: $m's source is ${WOA64_SRC_VERSION[$m]}, but the host Qt is $v;" >&2
+            echo "       they must be the same version." >&2
+            return 1
+        fi
     done
 
-    # qtbase. The host Qt is Fedora's, the same version (checked in install).
+    # qtbase.
     # -system-zlib: the sysroot has zlib already, and every module built
     # after qtbase finds its zlib.h first -- with Qt's bundled copy, qtsvg
     # then fails to link. -plugindir and -translationdir give Fedora's
@@ -217,7 +257,7 @@ woa64_build_qt()
     mkdir -p b-qtbase
     (
         cd b-qtbase
-        "../qtbase-everywhere-src-$v/configure" \
+        "$base/configure" \
             -prefix "$WOA64_SYSROOT" \
             -xplatform win32-clang-g++ \
             -qt-host-path /usr \
@@ -231,17 +271,17 @@ woa64_build_qt()
         cmake --build . --parallel
         cmake --install .
     )
-    woa64_licences qt6-base qtbase-everywhere-src-$v/LICENSES/*
+    woa64_licences qt6-base "$base"/LICENSES/*
 
     # qtsvg, with the toolchain file the qtbase install wrote.
     mkdir -p b-qtsvg
     (
         cd b-qtsvg
-        "$WOA64_SYSROOT/bin/qt-configure-module" "../qtsvg-everywhere-src-$v"
+        "$WOA64_SYSROOT/bin/qt-configure-module" "$svg"
         cmake --build . --parallel
         cmake --install .
     )
-    woa64_licences qt6-svg qtsvg-everywhere-src-$v/LICENSES/*
+    woa64_licences qt6-svg "$svg"/LICENSES/*
 
     # qttranslations' qtbase_*.qm. Its own build wants the target Qt's
     # Linguist package, i.e. a cross-built qttools, but a .qm file has no
@@ -249,10 +289,10 @@ woa64_build_qt()
     # same files.
     local ts
     mkdir -p "$WOA64_SYSROOT/share/qt6/translations"
-    for ts in "qttranslations-everywhere-src-$v"/translations/qtbase_*.ts; do
+    for ts in "$tr"/translations/qtbase_*.ts; do
         lrelease-qt6 -silent "$ts" -qm "$WOA64_SYSROOT/share/qt6/translations/$(basename "${ts%.ts}").qm"
     done
-    woa64_licences qt6-translations qttranslations-everywhere-src-$v/LICENSES/*
+    woa64_licences qt6-translations "$tr"/LICENSES/*
 }
 
 # Records what each shipped file was built from, in the sysroot's licence
@@ -263,39 +303,31 @@ woa64_build_qt()
 # are the ones the build steps above copied into share/licenses/.
 woa64_record_sources()
 {
-    local r=$WOA64_SYSROOT v=$WOA64_QT_VERSION p
+    local r=$WOA64_SYSROOT p f
     local qtlic="LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
-    local f
+    local -n V=WOA64_SRC_VERSION U=WOA64_SRC_URL
     for f in libc++.dll libunwind.dll; do
         manifest_add "$r" "$f" llvm-mingw "$WOA64_LLVM_MINGW_VERSION" \
             "Apache-2.0 WITH LLVM-exception" "$WOA64_LLVM_MINGW_URL"
     done
-    manifest_add "$r" libz.dll zlib "$WOA64_ZLIB_VERSION" Zlib "$WOA64_ZLIB_URL"
-    manifest_add "$r" libzstd.dll zstd "$WOA64_ZSTD_VERSION" \
-        "BSD-3-Clause OR GPL-2.0-only" "$WOA64_ZSTD_URL"
-    manifest_add "$r" libbz2-1.dll bzip2 "$WOA64_BZIP2_VERSION" bzip2-1.0.6 "$WOA64_BZIP2_URL"
+    manifest_add "$r" libz.dll zlib "${V[zlib]}" Zlib "${U[zlib]}"
+    manifest_add "$r" libzstd.dll zstd "${V[zstd]}" "BSD-3-Clause OR GPL-2.0-only" "${U[zstd]}"
+    manifest_add "$r" libbz2-1.dll bzip2 "${V[bzip2]}" bzip2-1.0.6 "${U[bzip2]}"
     for p in 'Qt6Svg*.dll' 'imageformats/qsvg*.dll' 'iconengines/qsvgicon*.dll'; do
-        manifest_add "$r" "$p" qt6-svg "$v" "$qtlic" "$WOA64_QT_URL/qtsvg-everywhere-src-$v.tar.xz"
+        manifest_add "$r" "$p" qt6-svg "${V[qt6-svg]}" "$qtlic" "${U[qt6-svg]}"
     done
     for p in 'Qt6*.dll' 'platforms/*' 'styles/*' 'imageformats/*' 'iconengines/*' 'generic/*'; do
-        manifest_add "$r" "$p" qt6-base "$v" "$qtlic" "$WOA64_QT_URL/qtbase-everywhere-src-$v.tar.xz"
+        manifest_add "$r" "$p" qt6-base "${V[qt6-base]}" "$qtlic" "${U[qt6-base]}"
     done
-    manifest_add "$r" 'translations/qtbase_*.qm' qt6-translations "$v" \
-        "GPL-3.0-only WITH Qt-GPL-exception-1.0" \
-        "$WOA64_QT_URL/qttranslations-everywhere-src-$v.tar.xz"
+    manifest_add "$r" 'translations/qtbase_*.qm' qt6-translations "${V[qt6-translations]}" \
+        "GPL-3.0-only WITH Qt-GPL-exception-1.0" "${U[qt6-translations]}"
 }
 
 woa64_install()
 {
     # shellcheck disable=SC2086   # deliberate word splitting
     dnf -y install $CROSS_DNF_FLAGS $WOA64_PACKAGES
-    local host
-    host=$(rpm -q --qf '%{VERSION}' qt6-qtbase-devel)
-    if [ "$host" != "$WOA64_QT_VERSION" ]; then
-        echo "error: the host Qt is $host, but the Qt source to build is $WOA64_QT_VERSION;" >&2
-        echo "       they must be the same version." >&2
-        return 1
-    fi
+    srpm_keys
 
     mkdir -p "$WOA64_SYSROOT" "$WOA64_ROOT/src"
     (
@@ -305,6 +337,7 @@ woa64_install()
         woa64_build_libraries
         woa64_build_qt
         woa64_record_sources
+        echo "$WOA64_LLVM_MINGW_VERSION" > "$WOA64_LLVM_MINGW_STAMP"
     )
     # Sources and build trees: several GB the image does not need.
     rm -rf "$WOA64_ROOT/src"
@@ -332,6 +365,29 @@ woa64_check()
     return $bad
 }
 
+# woa64_stale
+#
+# Whether anything the toolkit was built from has been updated since: a newer
+# source RPM for any library or Qt (srpm_stale), or a newer llvm-mingw release
+# when none is pinned. Updates to the build tools alone (cmake, gcc) do not
+# count: they do not end up in the package, and the rebuild is long. Prints
+# what changed. 0: current, 1: stale, 2: could not tell.
+woa64_stale()
+{
+    local rc=0 have
+    srpm_stale || rc=$?
+    [ "$rc" -le 1 ] || return 2
+    if [ -z "$WOA64_LLVM_MINGW_PIN" ]; then
+        have=$(cat "$WOA64_LLVM_MINGW_STAMP" 2>/dev/null) || have=""
+        woa64_llvm_mingw_release || return 2
+        if [ "$have" != "$WOA64_LLVM_MINGW_VERSION" ]; then
+            echo "llvm-mingw: ${have:-none} -> $WOA64_LLVM_MINGW_VERSION"
+            rc=1
+        fi
+    fi
+    return $rc
+}
+
 # The environment the ARM64 build runs build-cross.sh and deploy-cross.sh
 # in, as export lines: tools/Containerfile.arm64 sets the same as ENV.
 woa64_env()
@@ -355,6 +411,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     case "$cmd" in
         install) woa64_install ;;
         check)   woa64_check ;;
+        stale)   woa64_stale ;;
         env)     woa64_env ;;
         print)
             case "${1:-}" in
@@ -362,7 +419,6 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
                 BASE_IMAGE) echo "$WOA64_BASE_IMAGE" ;;
                 SYSROOT)    echo "$WOA64_SYSROOT" ;;
                 TOOLCHAIN)  echo "$WOA64_QT_TOOLCHAIN" ;;
-                QT_VERSION) echo "$WOA64_QT_VERSION" ;;
                 *) echo "print: unknown name '${1:-}'" >&2; exit 2 ;;
             esac
             ;;

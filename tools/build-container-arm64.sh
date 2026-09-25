@@ -19,4 +19,6 @@ REPO=$(cd "$(dirname "$0")/.." && pwd)
 CONTAINER_IMAGE=$WOA64_IMAGE
 CONTAINER_BASE=$WOA64_BASE_IMAGE
 CONTAINER_FILE=tools/Containerfile.arm64
-container_run "$REPO" env BUILD_DIR=/src/build-arm64 /src/tools/build-cross.sh "$@"
+CONTAINER_STALE=/usr/local/lib/woa64-env.sh
+# Checked for updates first (container_stale); the deploy wrapper never is.
+CONTAINER_REFRESH=1 container_run "$REPO" env BUILD_DIR=/src/build-arm64 /src/tools/build-cross.sh "$@"

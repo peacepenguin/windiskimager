@@ -12,6 +12,16 @@ starting point to verify, and record what actually happened next to it.
 > `-translationdir share/qt6/translations`, so the layout symlinks in section 6
 > are not needed; and the licence gap at the end of section 6 is closed by the
 > manifest described there. These notes stay as the record of how and why.
+>
+> The script also no longer pins the versions and checksums chosen below.
+> The libraries and Qt come from the upstream tarballs in Fedora's
+> signature-checked source RPMs, with no Fedora patches applied:
+> - Qt from the same `qt6-*` builds as the host Qt;
+> - zlib, zstd and bzip2 from `mingw64-*`;
+> - xz from `xz`.
+>
+> llvm-mingw is its newest GitHub release. The image is `fedora:latest`, and
+> the build wrapper rebuilds it when any of those have been updated.
 
 ## Why this is different from the x64 cross build
 

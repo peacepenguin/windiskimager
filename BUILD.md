@@ -160,9 +160,9 @@ It has to be Fedora: Debian and Ubuntu ship no MinGW Qt6 packages, so there is
 nothing to link against there. That is why CI runs `ubuntu-latest` and builds
 in a Fedora container, the same one `tools/build-container.sh` uses. The
 release is named once, as `CROSS_BASE_IMAGE` (`fedora:latest`) in
-[tools/build-env.sh](tools/build-env.sh). CI builds the image fresh every run;
-a local image keeps the Fedora release it was built from, so remove it to pick
-up a newer one.
+[tools/build-env.sh](tools/build-env.sh). CI builds the image fresh every run.
+A local image is checked before each `tools/build-container.sh` run and
+rebuilt if it has fallen behind -- see "Keeping the images current" below.
 
 `tools/build-cross.sh` *is* the cross build. Run it on a Fedora host and it
 builds; `tools/build-container.sh` runs that same script inside the container,
@@ -177,12 +177,14 @@ sudo bash tools/build-env.sh install
 ```
 
 That is Fedora's MinGW packages plus one library built from source: liblzma,
-from xz's own release, into `/opt/mingw64-xz`. Fedora's `mingw64-xz` is 5.2.4,
-older than the 5.4 the multi-threaded xz decoder needs. The version and the
-release's SHA-256 are `CROSS_XZ_VERSION` and `CROSS_XZ_SHA256` in
-`tools/build-env.sh`; changing either gives the container image a new tag, so
-it is rebuilt. Its licence is copied from the source tree and shipped like any
-package's.
+into `/opt/mingw64-xz`. Fedora's `mingw64-xz` is 5.2.4, older than the 5.4
+the multi-threaded xz decoder needs, so it is built instead from the source
+of Fedora's native `xz` package: `srpm_fetch` in `tools/build-env.sh`
+downloads that source RPM, checks Fedora's signature on it, and builds the
+upstream tarball inside, without Fedora's patches or spec file. So liblzma is
+whatever version that Fedora release ships, updates included. Its licence is
+copied from the source tree and shipped like any package's, with the source
+RPM as its source.
 
 then:
 
@@ -220,11 +222,10 @@ says so when it happens. `BUILD_DIR=...` overrides the directory.
 
 Fedora packages MinGW for x86 only, so the ARM64 build brings its own
 toolkit: llvm-mingw (clang for `aarch64-w64-mingw32`), zlib, xz, zstd, bzip2 and
-Qt, each built from a source release pinned by version and checksum in
-[tools/woa64-env.sh](tools/woa64-env.sh). `tools/Containerfile.arm64` builds it
-into an image once -- expect that to take a long while, most of it Qt, and the
-image to be several GB -- and after that the build and package are the x64
-ones:
+Qt, built by [tools/woa64-env.sh](tools/woa64-env.sh).
+`tools/Containerfile.arm64` builds it into an image -- expect that to take a
+long while, most of it Qt, and the image to be several GB -- and after that
+the build and package are the x64 ones:
 
 ```
 tools/build-container-arm64.sh
@@ -237,20 +238,60 @@ sysroot, `llvm-objdump` and `llvm-strip` (`tools/woa64-env.sh env` prints it).
 Output goes to `build-arm64/` and `dist-arm64/`, apart from the x64 build's.
 The same `clean` and `test` arguments apply.
 
+Nothing in the toolkit is pinned. The libraries and Qt are built from the
+upstream tarballs in Fedora's own source RPMs, fetched and signature-checked
+by `srpm_fetch`, without Fedora's patches or spec files:
+
+| Library | Source RPM of |
+|---|---|
+| Qt (qtbase, qtsvg, qttranslations) | `qt6-qtbase`, `qt6-qtsvg`, `qt6-qttranslations`: the very builds the host Qt is installed from |
+| zlib, zstd, bzip2 | `mingw64-zlib`, `mingw64-zstd`, `mingw64-bzip2`: what the x64 package ships (Fedora's native zlib is zlib-ng) |
+| xz | `xz`, as in the x64 build |
+
+The host Qt the cross build takes `moc`, `rcc` and `uic` from must be the
+same version as the target Qt; taking the source from the host Qt's own build
+makes it so. llvm-mingw is the newest release on GitHub, checked against the
+SHA-256 GitHub publishes for it; `WOA64_LLVM_MINGW_PIN` in
+`tools/woa64-env.sh` holds it at a release instead, for when a new one breaks
+something. Moving to a new Fedora release needs no edit: `fedora:latest`
+moves, and the image is rebuilt on it.
+
 Nothing in the toolkit is owned by a package manager, so each library records
 itself in the sysroot's licence manifest (`manifest_add` in
-`tools/build-env.sh`) with its version, licence and source, and keeps its
+`tools/build-env.sh`) with its version, licence and source RPM, and keeps its
 licence files from its own source tree. `deploy_write_licenses` reads that in
 place of rpm, so the ARM64 package lists every library it ships as "built from
-source", with the release it came from. The x64 build's source-built liblzma
-records itself the same way.
+source", with the source it came from. The x64 build's liblzma records itself
+the same way. [arm64qtcross.md](arm64qtcross.md) has every step worked
+through by hand, with what each one showed and why each choice was made.
 
-The host Qt the cross build takes `moc`, `rcc` and `uic` from is Fedora 44's,
-pinned to the same version as the Qt source (`WOA64_QT_VERSION`); that is why
-the image is `fedora:44` rather than `:latest`. Raising any version means
-raising its checksum with it; the image tag changes, and the image is rebuilt.
-[arm64qtcross.md](arm64qtcross.md) has every step worked through by hand, with
-what each one showed and why each choice was made.
+## Keeping the images current
+
+Both images take their libraries from Fedora's repositories, updates
+included, so a build is only as current as its image. CI builds the image
+fresh on every run. Locally, each `tools/build-container.sh` and
+`tools/build-container-arm64.sh` run first checks the existing image
+(`container_stale` in `tools/build-env.sh`) and rebuilds it, from scratch and
+under the same tag, when:
+
+- `fedora:latest` is a newer Fedora release than the image was built on, or
+- the image's `stale` command finds the repositories have moved on. For x64
+  that is an update to any installed package (the MinGW libraries it ships
+  among them) or a newer `xz` source RPM. For ARM64 it is a newer source RPM
+  for any library or Qt, or a newer llvm-mingw; updates to the build tools
+  alone do not count, since they are not shipped and the ARM64 rebuild takes
+  most of an hour.
+
+The check costs a pull of the base image and a download of the repository
+metadata, well under a minute. `W32DI_REFRESH=0` skips it, for working
+offline; if it cannot run, it warns and builds with the image as it is. The
+deploy wrappers never refresh, so a package is always made from the image its
+build used -- run the build wrapper first. The image replaced is left
+untagged; `podman image prune` reclaims it.
+
+The image tag itself changes only when what the image is asked to be changes:
+the base image, the package lists, and the `CROSS_IMAGE_REVISION` and
+`WOA64_IMAGE_REVISION` counters, raised when the install steps change.
 
 ## Testing the GPT repair
 
