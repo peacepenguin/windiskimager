@@ -38,12 +38,24 @@ CROSS_BASE_IMAGE="fedora:latest"
 # Windows .exe files and cannot run here. gcc-c++ and the native qt6 -devel
 # packages are only for tools/mkicon, which renders the icon during the build
 # and so must run on the build host.
-CROSS_PACKAGES="cmake ninja-build file findutils binutils
+CROSS_PACKAGES="cmake ninja-build file findutils binutils curl tar xz
                 mingw64-gcc-c++ mingw64-qt6-qtbase mingw64-qt6-qttools
                 mingw64-qt6-qttranslations mingw64-qt6-qtsvg
-                mingw64-zlib mingw64-xz mingw64-bzip2 mingw64-zstd
+                mingw64-zlib mingw64-bzip2 mingw64-zstd
                 qt6-linguist
                 gcc-c++ qt6-qtbase-devel qt6-qtsvg-devel"
+
+# liblzma for the cross build is built from xz's own release instead of taken
+# from Fedora: mingw64-xz has stayed at 5.2.4 (2018), and the multi-threaded
+# decoder imagesource.cpp uses needs 5.4. It goes in a prefix of its own, so
+# no file an rpm owns is overwritten, and it names its DLL liblzma.dll where
+# Fedora's is liblzma-5.dll, so the two cannot be mistaken for each other.
+# cross_build_xz builds it; cross_configure and the deploy functions find it
+# there. The checksum is the release tarball's, as GitHub publishes it.
+CROSS_XZ_VERSION=5.8.4
+CROSS_XZ_SHA256=4ce24038fd4221e0d13bc1a2de7a4db56e90b92b3bf75321f6c14be73f65de4b
+CROSS_XZ_URL="https://github.com/tukaani-project/xz/releases/download/v$CROSS_XZ_VERSION/xz-$CROSS_XZ_VERSION.tar.xz"
+CROSS_XZ_PREFIX="${CROSS_XZ_PREFIX:-/opt/mingw64-xz}"
 
 # The MSYS2 UCRT64 packages for a native Windows build. Nothing here installs
 # them -- that is done by hand, once -- but the list belongs with the others.
@@ -76,10 +88,11 @@ CROSS_NATIVE_QTSVG="${CROSS_NATIVE_QTSVG:-/usr/lib64/cmake/Qt6Svg/Qt6SvgConfig.c
 CROSS_DNF_FLAGS="--setopt=tsflags="
 
 # The image tools/Containerfile.build produces. Override with IMAGE=...
-# The tag is a checksum of the base image, package list and install flags:
+# The tag is a checksum of the base image, package list, install flags and
+# the xz release built from source:
 # container_run only builds an image that does not exist yet, so a changed
 # toolchain needs a new name.
-CROSS_IMAGE="${IMAGE:-w32di-build:$(printf '%s' "$CROSS_BASE_IMAGE$CROSS_PACKAGES$CROSS_DNF_FLAGS" | cksum | cut -d' ' -f1)}"
+CROSS_IMAGE="${IMAGE:-w32di-build:$(printf '%s' "$CROSS_BASE_IMAGE$CROSS_PACKAGES$CROSS_DNF_FLAGS$CROSS_XZ_VERSION$CROSS_XZ_SHA256" | cksum | cut -d' ' -f1)}"
 
 # Extra "podman run" arguments a caller wants, as an array.
 CONTAINER_ENV=()
@@ -96,7 +109,38 @@ cross_install()
 {
     # shellcheck disable=SC2046
     dnf -y install $CROSS_DNF_FLAGS $(cross_packages)
+    cross_build_xz
     cross_check
+}
+
+# cross_build_xz
+#
+# Builds liblzma CROSS_XZ_VERSION for win64 into CROSS_XZ_PREFIX, from the
+# release tarball, checked against CROSS_XZ_SHA256 before anything in it runs.
+# Only the library: none of the xz tools, translations, documentation or tests.
+# Its licence comes from the same source tree -- COPYING says which licence
+# covers what, COPYING.0BSD is liblzma's -- and is kept where an rpm would put
+# it, in share/licenses/xz/, for deploy_write_licenses to ship.
+cross_build_xz()
+{
+    local work src
+    work=$(mktemp -d)
+    src="$work/xz-$CROSS_XZ_VERSION"
+    curl -fsSL -o "$work/xz.tar.xz" "$CROSS_XZ_URL"
+    echo "$CROSS_XZ_SHA256  $work/xz.tar.xz" | sha256sum -c --quiet -
+    tar -xf "$work/xz.tar.xz" -C "$work"
+    cmake -S "$src" -B "$work/build" -G Ninja \
+        -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="$CROSS_XZ_PREFIX" \
+        -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF \
+        -DXZ_NLS=OFF -DXZ_DOC=OFF \
+        -DXZ_TOOL_XZ=OFF -DXZ_TOOL_XZDEC=OFF -DXZ_TOOL_LZMADEC=OFF -DXZ_TOOL_LZMAINFO=OFF
+    cmake --build "$work/build"
+    cmake --install "$work/build"
+    mkdir -p "$CROSS_XZ_PREFIX/share/licenses/xz"
+    cp "$src/COPYING" "$src/COPYING.0BSD" "$CROSS_XZ_PREFIX/share/licenses/xz/"
+    rm -rf "$work"
 }
 
 # Fail early and loudly if the layout is not what the build and deploy expect.
@@ -111,6 +155,15 @@ cross_check()
         echo "missing $CROSS_NATIVE_QT (qt6-qtbase-devel), which tools/mkicon needs" >&2; bad=1; }
     [ -f "$CROSS_NATIVE_QTSVG" ] || {
         echo "missing $CROSS_NATIVE_QTSVG (qt6-qtsvg-devel), which tools/mkicon needs" >&2; bad=1; }
+    # The header's version, so a prefix left over from an older
+    # CROSS_XZ_VERSION is not taken for this one.
+    local xzh="$CROSS_XZ_PREFIX/include/lzma/version.h" xzv
+    xzv=$(sed -n 's/^#define LZMA_VERSION_\(MAJOR\|MINOR\|PATCH\) \([0-9]*\)$/\2/p' "$xzh" 2>/dev/null \
+          | paste -sd.)
+    [ "$xzv" = "$CROSS_XZ_VERSION" ] && [ -f "$CROSS_XZ_PREFIX/lib/liblzma.dll.a" ] \
+        && [ -f "$CROSS_XZ_PREFIX/share/licenses/xz/COPYING" ] || {
+        echo "missing liblzma $CROSS_XZ_VERSION in $CROSS_XZ_PREFIX (found '${xzv:-none}');" \
+             "tools/build-env.sh install builds it" >&2; bad=1; }
     return $bad
 }
 
@@ -124,10 +177,14 @@ cross_configure()
     local src=${1:?usage: cross_configure SRCDIR BUILDDIR [cmake args...]}
     local build=${2:?}
     shift 2
+    # liblzma from cross_build_xz, named outright: FindLibLZMA then searches
+    # nowhere, so Fedora's older copy cannot be picked up instead.
     cmake -S "$src" -B "$build" -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
         -DLRELEASE_EXECUTABLE="$CROSS_LRELEASE" \
+        -DLIBLZMA_INCLUDE_DIR="$CROSS_XZ_PREFIX/include" \
+        -DLIBLZMA_LIBRARY="$CROSS_XZ_PREFIX/lib/liblzma.dll.a" \
         "$@"
 }
 
@@ -382,18 +439,26 @@ build_report()
 # a package missing a licence must not be released.
 deploy_write_licenses()
 {
-    local backend=${1:?usage: deploy_write_licenses pacman|rpm DIST BINDIR PLUGINDIR TRDIR}
-    local dist=${2:?} bindir=${3:?} plugindir=${4:?} trdir=${5:?}
+    local backend=${1:?usage: deploy_write_licenses pacman|rpm DIST BINDIR[:BINDIR...] PLUGINDIR TRDIR}
+    local dist=${2:?} plugindir=${4:?} trdir=${5:?}
     local notices="$dist/THIRD-PARTY-NOTICES.txt"
-    local rel src pkg line
-    declare -A files_of=() owner_of=() ver_of=() lic_of=() list_of=()
-    local -a rels=() srcs=()
+    local rel src pkg line d
+    declare -A files_of=() owner_of=() ver_of=() lic_of=() list_of=() built_of=()
+    local -a rels=() srcs=() bindirs
+    # In the order deploy_resolve_closure searched them, so each DLL is traced
+    # to the copy that was shipped.
+    IFS=: read -r -a bindirs <<< "${3:?}"
 
     while IFS= read -r rel; do
         case "$rel" in
             translations/*) src="$trdir/${rel#translations/}" ;;
             */*)            src="$plugindir/$rel" ;;
-            *)              src="$bindir/$rel" ;;
+            *)
+                src="${bindirs[0]}/$rel"
+                for d in "${bindirs[@]}"; do
+                    if [ -f "$d/$rel" ]; then src="$d/$rel"; break; fi
+                done
+                ;;
         esac
         rels+=("$rel")
         srcs+=("$src")
@@ -417,10 +482,16 @@ deploy_write_licenses()
     for i in "${!rels[@]}"; do
         rel=${rels[$i]}
         src=${srcs[$i]}
-        case "$backend" in
-            pacman) pkg=${owner_of[$src]:-} ;;
-            rpm)    pkg=$(rpm -qf --qf '%{NAME}\n' "$src" 2>/dev/null || true) ;;
-        esac
+        if [ -n "${CROSS_XZ_PREFIX:-}" ] && [ "${src#"$CROSS_XZ_PREFIX"/}" != "$src" ]; then
+            # Built from xz's own release by cross_build_xz; no package owns it.
+            pkg=xz
+            built_of[$pkg]=1
+        else
+            case "$backend" in
+                pacman) pkg=${owner_of[$src]:-} ;;
+                rpm)    pkg=$(rpm -qf --qf '%{NAME}\n' "$src" 2>/dev/null || true) ;;
+            esac
+        fi
         if [ -z "$pkg" ]; then
             echo "error: no package owns $src, so its licence is unknown." >&2
             return 1
@@ -455,13 +526,25 @@ deploy_write_licenses()
         printf '%s package named below. Each package'"'"'s licence files are in\n' "$mgr"
         printf 'licenses/<package>/, and its source is at the address given. The\n'
         printf 'program'"'"'s own source is at https://github.com/peacepenguin/windiskimager.\n'
+        if [ "${#built_of[@]}" -gt 0 ]; then
+            printf '\nThe exceptions, marked "built from source", were compiled for this build\n'
+            printf 'from the project'"'"'s own release, given as their source.\n'
+        fi
         printf '\nQt contains third-party code of its own, listed with its copyright notices\n'
         printf 'in "Third-Party Code Used in Qt": https://doc.qt.io/qt-6/licenses-used-in-qt.html\n'
     } >> "$notices"
 
     local version licence url lf dest n
     for pkg in $(printf '%s\n' "${!files_of[@]}" | sort); do
-        case "$backend" in
+        local via=$backend
+        [ -n "${built_of[$pkg]:-}" ] && via=built
+        case "$via" in
+            built)
+                # liblzma is 0BSD; COPYING, shipped with it, says so.
+                version="$CROSS_XZ_VERSION (built from source)"
+                licence="0BSD"
+                url=$CROSS_XZ_URL
+                ;;
             pacman)
                 version=${ver_of[$pkg]:-}
                 licence=${lic_of[$pkg]:-}
@@ -492,7 +575,7 @@ deploy_write_licenses()
             esac
             while IFS= read -r lf; do
                 [ -n "$lf" ] || continue
-                if [ "$backend" = pacman ] && [ -n "$want" ]; then
+                if [ "$via" = pacman ] && [ -n "$want" ]; then
                     shopt -s nocasematch
                     if [[ $lf =~ $want ]]; then rest=; else rest=no; fi
                     shopt -u nocasematch
@@ -511,7 +594,10 @@ deploy_write_licenses()
                 fi
                 cp "$lf" "$dest"
                 n=$((n + 1))
-            done < <(case "$backend:$kind" in
+            done < <(case "$via:$kind" in
+                         # Copied from the source tree by cross_build_xz.
+                         built:licence)  find "$CROSS_XZ_PREFIX/share/licenses/$pkg" -type f 2>/dev/null || true ;;
+                         built:readme)   ;;
                          pacman:licence|pacman:readme) printf '%s' "${list_of[$pkg]:-}" ;;
                          # Some packages file their licence as %doc, not %license.
                          rpm:licence)    { rpm -qL "$pkg"; rpm -qd "$pkg" | grep -iE '/(LICENSE|LICENCE|COPYING)[^/]*$'; } || true ;;
@@ -573,12 +659,14 @@ deploy_check_dist()
 # only the binaries not yet read: starting objdump is nearly all the cost.
 deploy_resolve_closure()
 {
-    local objdump=${1:?usage: deploy_resolve_closure OBJDUMP BINDIR DIST}
-    local bindir=${2:?}
+    local objdump=${1:?usage: deploy_resolve_closure OBJDUMP BINDIR[:BINDIR...] DIST}
     local dist=${3:?}
-    local f dll
-    local -a bins pending
+    local f dll d
+    local -a bins pending dirs
     local -A seen=()
+    # Searched in order, so a DLL built from source (see cross_build_xz) wins
+    # over a packaged one of the same name.
+    IFS=: read -r -a dirs <<< "${2:?}"
 
     while :; do
         mapfile -t bins < <(find "$dist" \( -name '*.exe' -o -name '*.dll' \))
@@ -593,9 +681,13 @@ deploy_resolve_closure()
         # read would otherwise abort the caller, and it is handed dozens.
         { "$objdump" -p "${pending[@]}" 2>/dev/null || true; } \
             | awk '/DLL Name:/ {print $3}' | sort -u | while read -r dll; do
-            if [ ! -f "$dist/$dll" ] && [ -f "$bindir/$dll" ]; then
-                cp "$bindir/$dll" "$dist/"
-            fi
+            [ -f "$dist/$dll" ] && continue
+            for d in "${dirs[@]}"; do
+                if [ -f "$d/$dll" ]; then
+                    cp "$d/$dll" "$dist/"
+                    break
+                fi
+            done
         done
     done
 }

@@ -176,6 +176,14 @@ script, with the toolchain and flags from `tools/build-env.sh`.
 sudo bash tools/build-env.sh install
 ```
 
+That is Fedora's MinGW packages plus one library built from source: liblzma,
+from xz's own release, into `/opt/mingw64-xz`. Fedora's `mingw64-xz` is 5.2.4,
+older than the 5.4 the multi-threaded xz decoder needs. The version and the
+release's SHA-256 are `CROSS_XZ_VERSION` and `CROSS_XZ_SHA256` in
+`tools/build-env.sh`; changing either gives the container image a new tag, so
+it is rebuilt. Its licence is copied from the source tree and shipped like any
+package's.
+
 then:
 
 ```

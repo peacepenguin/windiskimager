@@ -1,3 +1,11 @@
+Release 2.0.3
+=============
+Writing or verifying an .img.xz made in several blocks now decompresses on
+  every core in the release package too, not only in a native build: the
+  Fedora cross build links liblzma 5.8.4, built from xz's own release,
+  instead of Fedora's MinGW xz 5.2.4, which is older than the multi-threaded
+  decoder. Its licence is shipped from the same source
+
 Release 2.0.2
 =============
 Compress during Read to .img.xz or .img.zst uses every CPU core. xz was the
