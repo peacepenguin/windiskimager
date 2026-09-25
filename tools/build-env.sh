@@ -39,8 +39,9 @@ CROSS_BASE_IMAGE="quay.io/fedora/fedora-minimal:latest"
 # Windows .exe files and cannot run here. gcc-c++ and the native qt6 -devel
 # packages are only for tools/mkicon, which renders the icon during the build
 # and so must run on the build host.
-# cpio unpacks source RPMs (srpm_fetch).
-CROSS_PACKAGES="cmake ninja-build file findutils binutils curl tar xz cpio
+# cpio unpacks source RPMs (srpm_fetch); gzip and xz are the compressors tar
+# runs to unpack the tarballs, which fedora-minimal does not include.
+CROSS_PACKAGES="cmake ninja-build file findutils binutils curl tar gzip xz cpio
                 mingw64-gcc-c++ mingw64-qt6-qtbase mingw64-qt6-qttools
                 mingw64-qt6-qttranslations mingw64-qt6-qtsvg
                 mingw64-zlib mingw64-bzip2 mingw64-zstd

@@ -46,8 +46,9 @@ WOA64_LLVM_MINGW_REPO=mstorsjo/llvm-mingw
 
 # Host packages: the host Qt the cross build takes moc, rcc and uic from (and
 # tools/mkicon and lrelease-qt6 for the app, as in the x64 build); cpio for
-# srpm_fetch; python3 to read GitHub's release list.
-WOA64_PACKAGES="cmake ninja-build file findutils curl tar xz cpio make perl-interpreter python3
+# srpm_fetch, and gzip and xz for the tarballs it unpacks; python3 to read
+# GitHub's release list.
+WOA64_PACKAGES="cmake ninja-build file findutils curl tar gzip xz cpio make perl-interpreter python3
                 gcc-c++
                 qt6-qtbase-devel qt6-qtsvg-devel qt6-linguist"
 
