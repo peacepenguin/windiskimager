@@ -88,8 +88,9 @@ CROSS_NATIVE_QTSVG="${CROSS_NATIVE_QTSVG:-/usr/lib64/cmake/Qt6Svg/Qt6SvgConfig.c
 
 # tsflags= undoes the nodocs Fedora's container images set: some packages
 # (mingw64-bzip2) file their licence as %doc, and deploy_write_licenses needs
-# it on disk to ship it.
-CROSS_DNF_FLAGS="--setopt=tsflags="
+# it on disk to ship it. install_weak_deps=False: only what the packages
+# require, not what they recommend.
+CROSS_DNF_FLAGS="--setopt=tsflags= --setopt=install_weak_deps=False"
 
 # The image tools/Containerfile.build produces. Override with IMAGE=...
 # The tag is a checksum of what the image is asked to be -- base image,

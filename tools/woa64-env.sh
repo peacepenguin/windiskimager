@@ -71,7 +71,7 @@ WOA64_LLVM_MINGW_STAMP="$WOA64_ROOT/llvm-mingw.version"
 # with the x64 image, and WOA64_IMAGE_REVISION, bumped when the steps below
 # change. Updates to what they fetch rebuild it in place (container_stale).
 # Override with WOA64_IMAGE=...
-WOA64_IMAGE_REVISION=2
+WOA64_IMAGE_REVISION=3
 WOA64_IMAGE="${WOA64_IMAGE:-w32di-build-arm64:$(printf '%s' \
     "$WOA64_BASE_IMAGE$WOA64_PACKAGES$WOA64_LLVM_MINGW_PIN$CROSS_IMAGE_REVISION$WOA64_IMAGE_REVISION" \
     | cksum | cut -d' ' -f1)}"
