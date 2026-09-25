@@ -33,8 +33,10 @@
 #include <cstring>
 #include <new>
 #include <string>
+#include <vector>
 #include <windows.h>
 #include <winioctl.h>
+#include <setupapi.h>
 #include "disk.h"
 #include "mainwindow.h"
 
@@ -266,49 +268,61 @@ bool spaceAvailable(const QString &location, unsigned long long spaceneeded)
 
 
 
-// Open a volume by drive letter and set *disk to the physical disk of its
-// first extent. access 0 queries without needing read rights and without
-// disturbing other openers. Returns INVALID_HANDLE_VALUE unless *disk was set.
-static HANDLE openVolumeOnDisk(char letter, DWORD access, int *disk)
+// Open a volume by drive letter. access 0 queries without needing read rights
+// and without disturbing other openers.
+static HANDLE openLetterVolume(char letter, DWORD access)
 {
     char volumename[] = "\\\\.\\A:";
     volumename[4] = letter;
-    HANDLE h = CreateFile(volumename, access, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                          NULL, OPEN_EXISTING, 0, NULL);
-    if (h == INVALID_HANDLE_VALUE)
-    {
-        return INVALID_HANDLE_VALUE;
-    }
-    VOLUME_DISK_EXTENTS sd;
-    DWORD bytesreturned;
-    if (!DeviceIoControl(h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, NULL, 0,
-                         &sd, sizeof(sd), &bytesreturned, NULL)
-        || sd.NumberOfDiskExtents == 0)
-    {
-        CloseHandle(h);
-        return INVALID_HANDLE_VALUE;
-    }
-    *disk = (int)sd.Extents[0].DiskNumber;
-    return h;
+    return CreateFile(volumename, access, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                      NULL, OPEN_EXISTING, 0, NULL);
 }
 
-// Whether an open volume has any extent on physical disk deviceID. The buffer
-// is sized for many extents: a bare VOLUME_DISK_EXTENTS holds one, and a
-// spanned or mirrored volume would fail with ERROR_MORE_DATA.
+// Every extent of an open volume, however many: a plain volume has one, a
+// spanned, striped or mirrored one has one per piece. The buffer grows to the
+// count the first try reports, so no fixed number of extents is assumed.
+// Returns false, with *extents empty, if the volume cannot say.
+static bool volumeExtents(HANDLE h, std::vector<DISK_EXTENT> *extents)
+{
+    extents->clear();
+    DWORD room = 4;
+    for (int attempt = 0; attempt < 8; ++attempt)
+    {
+        QByteArray buf((int)(sizeof(VOLUME_DISK_EXTENTS) + room * sizeof(DISK_EXTENT)), 0);
+        DWORD bytesreturned = 0;
+        const VOLUME_DISK_EXTENTS *ext = (const VOLUME_DISK_EXTENTS *)buf.constData();
+        if (DeviceIoControl(h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, NULL, 0,
+                            buf.data(), (DWORD)buf.size(), &bytesreturned, NULL))
+        {
+            const DWORD fits = (DWORD)((buf.size() - offsetof(VOLUME_DISK_EXTENTS, Extents))
+                                       / sizeof(DISK_EXTENT));
+            for (DWORD i = 0; i < ext->NumberOfDiskExtents && i < fits; ++i)
+            {
+                extents->push_back(ext->Extents[i]);
+            }
+            return !extents->empty();
+        }
+        if (GetLastError() != ERROR_MORE_DATA)
+        {
+            return false;
+        }
+        // The count is filled in even when the extents did not fit.
+        room = (ext->NumberOfDiskExtents > room) ? ext->NumberOfDiskExtents : room * 2;
+    }
+    return false;
+}
+
+// Whether an open volume has any extent on physical disk deviceID.
 static bool volumeIsOnDisk(HANDLE h, DWORD deviceID)
 {
-    const DWORD MAX_EXTENTS = 64;
-    QByteArray buf((int)(sizeof(VOLUME_DISK_EXTENTS) + MAX_EXTENTS * sizeof(DISK_EXTENT)), 0);
-    DWORD bytesreturned = 0;
-    if (!DeviceIoControl(h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, NULL, 0,
-                         buf.data(), (DWORD)buf.size(), &bytesreturned, NULL))
+    std::vector<DISK_EXTENT> extents;
+    if (!volumeExtents(h, &extents))
     {
         return false;
     }
-    const VOLUME_DISK_EXTENTS *ext = (const VOLUME_DISK_EXTENTS *)buf.constData();
-    for (DWORD i = 0; i < ext->NumberOfDiskExtents && i <= MAX_EXTENTS; ++i)
+    for (const DISK_EXTENT &e : extents)
     {
-        if (ext->Extents[i].DiskNumber == deviceID)
+        if (e.DiskNumber == deviceID)
         {
             return true;
         }
@@ -333,12 +347,19 @@ static HANDLE openVolumeByName(const wchar_t *guidname, DWORD access)
 // has one, otherwise the GUID name, which is all a letterless volume has.
 static QString volumeDisplayName(const wchar_t *guidname)
 {
-    wchar_t paths[MAX_PATH * 4] = {0};
+    // A list of NUL-terminated names, as long as the volume's mount folders
+    // need: Windows says how long when the first buffer is too short.
+    std::vector<wchar_t> paths(MAX_PATH + 1, 0);
     DWORD needed = 0;
-    if (GetVolumePathNamesForVolumeNameW(guidname, paths, MAX_PATH * 4, &needed)
-        && paths[0] != 0)
+    BOOL ok = GetVolumePathNamesForVolumeNameW(guidname, paths.data(), (DWORD)paths.size(), &needed);
+    if (!ok && GetLastError() == ERROR_MORE_DATA && needed > paths.size())
     {
-        return QString::fromWCharArray(paths);
+        paths.assign(needed + 1, 0);
+        ok = GetVolumePathNamesForVolumeNameW(guidname, paths.data(), (DWORD)paths.size(), &needed);
+    }
+    if (ok && paths[0] != 0)
+    {
+        return QString::fromWCharArray(paths.data());
     }
     return QString::fromWCharArray(guidname);
 }
@@ -351,11 +372,13 @@ bool pathIsOnDisk(const QString &path, ULONG deviceID)
                                                          : fi.absolutePath());
     std::wstring wprobe = probe.toStdWString();
 
-    // Via the mount point, so C:\mnt\card resolves to the card, not C:.
-    wchar_t mountpoint[MAX_PATH + 1] = {0};
+    // Via the mount point, so C:\mnt\card resolves to the card, not C:. The
+    // mount point is never longer than the path it contains, which can be
+    // past MAX_PATH; a volume's GUID name is always short.
+    std::vector<wchar_t> mountpoint(wprobe.size() + 2, 0);
     wchar_t guidname[MAX_PATH + 1] = {0};
-    if (GetVolumePathNameW(wprobe.c_str(), mountpoint, MAX_PATH)
-        && GetVolumeNameForVolumeMountPointW(mountpoint, guidname, MAX_PATH))
+    if (GetVolumePathNameW(wprobe.c_str(), mountpoint.data(), (DWORD)mountpoint.size())
+        && GetVolumeNameForVolumeMountPointW(mountpoint.data(), guidname, MAX_PATH))
     {
         HANDLE h = openVolumeByName(guidname, 0);
         if (h != INVALID_HANDLE_VALUE)
@@ -385,19 +408,6 @@ bool pathIsOnDisk(const QString &path, ULONG deviceID)
     return false;
 }
 
-// Physical disk a mounted volume lives on, or -1 if it cannot be determined.
-static int diskNumberOfVolume(char letter)
-{
-    int disk = -1;
-    HANDLE h = openVolumeOnDisk(letter, 0, &disk);
-    if (h == INVALID_HANDLE_VALUE)
-    {
-        return -1;
-    }
-    CloseHandle(h);
-    return disk;
-}
-
 QString driveLettersOnDevice(ULONG deviceID)
 {
     QStringList found;
@@ -408,11 +418,18 @@ QString driveLettersOnDevice(ULONG deviceID)
         {
             continue;
         }
+        // Any extent: a volume spanning this disk and another is on both.
         char letter = 'A' + i;
-        if (diskNumberOfVolume(letter) == (int)deviceID)
+        HANDLE h = openLetterVolume(letter, 0);
+        if (h == INVALID_HANDLE_VALUE)
+        {
+            continue;
+        }
+        if (volumeIsOnDisk(h, deviceID))
         {
             found.append(QString("%1:").arg(QChar(letter)));
         }
+        CloseHandle(h);
     }
     return found.join(", ");
 }
@@ -428,23 +445,24 @@ QMap<unsigned long long, QString> driveLettersByOffset(ULONG deviceID)
             continue;
         }
         char letter = 'A' + i;
-        char volumename[] = "\\\\.\\A:";
-        volumename[4] = letter;
-        HANDLE h = CreateFile(volumename, 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                              NULL, OPEN_EXISTING, 0, NULL);
+        HANDLE h = openLetterVolume(letter, 0);
         if (h == INVALID_HANDLE_VALUE)
         {
             continue;
         }
-        VOLUME_DISK_EXTENTS sd;
-        DWORD bytesreturned;
-        if (DeviceIoControl(h, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, NULL, 0,
-                            &sd, sizeof(sd), &bytesreturned, NULL)
-            && sd.NumberOfDiskExtents > 0
-            && sd.Extents[0].DiskNumber == deviceID)
+        // Each piece of the volume on this disk, so a spanned volume's letter
+        // is shown against every partition it occupies here.
+        std::vector<DISK_EXTENT> extents;
+        if (volumeExtents(h, &extents))
         {
-            found.insert((unsigned long long)sd.Extents[0].StartingOffset.QuadPart,
-                        QString("%1:").arg(QChar(letter)));
+            for (const DISK_EXTENT &e : extents)
+            {
+                if (e.DiskNumber == deviceID)
+                {
+                    found.insert((unsigned long long)e.StartingOffset.QuadPart,
+                                 QString("%1:").arg(QChar(letter)));
+                }
+            }
         }
         CloseHandle(h);
     }
@@ -528,16 +546,82 @@ static QString descriptorString(const BYTE *buf, DWORD valid, DWORD offset)
     return QString::fromLatin1(s, (qsizetype)strnlen(s, valid - offset)).trimmed();
 }
 
+// GUID_DEVINTERFACE_DISK, spelled out: the header's copy needs INITGUID or a
+// uuid library that not every toolchain ships it in.
+static const GUID DISK_INTERFACE =
+    { 0x53f56307, 0xb6bf, 0x11d0, { 0x94, 0xf2, 0x00, 0xa0, 0xc9, 0x1e, 0xfb, 0x8b } };
+
+// The disk numbers of every disk present, ascending, from the device
+// interfaces Windows registers for them -- however many there are and however
+// high the numbers go. Empty if the list cannot be read.
+static QList<ULONG> presentDiskNumbers()
+{
+    QList<ULONG> numbers;
+    HDEVINFO set = SetupDiGetClassDevsW(&DISK_INTERFACE, NULL, NULL,
+                                        DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+    if (set == INVALID_HANDLE_VALUE)
+    {
+        return numbers;
+    }
+    SP_DEVICE_INTERFACE_DATA iface;
+    iface.cbSize = sizeof(iface);
+    for (DWORD i = 0; SetupDiEnumDeviceInterfaces(set, NULL, &DISK_INTERFACE, i, &iface); ++i)
+    {
+        DWORD needed = 0;
+        SetupDiGetDeviceInterfaceDetailW(set, &iface, NULL, 0, &needed, NULL);
+        if (needed < sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_W))
+        {
+            continue;
+        }
+        std::vector<BYTE> buf(needed, 0);
+        SP_DEVICE_INTERFACE_DETAIL_DATA_W *detail = (SP_DEVICE_INTERFACE_DETAIL_DATA_W *)buf.data();
+        detail->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_W);
+        if (!SetupDiGetDeviceInterfaceDetailW(set, &iface, detail, needed, NULL, NULL))
+        {
+            continue;
+        }
+        // No access rights, as below: this only asks the disk its number.
+        HANDLE h = CreateFileW(detail->DevicePath, 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                               NULL, OPEN_EXISTING, 0, NULL);
+        if (h == INVALID_HANDLE_VALUE)
+        {
+            continue;
+        }
+        STORAGE_DEVICE_NUMBER sdn;
+        DWORD bytesreturned = 0;
+        if (DeviceIoControl(h, IOCTL_STORAGE_GET_DEVICE_NUMBER, NULL, 0,
+                            &sdn, sizeof(sdn), &bytesreturned, NULL)
+            && sdn.DeviceType == FILE_DEVICE_DISK && !numbers.contains(sdn.DeviceNumber))
+        {
+            numbers.append(sdn.DeviceNumber);
+        }
+        CloseHandle(h);
+    }
+    SetupDiDestroyDeviceInfoList(set);
+    std::sort(numbers.begin(), numbers.end());
+    return numbers;
+}
+
 QList<PhysicalDevice> enumeratePhysicalDevices(bool includeFixed)
 {
     QList<PhysicalDevice> devices;
     HANDLE systemVolume = openSystemVolume();
 
-    // Disk numbers are not dense, so do not stop at the first gap.
-    for (ULONG n = 0; n < 128; ++n)
+    // Only the disks that exist, rather than trying \\.\PhysicalDrive0 up to
+    // some limit: disk numbers are not dense and have no upper bound. Should
+    // the list be unreadable, try the numbers a machine is likely to use.
+    QList<ULONG> numbers = presentDiskNumbers();
+    if (numbers.isEmpty())
+    {
+        for (ULONG n = 0; n < 128; ++n)
+        {
+            numbers.append(n);
+        }
+    }
+    for (ULONG n : numbers)
     {
         QString devicename = QString("\\\\.\\PhysicalDrive%1").arg(n);
-        // No access rights, for the same reason as openVolumeOnDisk above.
+        // No access rights, for the same reason as openLetterVolume above.
         HANDLE hDevice = CreateFile(devicename.toLatin1().data(), 0,
                                     FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                                     OPEN_EXISTING, 0, NULL);

@@ -151,8 +151,9 @@ target_compile_definitions(WinDiskImager PRIVATE
     _WIN32_WINNT=0x0601
 )
 
+# setupapi: enumeratePhysicalDevices() lists disks through it.
 target_link_libraries(WinDiskImager PRIVATE Qt6::Widgets Qt6::Svg ZLIB::ZLIB LibLZMA::LibLZMA
-                      BZip2::BZip2 zstd::libzstd_shared)
+                      BZip2::BZip2 zstd::libzstd_shared setupapi)
 
 # Some Win32 calls use the ANSI API (e.g. CreateFile with toLatin1()); Qt6
 # turns UNICODE on by default.

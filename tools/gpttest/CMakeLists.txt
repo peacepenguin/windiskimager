@@ -31,7 +31,8 @@ target_compile_definitions(gpttest PRIVATE
     WINVER=0x0601
     _WIN32_WINNT=0x0601
 )
-target_link_libraries(gpttest PRIVATE Qt6::Widgets)
+# setupapi: disk.cpp's device enumeration, linked though no case calls it.
+target_link_libraries(gpttest PRIVATE Qt6::Widgets setupapi)
 
 # disk.cpp uses the ANSI Win32 API; Qt6 turns UNICODE on by default.
 qt6_disable_unicode_defines(gpttest)
