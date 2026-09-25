@@ -31,6 +31,22 @@
 // throughput.
 static const unsigned long INPUT_CHUNK = 1024ul * 1024ul;
 
+// Threads for the multi-threaded xz and zstd coders: every logical CPU.
+static uint32_t coderThreads()
+{
+    const uint32_t n = lzma_cputhreads();
+    return (n == 0) ? 1u : n;
+}
+
+// What the multi-threaded xz coders may use before they fall back to fewer
+// threads (encoder) or to decoding in one (decoder): a quarter of the RAM, as
+// the xz tool defaults to, or 1 GiB where the RAM cannot be read.
+static uint64_t coderMemoryBudget()
+{
+    const uint64_t ram = lzma_physmem();
+    return (ram == 0) ? (1ull << 30) : ram / 4;
+}
+
 // Bytes as whole sectors, rounding up.
 static inline unsigned long long sectorsFor(unsigned long long bytes,
                                             unsigned long long sectorsize)
@@ -496,7 +512,27 @@ bool ImageSource::initDecoder()
     lzma_stream *ls = new lzma_stream;
     memset(ls, 0, sizeof(*ls));
     // LZMA_CONCATENATED: xz files may be several streams appended together.
-    lzma_ret ret = lzma_stream_decoder(ls, UINT64_MAX, LZMA_CONCATENATED);
+    lzma_ret ret = LZMA_PROG_ERROR;
+#if LZMA_VERSION >= 50040002
+    // Blocks decode in parallel when the file has several, as xz -T and
+    // distribution images write it; a single-block file decodes in one
+    // thread either way. Past the memory budget it drops to one thread
+    // rather than failing, and it reports the same errors as the plain
+    // decoder, truncation included.
+    lzma_mt mt;
+    memset(&mt, 0, sizeof(mt));
+    mt.flags = LZMA_CONCATENATED;
+    mt.threads = coderThreads();
+    mt.timeout = 0;
+    mt.memlimit_threading = coderMemoryBudget();
+    mt.memlimit_stop = UINT64_MAX;
+    ret = lzma_stream_decoder_mt(ls, &mt);
+#endif
+    if (ret != LZMA_OK)
+    {
+        memset(ls, 0, sizeof(*ls));
+        ret = lzma_stream_decoder(ls, UINT64_MAX, LZMA_CONCATENATED);
+    }
     if (ret != LZMA_OK)
     {
         delete ls;
@@ -909,7 +945,25 @@ bool ImageSink::open(const QString &path, Format format)
     {
         lzma_stream *ls = new lzma_stream;
         memset(ls, 0, sizeof(*ls));
-        lzma_ret ret = lzma_easy_encoder(ls, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
+        // One block per thread's worth of input, compressed in parallel: the
+        // xz tool's -T with its default preset. Threads come off until the
+        // encoder fits the memory budget; with one left it is the ordinary
+        // single-threaded encoder, as before.
+        lzma_mt mt;
+        memset(&mt, 0, sizeof(mt));
+        mt.threads = coderThreads();
+        mt.preset = LZMA_PRESET_DEFAULT;
+        mt.check = LZMA_CHECK_CRC64;
+        while (mt.threads > 1 && lzma_stream_encoder_mt_memusage(&mt) > coderMemoryBudget())
+        {
+            --mt.threads;
+        }
+        lzma_ret ret = (mt.threads > 1) ? lzma_stream_encoder_mt(ls, &mt) : LZMA_PROG_ERROR;
+        if (ret != LZMA_OK)
+        {
+            memset(ls, 0, sizeof(*ls));
+            ret = lzma_easy_encoder(ls, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
+        }
         if (ret != LZMA_OK)
         {
             delete ls;
@@ -941,8 +995,8 @@ bool ImageSink::open(const QString &path, Format format)
     else
     {
         // The zstd tool's defaults: level 3, with the content checksum that
-        // lets a damaged image be told from a good one. One thread: that is
-        // already faster than most devices read.
+        // lets a damaged image be told from a good one. Compressed on every
+        // CPU, as zstd -T0 does; the output is still one frame.
         ZSTD_CCtx *cctx = ZSTD_createCCtx();
         int code = (cctx == NULL) ? (int)ZSTD_error_memory_allocation : 0;
         if (cctx != NULL)
@@ -957,6 +1011,12 @@ bool ImageSink::open(const QString &path, Format format)
             {
                 code = (int)ZSTD_getErrorCode(ret);
                 ZSTD_freeCCtx(cctx);
+            }
+            else if (coderThreads() > 1)
+            {
+                // Refused by a libzstd built without threads, which then
+                // compresses in one; not an error.
+                ZSTD_CCtx_setParameter(cctx, ZSTD_c_nbWorkers, (int)coderThreads());
             }
         }
         if (code != 0)
@@ -1169,6 +1229,27 @@ bool ImageSink::finish()
 char *ImageSource::read(unsigned long long startsector, unsigned long long count,
                         unsigned long long *sectorsread)
 {
+    if (sectorsread != NULL)
+    {
+        *sectorsread = 0ull;
+    }
+    if (count == 0ull)
+    {
+        myError.clear();
+        return NULL;
+    }
+    char *data = new char[(size_t)(mySectorSize * count)];
+    if (!readInto(data, startsector, count, sectorsread))
+    {
+        delete[] data;
+        return NULL;
+    }
+    return data;
+}
+
+bool ImageSource::readInto(char *data, unsigned long long startsector, unsigned long long count,
+                           unsigned long long *sectorsread)
+{
     myError.clear();
     if (sectorsread != NULL)
     {
@@ -1176,12 +1257,11 @@ char *ImageSource::read(unsigned long long startsector, unsigned long long count
     }
     if (count == 0ull)
     {
-        return NULL;
+        return true;
     }
 
     if (myFormat == FORMAT_RAW)
     {
-        char *data = new char[(size_t)(mySectorSize * count)];
         DWORD bytesread = 0;
         LARGE_INTEGER li;
         li.QuadPart = (LONGLONG)(startsector * mySectorSize);
@@ -1190,8 +1270,7 @@ char *ImageSource::read(unsigned long long startsector, unsigned long long count
         {
             myError = QObject::tr("The image file could not be read (error %1).")
                           .arg(GetLastError());
-            delete[] data;
-            return NULL;
+            return false;
         }
         if (bytesread < mySectorSize * count)
         {
@@ -1201,20 +1280,18 @@ char *ImageSource::read(unsigned long long startsector, unsigned long long count
         {
             *sectorsread = sectorsFor(bytesread, mySectorSize);
         }
-        return data;
+        return true;
     }
 
     if (!skipTo(startsector))
     {
-        return NULL;
+        return false;
     }
 
-    char *data = new char[(size_t)(mySectorSize * count)];
     unsigned long long produced = 0ull;
     if (!fill(data, mySectorSize * count, &produced))
     {
-        delete[] data;
-        return NULL;
+        return false;
     }
     if (produced < mySectorSize * count)
     {
@@ -1226,5 +1303,5 @@ char *ImageSource::read(unsigned long long startsector, unsigned long long count
     {
         *sectorsread = full;
     }
-    return data;
+    return true;
 }

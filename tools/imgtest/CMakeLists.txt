@@ -24,6 +24,7 @@ add_executable(imgtest
     main.cpp
     imgtest.rc
     ${APPSRC}/imagesource.cpp
+    ${APPSRC}/transferpipe.cpp
 )
 # windres reads the manifest while compiling the resource script.
 set_property(SOURCE imgtest.rc APPEND PROPERTY OBJECT_DEPENDS

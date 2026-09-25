@@ -258,6 +258,12 @@ pzstd's skippable frames; padding between or after streams; and an image whose
 length is not a whole number of sectors. Truncated gzip, xz, bzip2 and zstd files
 must be *rejected*, because writing what did come out and calling it done would
 put half an image on a card, as must a bad bzip2 CRC or zstd checksum.
+Multi-block xz, which liblzma decodes on several threads, has cases of its own.
+
+It also drives `src/transferpipe.cpp`, the worker threads Write, Verify and a
+compressed Read run on: the image read ahead must come out exactly as reading
+it in order would, errors included, stopping part way must not hang, and
+everything compressed through the writer must read back.
 
 The fixtures are built by the harness itself with zlib, liblzma, libbz2 and
 libzstd, so nothing compressed is checked in and no compressor needs to be on

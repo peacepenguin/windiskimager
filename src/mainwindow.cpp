@@ -47,12 +47,20 @@
 #include "disk.h"
 #include "mainwindow.h"
 #include "imagesource.h"
+#include "transferpipe.h"
 #include "elapsedtimer.h"
 
 MainWindow* MainWindow::instance = NULL;
 
-// Sectors moved per pass of every transfer loop.
-static const unsigned long long TRANSFER_SECTORS = 1024ull;
+// Bytes moved per pass of every transfer loop: large enough that per-request
+// overhead stops mattering on USB 3 readers, and the 4 MiB erase block most
+// SD cards use, which cheap cards reward. See transferSectors().
+static const unsigned long long TRANSFER_BYTES = 4ull * 1024ull * 1024ull;
+
+unsigned long long MainWindow::transferSectors() const
+{
+    return (sectorsize == 0ull || sectorsize >= TRANSFER_BYTES) ? 1ull : TRANSFER_BYTES / sectorsize;
+}
 
 // QProgressBar counts in int, which a multi-terabyte disk's sector count
 // overflows; progress is shifted right by this much so the bar cannot wrap.
@@ -256,7 +264,7 @@ bool MainWindow::imageTailHasData(ImageSource &image, unsigned long long from,
     }
     for (unsigned long long at = from; at < to && !*datafound; )
     {
-        unsigned long chunk = ((to - at) >= TRANSFER_SECTORS) ? TRANSFER_SECTORS
+        unsigned long chunk = ((to - at) >= transferSectors()) ? (unsigned long)transferSectors()
                                                      : (unsigned long)(to - at);
         char *data = image.read(at, chunk, NULL);
         if (data == NULL)
@@ -1125,15 +1133,21 @@ void MainWindow::on_bWrite_clicked()
             // first throughput figure.
             statusbar->showMessage(tr("Writing..."));
             bool imagetruncated = false;
-            for (i = 0ul; i < numsectors && status == STATUS_WRITING; i += TRANSFER_SECTORS)
+            // The image is read and decompressed on a worker thread, ahead of
+            // the device writes here; see transferpipe.h.
+            ImagePrefetcher prefetch(&image, numsectors, transferSectors(), sectorsize);
+            prefetch.start();
+            ImagePrefetcher::Chunk c;
+            while (status == STATUS_WRITING && prefetch.next(&c))
             {
-                unsigned long long chunk = (numsectors - i >= TRANSFER_SECTORS) ? TRANSFER_SECTORS : (numsectors - i);
-                unsigned long long got = 0ull;
-                sectorData = image.read(i, chunk, &got);
-                if (sectorData == NULL)
+                i = c.start;
+                const unsigned long long chunk = c.count;
+                const unsigned long long got = c.got;
+                if (!c.ok)
                 {
+                    prefetch.stop();
                     QMessageBox::critical(this, tr("Write Error"),
-                        image.errorString()
+                        c.error
                         + "\n\n" + tr("The device has been partially written and no longer holds "
                                       "a usable image. Write the image again before using it."));
                     CloseHandle(hRawDisk);
@@ -1145,28 +1159,25 @@ void MainWindow::on_bWrite_clicked()
                 if (got == 0ull)
                 {
                     // The image ended exactly on the previous chunk.
-                    delete[] sectorData;
-                    sectorData = NULL;
+                    prefetch.release(c.data);
                     numsectors = i;
                     break;
                 }
-                if (!writeSectorDataToHandle(hRawDisk, sectorData, i, got, sectorsize))
+                if (!writeSectorDataToHandle(hRawDisk, c.data, i, got, sectorsize))
                 {
+                    prefetch.stop();
                     // writeSectorDataToHandle has already reported what went
                     // wrong; this says what it leaves behind on the device.
                     QMessageBox::warning(this, tr("Write Error"),
                         tr("The device has been partially written and no longer holds "
                            "a usable image. Write the image again before using it."));
-                    delete[] sectorData;
                     CloseHandle(hRawDisk);
                     locked.release();
-                    sectorData = NULL;
                     hRawDisk = INVALID_HANDLE_VALUE;
                     endRun(tr("Write failed."));
                     return;
                 }
-                delete[] sectorData;
-                sectorData = NULL;
+                prefetch.release(c.data);
                 if (got < chunk)
                 {
                     // Short read: the image ended inside this chunk.
@@ -1185,6 +1196,8 @@ void MainWindow::on_bWrite_clicked()
                     (int)((written > progresstotal ? progresstotal : written) >> progshift));
                 QCoreApplication::processEvents();
             }
+            // Before anything below touches the image again.
+            prefetch.stop();
             // Taken once: a Cancel or close during "Fixing GPT..." below must
             // not turn a finished write into one reported as merely "Done".
             // STATUS_WRITING survives the loop only if it completed; testing
@@ -1650,6 +1663,10 @@ void MainWindow::on_bRead_clicked()
             }
         }
         ImageSink sink;
+        // Compressing runs on a worker thread fed from here, so the next
+        // chunk is read from the device while the last is compressed; see
+        // transferpipe.h.
+        SinkWriter writer(&sink, (size_t)(transferSectors() * sectorsize));
         // Failure cleanup for either output backend.
         auto failRead = [&]()
         {
@@ -1658,6 +1675,11 @@ void MainWindow::on_bRead_clicked()
             locked.release();
             if (compressing)
             {
+                writer.stop();
+                if (writer.failed())
+                {
+                    QMessageBox::critical(this, tr("Read Error"), writer.errorString());
+                }
                 sink.abort();
             }
             else if (hFile != INVALID_HANDLE_VALUE)
@@ -1683,6 +1705,7 @@ void MainWindow::on_bRead_clicked()
             // Compressed size is unknown up front, so ask for the raw size:
             // running out of space mid-stream is the failure to avoid.
             spaceneeded = numsectors * sectorsize;
+            writer.start();
         }
         else
         {
@@ -1715,28 +1738,34 @@ void MainWindow::on_bRead_clicked()
         auto writeOut = [&](const char *data, unsigned long long sectors) -> bool
         {
             bool ok = compressing
-                ? sink.write(data, sectors * sectorsize)
+                ? writer.write(data, sectors * sectorsize)
                 : writeSectorDataToHandle(hFile, (char *)data, dstpos, sectors, sectorsize);
             dstpos += sectors;
             return ok;
         };
+        // One chunk of zeros, written as many times as a gap needs.
+        const QByteArray zeros((qsizetype)(transferSectors() * sectorsize), 0);
         auto writeZeros = [&](unsigned long long sectors) -> bool
         {
-            if (sectors == 0ull)
+            while (sectors > 0ull)
             {
-                return true;
+                const unsigned long long n = (sectors > transferSectors()) ? transferSectors() : sectors;
+                if (!writeOut(zeros.constData(), n))
+                {
+                    return false;
+                }
+                sectors -= n;
             }
-            QByteArray zeros((size_t)(sectors * sectorsize), 0);
-            return writeOut(zeros.constData(), sectors);
+            return true;
         };
         // For the header and backup regions, which come as one buffer: a raw
         // write's length goes through WriteFile's DWORD, and headerregion can
         // exceed 4GiB (it is bounded only by devicesectors / 2).
         auto writeOutChunked = [&](const char *data, unsigned long long sectors) -> bool
         {
-            for (unsigned long long i = 0ull; i < sectors; i += TRANSFER_SECTORS)
+            for (unsigned long long i = 0ull; i < sectors; i += transferSectors())
             {
-                unsigned long long chunk = (sectors - i >= TRANSFER_SECTORS) ? TRANSFER_SECTORS : (sectors - i);
+                unsigned long long chunk = (sectors - i >= transferSectors()) ? transferSectors() : (sectors - i);
                 if (!writeOut(data + i * sectorsize, chunk))
                 {
                     return false;
@@ -1754,6 +1783,8 @@ void MainWindow::on_bRead_clicked()
             }
             progressbar->setValue((int)(dstpos >> progshift));
         }
+        // Every device read goes into this one buffer, kept for the run.
+        std::vector<char> readbuf((size_t)(transferSectors() * sectorsize));
         QList<ShrinkCopyRange> ranges = shrinkPlanned ? shrinkPlan.ranges
             : QList<ShrinkCopyRange>{ ShrinkCopyRange{0ull, 0ull, numsectors} };
         for (const ShrinkCopyRange &range : ranges)
@@ -1767,24 +1798,15 @@ void MainWindow::on_bRead_clicked()
                 failRead();
                 return;
             }
-            for (i = 0ull; i < range.length && status == STATUS_READING; i += TRANSFER_SECTORS)
+            for (i = 0ull; i < range.length && status == STATUS_READING; i += transferSectors())
             {
-                unsigned long long chunk = (range.length - i >= TRANSFER_SECTORS) ? TRANSFER_SECTORS : (range.length - i);
-                sectorData = readSectorDataFromHandle(hRawDisk, range.srcfirst + i, chunk, sectorsize);
-                if (sectorData == NULL)
+                unsigned long long chunk = (range.length - i >= transferSectors()) ? transferSectors() : (range.length - i);
+                if (!readSectorsInto(hRawDisk, readbuf.data(), range.srcfirst + i, chunk, sectorsize)
+                    || !writeOut(readbuf.data(), chunk))
                 {
                     failRead();
                     return;
                 }
-                if (!writeOut(sectorData, chunk))
-                {
-                    delete[] sectorData;
-                    sectorData = NULL;
-                    failRead();
-                    return;
-                }
-                delete[] sectorData;
-                sectorData = NULL;
                 showThroughput(dstpos, numsectors, &lasti);
                 progressbar->setValue((int)((dstpos > numsectors ? numsectors : dstpos) >> progshift));
                 QCoreApplication::processEvents();
@@ -1802,9 +1824,12 @@ void MainWindow::on_bRead_clicked()
         }
         if (compressing)
         {
-            if (status == STATUS_READING && !sink.finish())
+            // Everything queued must reach the compressor before it finishes;
+            // on the canceled path the rest is dropped.
+            const bool drained = (status == STATUS_READING) ? writer.finish() : (writer.stop(), true);
+            if (!drained || (status == STATUS_READING && !sink.finish()))
             {
-                QString error = sink.errorString();
+                QString error = drained ? sink.errorString() : writer.errorString();
                 CloseHandle(hRawDisk);
                 hRawDisk = INVALID_HANDLE_VALUE;
                 locked.release();
@@ -1972,13 +1997,20 @@ void MainWindow::on_bVerify_clicked()
             unsigned long long progresstotal = progressTotalFor(image, numsectors);
             int progshift = beginProgress(progresstotal, &lasti);
             statusbar->showMessage(tr("Verifying..."));
-            for (i = 0ul; i < numsectors && status == STATUS_VERIFYING; i += TRANSFER_SECTORS)
+            // The image is decompressed on a worker thread while the device is
+            // read here into one buffer kept for the whole run.
+            ImagePrefetcher prefetch(&image, numsectors, transferSectors(), sectorsize);
+            std::vector<char> devbuf((size_t)(transferSectors() * sectorsize));
+            prefetch.start();
+            ImagePrefetcher::Chunk c;
+            while (status == STATUS_VERIFYING && prefetch.next(&c))
             {
-                unsigned long long got = 0ull;
-                sectorData = image.read(i, (numsectors - i >= TRANSFER_SECTORS) ? TRANSFER_SECTORS:(numsectors - i), &got);
-                if (sectorData == NULL)
+                i = c.start;
+                const unsigned long long got = c.got;
+                if (!c.ok)
                 {
-                    QMessageBox::critical(this, tr("Verify Error"), image.errorString());
+                    prefetch.stop();
+                    QMessageBox::critical(this, tr("Verify Error"), c.error);
                     CloseHandle(hRawDisk);
                     hRawDisk = INVALID_HANDLE_VALUE;
                     locked.release();
@@ -1989,20 +2021,19 @@ void MainWindow::on_bVerify_clicked()
                 {
                     // The image ended on the previous chunk; there is nothing
                     // left to compare.
-                    delete[] sectorData;
-                    sectorData = NULL;
+                    prefetch.release(c.data);
                     numsectors = i;
                     break;
                 }
-                sectorData2 = readSectorDataFromHandle(hRawDisk, i, got, sectorsize);
-                if (sectorData2 == NULL)
+                const char *imgdata = c.data;
+                char *devdata = devbuf.data();
+                if (!readSectorsInto(hRawDisk, devdata, i, got, sectorsize))
                 {
+                    prefetch.stop();
                     // The device could not be read. That is not the image
                     // failing to match, which is what the other message says.
                     QMessageBox::critical(this, tr("Verify Error"),
                         tr("The device could not be read at sector %1.").arg(i));
-                    delete[] sectorData;
-                    sectorData = NULL;
                     CloseHandle(hRawDisk);
                     hRawDisk = INVALID_HANDLE_VALUE;
                     locked.release();
@@ -2012,11 +2043,11 @@ void MainWindow::on_bVerify_clicked()
                 if (i == 0ull && got >= 2ull)
                 {
                     staleknown = gptImageBackupRange(
-                        (const unsigned char *)(sectorData + sectorsize),
+                        (const unsigned char *)(imgdata + sectorsize),
                         sectorsize, &stalefirst, &stalelast);
                 }
                 unsigned long chunk = (unsigned long)got;
-                result = memcmp(sectorData, sectorData2, chunk * sectorsize);
+                result = memcmp(imgdata, devdata, chunk * sectorsize);
                 if (result)
                 {
                     // Find the first difference the GPT fix cannot account for.
@@ -2024,8 +2055,8 @@ void MainWindow::on_bVerify_clicked()
                     unsigned long long badsector = i;
                     for (unsigned long s = 0ul; s < chunk && !bad; ++s)
                     {
-                        if (memcmp(sectorData + s * sectorsize,
-                                   sectorData2 + s * sectorsize, sectorsize) == 0)
+                        if (memcmp(imgdata + s * sectorsize,
+                                   devdata + s * sectorsize, sectorsize) == 0)
                         {
                             continue;
                         }
@@ -2033,8 +2064,8 @@ void MainWindow::on_bVerify_clicked()
                         // LBA 0 is the boot sector: the fix only rewrites the
                         // protective entry's size field (bytes 458-461), so
                         // any other difference there is a real one.
-                        const char *imgsec = sectorData + s * sectorsize;
-                        const char *devsec = sectorData2 + s * sectorsize;
+                        const char *imgsec = imgdata + s * sectorsize;
+                        const char *devsec = devdata + s * sectorsize;
                         bool fixable = (lba != 0ull)
                             || (memcmp(imgsec, devsec, 458) == 0
                                 && memcmp(imgsec + 462, devsec + 462, sectorsize - 462) == 0);
@@ -2053,24 +2084,30 @@ void MainWindow::on_bVerify_clicked()
                     }
                     if (bad)
                     {
+                        prefetch.release(c.data);
                         QMessageBox::critical(this, tr("Verify Failure"),
                             tr("Verification failed at sector: %1").arg(badsector));
                         passfail = false;
                         break;
                     }
                 }
+                prefetch.release(c.data);
                 // i is where this chunk started; the bar tracks what is done.
-                unsigned long long checked = i + TRANSFER_SECTORS;
+                unsigned long long checked = i + c.count;
                 growProgressTotal(progressbar, checked, numsectors, &progresstotal, &progshift);
                 showThroughput(i, progresstotal, &lasti);
-                delete[] sectorData;
-                delete[] sectorData2;
-                sectorData = NULL;
-                sectorData2 = NULL;
                 progressbar->setValue(
                     (int)((checked > progresstotal ? progresstotal : checked) >> progshift));
                 QCoreApplication::processEvents();
+                if (got < c.count)
+                {
+                    // Short read: the image ended inside this chunk.
+                    numsectors = i + got;
+                    break;
+                }
             }
+            // Before anything below touches the image again.
+            prefetch.stop();
             // As after a write; comparing only the part that fits is not a
             // successful verify.
             // Also with a known size (unless the user chose to truncate): only

@@ -130,7 +130,6 @@ char *readSectorDataFromHandle(HANDLE handle, unsigned long long startsector, un
         return NULL;
     }
 
-    unsigned long bytesread;
     char *data = new(std::nothrow) char[sectorsize * numsectors];
     if (!data)
     {
@@ -138,6 +137,17 @@ char *readSectorDataFromHandle(HANDLE handle, unsigned long long startsector, un
                               QObject::tr("Unable to allocate memory for read buffer."));
         return NULL;
     }
+    if (!readSectorsInto(handle, data, startsector, numsectors, sectorsize))
+    {
+        delete[] data;
+        return NULL;
+    }
+    return data;
+}
+
+bool readSectorsInto(HANDLE handle, char *data, unsigned long long startsector, unsigned long long numsectors, unsigned long long sectorsize)
+{
+    unsigned long bytesread = 0;
     LARGE_INTEGER li;
     li.QuadPart = startsector * sectorsize;
     // An unchecked failed seek would read from wherever the pointer was.
@@ -147,22 +157,20 @@ char *readSectorDataFromHandle(HANDLE handle, unsigned long long startsector, un
         reportWin32Error(QObject::tr("Read Error"),
                          QObject::tr("An error occurred when attempting to read data from handle.\n"
                          "Error %1: %2"));
-        delete[] data;
-        return NULL;
+        return false;
     }
     if (!ReadFile(handle, data, sectorsize * numsectors, &bytesread, NULL))
     {
         reportWin32Error(QObject::tr("Read Error"),
                          QObject::tr("An error occurred when attempting to read data from handle.\n"
                          "Error %1: %2"));
-        delete[] data;
-        data = NULL;
+        return false;
     }
-    if (data && bytesread < (sectorsize * numsectors))
+    if (bytesread < (sectorsize * numsectors))
     {
-            memset(data + bytesread,0,(sectorsize * numsectors) - bytesread);
+        memset(data + bytesread, 0, (sectorsize * numsectors) - bytesread);
     }
-    return data;
+    return true;
 }
 
 bool writeSectorDataToHandle(HANDLE handle, char *data, unsigned long long startsector, unsigned long long numsectors, unsigned long long sectorsize)

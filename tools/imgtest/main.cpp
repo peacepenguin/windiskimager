@@ -33,6 +33,7 @@
 #include <QCoreApplication>
 #include <QByteArray>
 #include <QFile>
+#include <QFileInfo>
 #include <QString>
 #include <windows.h>
 #include <cstdio>
@@ -42,6 +43,7 @@
 #include <bzlib.h>
 #include <zstd.h>
 #include "imagesource.h"
+#include "transferpipe.h"
 
 static const unsigned long long SS = 512;
 
@@ -108,6 +110,41 @@ static QByteArray xzOf(const QByteArray &raw)
         return QByteArray();
     }
     out.truncate((int)used);
+    return out;
+}
+
+// Many blocks, as xz -T writes: what the multi-threaded decoder decodes in
+// parallel. lzma_easy_buffer_encode above always writes one.
+static QByteArray xzBlocksOf(const QByteArray &raw)
+{
+    lzma_stream ls = LZMA_STREAM_INIT;
+    lzma_mt mt;
+    memset(&mt, 0, sizeof(mt));
+    mt.threads = 4;
+    mt.block_size = 256 * 1024;
+    mt.preset = 1;
+    mt.check = LZMA_CHECK_CRC64;
+    if (lzma_stream_encoder_mt(&ls, &mt) != LZMA_OK)
+    {
+        return QByteArray();
+    }
+    QByteArray out(raw.size() + 65536, 0);
+    ls.next_in = (const uint8_t *)raw.constData();
+    ls.avail_in = (size_t)raw.size();
+    ls.next_out = (uint8_t *)out.data();
+    ls.avail_out = (size_t)out.size();
+    lzma_ret r;
+    do
+    {
+        r = lzma_code(&ls, LZMA_FINISH);
+    } while (r == LZMA_OK);
+    const int used = (int)ls.total_out;
+    lzma_end(&ls);
+    if (r != LZMA_STREAM_END)
+    {
+        return QByteArray();
+    }
+    out.truncate(used);
     return out;
 }
 
@@ -439,7 +476,11 @@ static void caseSinkAbort(const char *name, const QString &file,
     }
     QByteArray got;
     QString why;
-    check(!readBack(file, &got, &why), "the aborted file is not read as a valid image");
+    // A multi-threaded compressor can still hold everything written so far,
+    // leaving an empty file -- which Write refuses outright ("contains no
+    // data"), so it counts as rejected too.
+    const bool empty = QFileInfo(file).size() == 0;
+    check(empty || !readBack(file, &got, &why), "the aborted file is not read as a valid image");
     printf("\n");
 }
 
@@ -491,6 +532,115 @@ static void caseEndProbe(const char *name, const QString &file, const QByteArray
     }
     src.close();
     printf("\n");
+}
+
+// Write and Verify take the image from ImagePrefetcher, on a worker thread.
+// What it hands out must be exactly what reading in order hands out: the
+// same bytes, the same short last chunk, the same error at the same place.
+static void casePrefetch(const char *name, const QString &file, const QByteArray &raw,
+                         unsigned long long chunksectors, bool expectError)
+{
+    printf("%s: read ahead on a thread, %llu-sector chunks\n", name, chunksectors);
+    ImageSource src;
+    if (!src.open(file, SS))
+    {
+        check(false, "opened");
+        printf("\n");
+        return;
+    }
+    // Past the image, as Write asks for when the size is only an estimate.
+    const unsigned long long total = sectorsOf(raw) + 3 * chunksectors;
+    ImagePrefetcher prefetch(&src, total, chunksectors, SS);
+    prefetch.start();
+    QByteArray got;
+    QString error;
+    bool inorder = true, shortlast = false;
+    unsigned long long expect = 0;
+    ImagePrefetcher::Chunk c;
+    while (prefetch.next(&c))
+    {
+        inorder = inorder && (c.start == expect);
+        expect += c.count;
+        if (!c.ok)
+        {
+            error = c.error;
+            prefetch.release(c.data);
+            break;
+        }
+        got.append(c.data, (int)(c.got * SS));
+        shortlast = (c.got < c.count);
+        prefetch.release(c.data);
+    }
+    prefetch.stop();
+    check(inorder, "chunks arrive in order, back to back");
+    if (expectError)
+    {
+        check(error.contains("ends in the middle"), "the truncation is reported, as reading in order would");
+        check(got.size() <= raw.size() && memcmp(got.constData(), raw.constData(), (size_t)got.size()) == 0,
+              "everything before it matches the original");
+    }
+    else
+    {
+        check(error.isEmpty() && shortlast, "no error, and it stops at the end of the image");
+        check(got.size() >= raw.size() && memcmp(got.constData(), raw.constData(), (size_t)raw.size()) == 0,
+              "every byte matches the original");
+        // The image is the caller's again once stopped.
+        unsigned long long leftover = 99;
+        char *extra = src.read(sectorsOf(raw), 1, &leftover);
+        check(extra != NULL && leftover == 0, "after stop(), reading on from the end still works");
+        delete[] extra;
+    }
+    src.close();
+    printf("\n");
+}
+
+// Cancel: the caller stops after a few chunks with more queued and the worker
+// possibly waiting for a buffer. stop() must return, not deadlock.
+static void casePrefetchStop(const QString &file)
+{
+    printf("read ahead, stopped part way\n");
+    ImageSource src;
+    check(src.open(file, SS), "opened");
+    {
+        ImagePrefetcher prefetch(&src, 1000000, 16, SS);
+        prefetch.start();
+        ImagePrefetcher::Chunk c;
+        for (int k = 0; k < 3 && prefetch.next(&c); ++k)
+        {
+            prefetch.release(c.data);
+        }
+        // One chunk kept, never released, as a caller bailing out mid-loop does.
+        prefetch.next(&c);
+        prefetch.stop();
+    }
+    check(true, "stop() returned with chunks still queued");
+    src.close();
+    printf("\n");
+}
+
+// A compressed Read feeds ImageSink through SinkWriter on a worker thread,
+// in pieces of any size, the gap zeros included.
+static void caseSinkWriter(const char *name, const QString &file,
+                           ImageSink::Format format, const QByteArray &raw)
+{
+    printf("%s: compressed on a thread\n", name);
+    ImageSink sink;
+    bool ok = sink.open(file, format);
+    check(ok, "the sink opened");
+    SinkWriter writer(&sink, 64 * 1024);
+    writer.start();
+    const int sizes[] = { 777, 300 * 1024, 1, 4096 };
+    int pos = 0;
+    for (int i = 0; ok && pos < raw.size(); i = (i + 1) % 4)
+    {
+        const int n = qMin(sizes[i], raw.size() - pos);
+        ok = writer.write(raw.constData() + pos, (unsigned long long)n);
+        pos += n;
+    }
+    check(ok && writer.finish(), "every piece was written, in order");
+    check(sink.finish(), "the sink finished the stream");
+    printf("\n");
+    caseRoundTrip("  ...read back", file, raw);
 }
 
 // A Read to, and a Write/Verify from, an image path past MAX_PATH. The app's
@@ -600,12 +750,14 @@ int main(int argc, char **argv)
     const QByteArray xz = xzOf(raw);
     const QByteArray bz = bzip2Of(raw);
     const QByteArray zst = zstdOf(raw);
+    const QByteArray xzb = xzBlocksOf(raw);
 
     printf("fixtures\n");
     check(!gz.isEmpty(), "gzip fixture built");
     check(!xz.isEmpty(), "xz fixture built");
     check(!bz.isEmpty(), "bzip2 fixture built");
     check(!zst.isEmpty(), "zstd fixture built");
+    check(!xzb.isEmpty(), "multi-block xz fixture built");
     check((raw.size() % (int)SS) != 0, "the image is not a whole number of sectors");
     printf("\n");
     if (gz.isEmpty() || xz.isEmpty() || bz.isEmpty() || zst.isEmpty())
@@ -649,7 +801,9 @@ int main(int argc, char **argv)
           && writeFile("imgtest-padded.img.zst", zst + QByteArray(512, '\0'))
           && writeFile("imgtest-trunc.img.bz2", bz.left(bz.size() / 2))
           && writeFile("imgtest-trunc.img.zst", zst.left(zst.size() / 2))
-          && writeFile("imgtest-zst-named.img", zst),
+          && writeFile("imgtest-zst-named.img", zst)
+          && writeFile("imgtest-blocks.img.xz", xzb)
+          && writeFile("imgtest-blocks-trunc.img.xz", xzb.left(xzb.size() / 2)),
           "every fixture file was written");
     printf("\n");
 
@@ -659,6 +813,7 @@ int main(int argc, char **argv)
     caseRoundTrip("gzip, two members", "imgtest-multi.img.gz", raw);
     caseRoundTrip("xz, two streams", "imgtest-multi.img.xz", raw);
     caseRoundTrip("xz, two streams with padding between", "imgtest-padded.img.xz", raw);
+    caseRoundTrip("xz, many blocks (decoded in parallel)", "imgtest-blocks.img.xz", raw);
     caseRoundTrip("bzip2", "imgtest.img.bz2", raw);
     caseRoundTrip("zstd", "imgtest.img.zst", raw);
     // pbzip2/lbzip2 write one stream per chunk; stopping after the first is
@@ -695,6 +850,7 @@ int main(int argc, char **argv)
     // Truncation must be reported, or half an image is written and called done.
     caseRejected("gzip that stops in the middle", "imgtest-trunc.img.gz", raw);
     caseRejected("xz that stops in the middle", "imgtest-trunc.img.xz", raw);
+    caseRejected("xz of many blocks that stops in the middle", "imgtest-blocks-trunc.img.xz", raw);
     caseRejected("bzip2 that stops in the middle", "imgtest-trunc.img.bz2", raw);
     caseRejected("zstd that stops in the middle", "imgtest-trunc.img.zst", raw);
 
@@ -718,6 +874,7 @@ int main(int argc, char **argv)
     caseSize("gzip, two members", "imgtest-multi.img.gz", raw);
     caseSize("xz, two streams", "imgtest-multi.img.xz", raw);
     caseSize("xz, two streams with padding between", "imgtest-padded.img.xz", raw);
+    caseSize("xz, many blocks", "imgtest-blocks.img.xz", raw);
     caseSize("bzip2", "imgtest.img.bz2", raw);
     caseSize("zstd", "imgtest.img.zst", raw);
     // The first frame's size alone, which must not pass for the whole image's.
@@ -756,12 +913,38 @@ int main(int argc, char **argv)
     caseSeek("raw", "imgtest.img", raw, false);
     caseSeek("gzip", "imgtest.img.gz", raw, true);
     caseSeek("xz", "imgtest.img.xz", raw, true);
+    caseSeek("xz, many blocks", "imgtest-blocks.img.xz", raw, true);
     caseSeek("bzip2", "imgtest.img.bz2", raw, true);
     caseSeek("zstd", "imgtest.img.zst", raw, true);
+
+    casePrefetch("raw", "imgtest.img", raw, 8192, false);
+    casePrefetch("raw", "imgtest.img", raw, 7, false);
+    casePrefetch("gzip", "imgtest.img.gz", raw, 8192, false);
+    casePrefetch("xz, many blocks", "imgtest-blocks.img.xz", raw, 8192, false);
+    casePrefetch("bzip2, two streams", "imgtest-multi.img.bz2", raw, 1000, false);
+    casePrefetch("zstd", "imgtest.img.zst", raw, 8192, false);
+    casePrefetch("gzip that stops in the middle", "imgtest-trunc.img.gz", raw, 8192, true);
+    casePrefetch("xz of many blocks that stops in the middle", "imgtest-blocks-trunc.img.xz", raw, 100, true);
+    casePrefetchStop("imgtest.img.zst");
 
     caseEndProbe("raw", "imgtest.img", raw, false);
     caseEndProbe("gzip", "imgtest.img.gz", raw, false);
     caseEndProbe("xz", "imgtest.img.xz", raw, false);
+    caseEndProbe("xz, many blocks", "imgtest-blocks.img.xz", raw, false);
+    {
+        // A block's check fails in the middle of the stream, while other
+        // blocks are being decoded alongside it.
+        QByteArray bad = xzb;
+        bad[bad.size() / 3] = (char)(bad.at(bad.size() / 3) ^ 0x55);
+        writeFile("imgtest-blocks-bad.img.xz", bad);
+        QByteArray got;
+        QString why;
+        printf("xz of many blocks, one damaged\n");
+        check(!readBack("imgtest-blocks-bad.img.xz", &got, &why), "reported as a failure");
+        check(!why.isEmpty() && got.size() < raw.size(), "with a reason, before the whole image");
+        printf("  -> %s\n\n", why.toLocal8Bit().constData());
+        DeleteFileA("imgtest-blocks-bad.img.xz");
+    }
     caseEndProbe("bzip2", "imgtest.img.bz2", raw, false);
     caseEndProbe("zstd", "imgtest.img.zst", raw, false);
     {
@@ -796,6 +979,10 @@ int main(int argc, char **argv)
     caseSinkRoundTrip("ImageSink, xz", "imgtest-sink.img.xz", ImageSink::FORMAT_XZ, raw);
     caseSinkRoundTrip("ImageSink, bzip2", "imgtest-sink.img.bz2", ImageSink::FORMAT_BZIP2, raw);
     caseSinkRoundTrip("ImageSink, zstd", "imgtest-sink.img.zst", ImageSink::FORMAT_ZSTD, raw);
+    caseSinkWriter("SinkWriter, gzip", "imgtest-sink.img.gz", ImageSink::FORMAT_GZIP, raw);
+    caseSinkWriter("SinkWriter, xz", "imgtest-sink.img.xz", ImageSink::FORMAT_XZ, raw);
+    caseSinkWriter("SinkWriter, bzip2", "imgtest-sink.img.bz2", ImageSink::FORMAT_BZIP2, raw);
+    caseSinkWriter("SinkWriter, zstd", "imgtest-sink.img.zst", ImageSink::FORMAT_ZSTD, raw);
     caseSinkAbort("ImageSink, gzip aborted", "imgtest-abort.img.gz", ImageSink::FORMAT_GZIP, raw);
     caseSinkAbort("ImageSink, xz aborted", "imgtest-abort.img.xz", ImageSink::FORMAT_XZ, raw);
     caseSinkAbort("ImageSink, bzip2 aborted", "imgtest-abort.img.bz2", ImageSink::FORMAT_BZIP2, raw);
@@ -832,6 +1019,7 @@ int main(int argc, char **argv)
         "imgtest-gz-named.img", "imgtest-raw-named.img.gz",
         "imgtest.img.bz2", "imgtest.img.zst", "imgtest-multi.img.bz2", "imgtest-multi.img.zst",
         "imgtest-pzstd.img.zst", "imgtest-nosize.img.zst", "imgtest-long.img.zst",
+        "imgtest-blocks.img.xz", "imgtest-blocks-trunc.img.xz",
         "imgtest-padded.img.bz2", "imgtest-padded.img.zst",
         "imgtest-trunc.img.bz2", "imgtest-trunc.img.zst", "imgtest-zst-named.img",
     };

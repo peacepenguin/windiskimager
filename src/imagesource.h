@@ -68,6 +68,10 @@ public:
     // For a compressed image startsector must not go backwards.
     char *read(unsigned long long startsector, unsigned long long count,
                unsigned long long *sectorsread);
+    // read() into the caller's buffer of count sectors, for reuse across
+    // chunks. Returns false, with errorString() set, on error.
+    bool readInto(char *data, unsigned long long startsector, unsigned long long count,
+                  unsigned long long *sectorsread);
 
 private:
     bool initDecoder();

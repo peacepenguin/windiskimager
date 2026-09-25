@@ -108,6 +108,7 @@ add_custom_target(appicon DEPENDS ${ICON_ICO})
 qt_add_executable(WinDiskImager WIN32
     disk.cpp
     imagesource.cpp
+    transferpipe.cpp
     main.cpp
     mainwindow.cpp
     devicecombobox.cpp

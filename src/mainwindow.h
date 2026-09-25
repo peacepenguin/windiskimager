@@ -92,6 +92,8 @@ private:
         // controls -- greyed out during a run, and back to their own
         // idle states after it.
         void setOptionsEnabled(bool enabled);
+        // Sectors per device read or write: TRANSFER_BYTES' worth.
+        unsigned long long transferSectors() const;
         void initializeHomeDir();
         void updateHashControls();
         void imageFileChanged();
