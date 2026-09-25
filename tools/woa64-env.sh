@@ -37,7 +37,7 @@
 
 # The same Fedora as the x64 image. Whatever its release, the host Qt and the
 # Qt source are one build (woa64_build_qt), so they cannot disagree.
-WOA64_BASE_IMAGE="fedora:latest"
+WOA64_BASE_IMAGE="quay.io/fedora/fedora-minimal:latest"
 
 # A release tag (e.g. 20260922) to hold llvm-mingw at, when the newest one
 # breaks something; empty for the newest.

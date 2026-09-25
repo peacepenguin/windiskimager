@@ -2,7 +2,7 @@
 # llvm-mingw, zlib, xz, zstd, bzip2 and Qt -- is built by tools/woa64-env.sh,
 # from Fedora's source RPMs and llvm-mingw's newest release; see it for how.
 #
-#   podman build -t w32di-build-arm64 --build-arg BASE=fedora:latest \
+#   podman build -t w32di-build-arm64 --build-arg BASE=quay.io/fedora/fedora-minimal:latest \
 #       -f tools/Containerfile.arm64 .
 #
 # tools/build-container-arm64.sh builds it on first use, as WOA64_IMAGE, and
@@ -14,7 +14,7 @@
 # package for ARM64 instead.
 #
 # See BUILD.md, "Windows on ARM64, cross-compiled from Linux".
-ARG BASE=fedora:latest
+ARG BASE=quay.io/fedora/fedora-minimal:latest
 FROM ${BASE}
 
 COPY tools/build-env.sh tools/woa64-env.sh /usr/local/lib/

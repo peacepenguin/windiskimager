@@ -32,7 +32,7 @@
 # this. CI builds its image fresh each run; a local one is checked for updates
 # before each build (container_stale), so it follows this -- a new Fedora
 # release included -- the same way.
-CROSS_BASE_IMAGE="fedora:latest"
+CROSS_BASE_IMAGE="quay.io/fedora/fedora-minimal:latest"
 
 # qt6-linguist is the *native* Linguist: lrelease-qt6 compiles lang/*.ts for the
 # build, lupdate-qt6 serves tools/lupdate.sh. The mingw64-qt6-qttools copies are
@@ -393,7 +393,7 @@ drop_foreign_cache()
 # container_stale IMAGE BASE SCRIPT
 #
 # Whether IMAGE, built from BASE, should be rebuilt to pick up updates: BASE
-# is now a newer Fedora release (fedora:latest after a release), or SCRIPT's
+# is now a newer Fedora release (quay.io/fedora/fedora-minimal:latest after a release), or SCRIPT's
 # "stale" command, run in the image, finds the repositories have moved on
 # (cross_stale, woa64_stale). Only asked by the build wrappers, never by the
 # deploy ones, so a package is made from the image its build used.

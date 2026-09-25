@@ -159,7 +159,7 @@ while it runs.
 It has to be Fedora: Debian and Ubuntu ship no MinGW Qt6 packages, so there is
 nothing to link against there. That is why CI runs `ubuntu-latest` and builds
 in a Fedora container, the same one `tools/build-container.sh` uses. The
-release is named once, as `CROSS_BASE_IMAGE` (`fedora:latest`) in
+release is named once, as `CROSS_BASE_IMAGE` (`quay.io/fedora/fedora-minimal:latest`) in
 [tools/build-env.sh](tools/build-env.sh). CI builds the image fresh every run.
 A local image is checked before each `tools/build-container.sh` run and
 rebuilt if it has fallen behind -- see "Keeping the images current" below.
@@ -253,7 +253,7 @@ same version as the target Qt; taking the source from the host Qt's own build
 makes it so. llvm-mingw is the newest release on GitHub, checked against the
 SHA-256 GitHub publishes for it; `WOA64_LLVM_MINGW_PIN` in
 `tools/woa64-env.sh` holds it at a release instead, for when a new one breaks
-something. Moving to a new Fedora release needs no edit: `fedora:latest`
+something. Moving to a new Fedora release needs no edit: `quay.io/fedora/fedora-minimal:latest`
 moves, and the image is rebuilt on it.
 
 Nothing in the toolkit is owned by a package manager, so each library records
@@ -274,7 +274,7 @@ fresh on every run. Locally, each `tools/build-container.sh` and
 (`container_stale` in `tools/build-env.sh`) and rebuilds it, from scratch and
 under the same tag, when:
 
-- `fedora:latest` is a newer Fedora release than the image was built on, or
+- `quay.io/fedora/fedora-minimal:latest` is a newer Fedora release than the image was built on, or
 - the image's `stale` command finds the repositories have moved on. For x64
   that is an update to any installed package (the MinGW libraries it ships
   among them) or a newer `xz` source RPM. For ARM64 it is a newer source RPM

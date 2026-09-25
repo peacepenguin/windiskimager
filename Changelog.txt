@@ -146,7 +146,7 @@ Browse opens in the folder an image was last opened from, remembered by Windows
 Drop an image file anywhere on the window to fill in the image field. Dropping
   onto the field never worked: Windows blocks Qt's drag and drop from Explorer
   into an elevated window, so it now uses the older mechanism Windows lets through
-Local cross-builds use fedora:latest, the same as CI
+Local cross-builds use quay.io/fedora/fedora-minimal:latest, the same as CI
 Many more automated tests
 
 Release 1.8.0

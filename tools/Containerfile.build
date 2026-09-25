@@ -1,7 +1,7 @@
 # Cross-compile image for win64 builds from Linux; the toolchain is installed by
 # tools/build-env.sh, the same as in CI.
 #
-#   podman build -t w32di-build --build-arg BASE=fedora:latest \
+#   podman build -t w32di-build --build-arg BASE=quay.io/fedora/fedora-minimal:latest \
 #       -f tools/Containerfile.build .
 #
 # container_run passes BASE from CROSS_BASE_IMAGE; the default below is only for
@@ -9,7 +9,7 @@
 # rebuilds the layer and editing anything else does not.
 #
 # See BUILD.md, "Windows, cross-compiled from Linux".
-ARG BASE=fedora:latest
+ARG BASE=quay.io/fedora/fedora-minimal:latest
 FROM ${BASE}
 
 COPY tools/build-env.sh /usr/local/lib/build-env.sh

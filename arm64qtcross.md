@@ -20,7 +20,7 @@ starting point to verify, and record what actually happened next to it.
 > - zlib, zstd and bzip2 from `mingw64-*`;
 > - xz from `xz`.
 >
-> llvm-mingw is its newest GitHub release. The image is `fedora:latest`, and
+> llvm-mingw is its newest GitHub release. The image is `quay.io/fedora/fedora-minimal:latest`, and
 > the build wrapper rebuilds it when any of those have been updated.
 
 ## Why this is different from the x64 cross build
