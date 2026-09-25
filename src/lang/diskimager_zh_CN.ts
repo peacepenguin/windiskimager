@@ -97,7 +97,11 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
-        <translation>读取设备的 MBR 或 GPT，并在映像中省去各分区之间及之后的未分区空间。第一个分区之前存放引导加载程序的空间，在分区表之后 32 MB 以内按原样读取，只省去超出的部分。备份 GPT 会移到映像新的末尾。</translation>
+        <translation type="vanished">读取设备的 MBR 或 GPT，并在映像中省去各分区之间及之后的未分区空间。第一个分区之前存放引导加载程序的空间，在分区表之后 32 MB 以内按原样读取，只省去超出的部分。备份 GPT 会移到映像新的末尾。</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Up to 32 MB of the space before the first partition, where a bootloader might be stored in unused space, is read as it is; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>读取设备的 MBR 或 GPT，并在映像中省去各分区之间及之后的未分区空间。第一个分区之前的空间中，引导加载程序可能存放在未使用空间里，其中最多 32 MB 按原样读取，只省去超出的部分。备份 GPT 会移到映像新的末尾。</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

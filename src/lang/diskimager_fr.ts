@@ -97,7 +97,11 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
-        <translation>Lit le MBR ou la GPT du périphérique et laisse de côté l&apos;espace non partitionné entre ses partitions et après elles. L&apos;espace qui précède la première partition, où se trouve un chargeur d&apos;amorçage, est lu tel quel jusqu&apos;à 32 Mo après la table de partitions ; seul ce qui dépasse est laissé de côté. La GPT de secours est déplacée à la nouvelle fin de l&apos;image.</translation>
+        <translation type="vanished">Lit le MBR ou la GPT du périphérique et laisse de côté l&apos;espace non partitionné entre ses partitions et après elles. L&apos;espace qui précède la première partition, où se trouve un chargeur d&apos;amorçage, est lu tel quel jusqu&apos;à 32 Mo après la table de partitions ; seul ce qui dépasse est laissé de côté. La GPT de secours est déplacée à la nouvelle fin de l&apos;image.</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Up to 32 MB of the space before the first partition, where a bootloader might be stored in unused space, is read as it is; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>Lit le MBR ou la GPT du périphérique et laisse de côté l&apos;espace non partitionné entre ses partitions et après elles. Jusqu&apos;à 32 Mo de l&apos;espace qui précède la première partition, où un chargeur d&apos;amorçage peut être stocké dans l&apos;espace inutilisé, sont lus tels quels ; seul ce qui dépasse est laissé de côté. La GPT de secours est déplacée à la nouvelle fin de l&apos;image.</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

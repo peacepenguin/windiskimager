@@ -97,7 +97,11 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
-        <translation>デバイスのMBRまたはGPTを読み取り、パーティション間とその後ろにある未パーティション領域を除きます。ブートローダーが置かれる最初のパーティションより前の領域は、パーティションテーブルの後ろ32 MBまではそのまま読み取り、それを超える部分だけを除きます。バックアップGPTはイメージの新しい末尾に移動します。</translation>
+        <translation type="vanished">デバイスのMBRまたはGPTを読み取り、パーティション間とその後ろにある未パーティション領域を除きます。ブートローダーが置かれる最初のパーティションより前の領域は、パーティションテーブルの後ろ32 MBまではそのまま読み取り、それを超える部分だけを除きます。バックアップGPTはイメージの新しい末尾に移動します。</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Up to 32 MB of the space before the first partition, where a bootloader might be stored in unused space, is read as it is; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>デバイスのMBRまたはGPTを読み取り、パーティション間とその後ろにある未パーティション領域を除きます。最初のパーティションより前の領域のうち、ブートローダーが未使用領域に置かれている可能性のある最大32 MBはそのまま読み取り、それを超える部分だけを除きます。バックアップGPTはイメージの新しい末尾に移動します。</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

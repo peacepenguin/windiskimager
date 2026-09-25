@@ -97,7 +97,11 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
-        <translation>장치의 MBR 또는 GPT를 읽고 파티션 사이와 뒤에 있는 파티션되지 않은 공간을 제외합니다. 부트로더가 있는 첫 번째 파티션 앞의 공간은 파티션 테이블 뒤 32 MB까지 그대로 읽으며, 그 이후의 공간만 제외합니다. 백업 GPT는 이미지의 새 끝으로 옮겨집니다.</translation>
+        <translation type="vanished">장치의 MBR 또는 GPT를 읽고 파티션 사이와 뒤에 있는 파티션되지 않은 공간을 제외합니다. 부트로더가 있는 첫 번째 파티션 앞의 공간은 파티션 테이블 뒤 32 MB까지 그대로 읽으며, 그 이후의 공간만 제외합니다. 백업 GPT는 이미지의 새 끝으로 옮겨집니다.</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Up to 32 MB of the space before the first partition, where a bootloader might be stored in unused space, is read as it is; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>장치의 MBR 또는 GPT를 읽고 파티션 사이와 뒤에 있는 파티션되지 않은 공간을 제외합니다. 부트로더가 사용되지 않는 공간에 저장되어 있을 수 있는 첫 번째 파티션 앞 공간은 최대 32 MB까지 그대로 읽으며, 그 이후의 공간만 제외합니다. 백업 GPT는 이미지의 새 끝으로 옮겨집니다.</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

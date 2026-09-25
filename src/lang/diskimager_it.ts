@@ -72,8 +72,12 @@
         <translation>Salta lo spazio non partizionato</translation>
     </message>
     <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Up to 32 MB of the space before the first partition, where a bootloader might be stored in unused space, is read as it is; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>Legge l&apos;MBR o la GPT del dispositivo e lascia fuori lo spazio non partizionato tra le sue partizioni e dopo di esse. Fino a 32 MB dello spazio prima della prima partizione, dove un bootloader potrebbe trovarsi nello spazio inutilizzato, vengono letti così come sono; viene escluso solo lo spazio oltre. La GPT di backup viene spostata alla nuova fine dell&apos;immagine.</translation>
+    </message>
+    <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
-        <translation>Legge l&apos;MBR o la GPT del dispositivo e lascia fuori lo spazio non partizionato tra le sue partizioni e dopo di esse. Lo spazio prima della prima partizione, dove si trova un bootloader, viene letto così com&apos;è fino a 32 MB dopo la tabella delle partizioni; viene escluso solo lo spazio oltre. La GPT di backup viene spostata alla nuova fine dell&apos;immagine.</translation>
+        <translation type="vanished">Legge l&apos;MBR o la GPT del dispositivo e lascia fuori lo spazio non partizionato tra le sue partizioni e dopo di esse. Lo spazio prima della prima partizione, dove si trova un bootloader, viene letto così com&apos;è fino a 32 MB dopo la tabella delle partizioni; viene escluso solo lo spazio oltre. La GPT di backup viene spostata alla nuova fine dell&apos;immagine.</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>

@@ -97,7 +97,11 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
-        <translation>சாதனத்தின் MBR அல்லது GPT-ஐப் படித்து, பகிர்வுகளுக்கு இடையிலும் பின்னாலும் உள்ள பகிரப்படாத இடத்தை விலக்குகிறது. துவக்கி வைக்கப்படும் முதல் பகிர்வுக்கு முன் உள்ள இடம், பகிர்வு அட்டவணைக்குப் பின் 32 MB வரை அப்படியே படிக்கப்படும்; அதைத் தாண்டிய இடம் மட்டுமே விலக்கப்படும். காப்பு GPT படிமத்தின் புதிய முடிவுக்கு நகர்த்தப்படும்.</translation>
+        <translation type="vanished">சாதனத்தின் MBR அல்லது GPT-ஐப் படித்து, பகிர்வுகளுக்கு இடையிலும் பின்னாலும் உள்ள பகிரப்படாத இடத்தை விலக்குகிறது. துவக்கி வைக்கப்படும் முதல் பகிர்வுக்கு முன் உள்ள இடம், பகிர்வு அட்டவணைக்குப் பின் 32 MB வரை அப்படியே படிக்கப்படும்; அதைத் தாண்டிய இடம் மட்டுமே விலக்கப்படும். காப்பு GPT படிமத்தின் புதிய முடிவுக்கு நகர்த்தப்படும்.</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Up to 32 MB of the space before the first partition, where a bootloader might be stored in unused space, is read as it is; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>சாதனத்தின் MBR அல்லது GPT-ஐப் படித்து, பகிர்வுகளுக்கு இடையிலும் பின்னாலும் உள்ள பகிரப்படாத இடத்தை விலக்குகிறது. பயன்படுத்தப்படாத இடத்தில் துவக்கி சேமிக்கப்பட்டிருக்கக்கூடிய, முதல் பகிர்வுக்கு முன் உள்ள இடத்தின் 32 MB வரை அப்படியே படிக்கப்படும்; அதைத் தாண்டிய இடம் மட்டுமே விலக்கப்படும். காப்பு GPT படிமத்தின் புதிய முடிவுக்கு நகர்த்தப்படும்.</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

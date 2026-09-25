@@ -61,13 +61,14 @@ By default, Read copies the whole device, sector by sector.
 
 **Skip unpartitioned space** reads the device's MBR or GPT and packs the partitions
 back to back, removing the unpartitioned space between and after them.
-The space before the first partition is where board images keep their
-bootloader, and nothing in the partition table reliably says how far it runs
-(`FirstUsableLBA` often stops well short of it). So when there is 32 MB or less
-of it after the partition table, all of it is kept and the first partition
-does not move. When there is more, the first 32 MB is kept exactly as it is
-and the rest is removed; every known bootloader layout fits in 16 MB. A
-GPT's `FirstUsableLBA` is always honoured. Partitions are aligned to 1 MiB,
+Most bootloaders live in a partition, but some board images store theirs in
+the unused space before the first partition, and nothing in the partition
+table reliably says how far it runs (`FirstUsableLBA` often stops well short
+of it). So when there is 32 MB or less of that space after the partition
+table, all of it is kept and the first partition does not move. When there is
+more, the first 32 MB is kept exactly as it is and the rest is removed; every
+known bootloader layout fits in 16 MB. A GPT's `FirstUsableLBA` is always
+honoured. Partitions are aligned to 1 MiB,
 the same default as Windows, `parted` and `sgdisk`, and never move later on
 the disk.
 For GPT, the backup table is rebuilt at the new end of the image. A device with

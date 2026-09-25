@@ -97,7 +97,11 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
-        <translation>Leest de MBR of GPT van het apparaat en laat de niet-gepartitioneerde ruimte tussen en na de partities weg. De ruimte vóór de eerste partitie, waar een bootloader staat, wordt tot 32 MB na de partitietabel ongewijzigd gelezen; alleen wat daarna komt wordt weggelaten. De reserve-GPT wordt naar het nieuwe einde van de image verplaatst.</translation>
+        <translation type="vanished">Leest de MBR of GPT van het apparaat en laat de niet-gepartitioneerde ruimte tussen en na de partities weg. De ruimte vóór de eerste partitie, waar een bootloader staat, wordt tot 32 MB na de partitietabel ongewijzigd gelezen; alleen wat daarna komt wordt weggelaten. De reserve-GPT wordt naar het nieuwe einde van de image verplaatst.</translation>
+    </message>
+    <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Up to 32 MB of the space before the first partition, where a bootloader might be stored in unused space, is read as it is; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>Leest de MBR of GPT van het apparaat en laat de niet-gepartitioneerde ruimte tussen en na de partities weg. Tot 32 MB van de ruimte vóór de eerste partitie, waar een bootloader in ongebruikte ruimte kan staan, wordt ongewijzigd gelezen; alleen wat daarna komt wordt weggelaten. De reserve-GPT wordt naar het nieuwe einde van de image verplaatst.</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>

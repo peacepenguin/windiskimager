@@ -1,14 +1,23 @@
+Release 2.0.1
+=============
+"Skip unpartitioned space" can again remove space before the first partition,
+  for a device with far more of it than any bootloader needs. Up to 32 MB
+  after the partition table is always kept exactly as it is, and all of it
+  when there is no more than that, so a bootloader stored there -- every
+  known layout fits in 16 MB -- is never touched. Beyond 32 MB the space is
+  removed and the first partition moves down to 33 MB. A GPT's
+  FirstUsableLBA is still honoured
+
 Release 2.0.0
 =============
-"Skip unpartitioned space" keeps the first 32 MB after the partition table
-  exactly as it is, and all of the space before the first partition when there
-  is no more than that. Board images keep their bootloader there, and
-  FirstUsableLBA, which it used to go by, often stops well short of it:
-  Armbian's Rock 5 images set 2048 with the bootloader running to sector
-  19747, so a shrunk read of one would not boot. Every known layout fits in
-  16 MB. Space past the 32 MB is still removed, and the warning shown when
-  the box is ticked is gone. Leaving out the first partition in "Choose
-  partitions to read" moves the next one to where it started, or to 32 MB
+"Skip unpartitioned space" no longer touches anything before the first
+  partition, and the first partition no longer moves. Board images keep their
+  bootloader there, and FirstUsableLBA, which it used to go by, often stops
+  well short of it: Armbian's Rock 5 images set 2048 with the bootloader
+  running to sector 19747, so a shrunk read of one would not boot. Only the
+  space between and after the partitions is removed now, and the warning
+  shown when the box is ticked is gone. Leaving out the first partition in
+  "Choose partitions to read" moves the next one to where it started
 Fix "Skip unpartitioned space" on a GPT device that also has a hybrid MBR:
   when the GPT could not be shrunk -- a partition grown to fill the card, say
   -- the MBR copy was repacked instead, leaving the GPT describing the wrong
