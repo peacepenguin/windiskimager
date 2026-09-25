@@ -216,6 +216,42 @@ cache is tied to the path it was generated for, and the container sees this tree
 as `/src`, so a cache from the other route is dropped and rebuilt -- the script
 says so when it happens. `BUILD_DIR=...` overrides the directory.
 
+## Windows on ARM64, cross-compiled from Linux
+
+Fedora packages MinGW for x86 only, so the ARM64 build brings its own
+toolkit: llvm-mingw (clang for `aarch64-w64-mingw32`), zlib, xz, zstd, bzip2 and
+Qt, each built from a source release pinned by version and checksum in
+[tools/woa64-env.sh](tools/woa64-env.sh). `tools/Containerfile.arm64` builds it
+into an image once -- expect that to take a long while, most of it Qt, and the
+image to be several GB -- and after that the build and package are the x64
+ones:
+
+```
+tools/build-container-arm64.sh
+tools/deploy-container-arm64.sh
+```
+
+These run the same `build-cross.sh` and `deploy-cross.sh` as the x64 wrappers,
+in the ARM64 image, whose environment points them at the ARM64 toolchain,
+sysroot, `llvm-objdump` and `llvm-strip` (`tools/woa64-env.sh env` prints it).
+Output goes to `build-arm64/` and `dist-arm64/`, apart from the x64 build's.
+The same `clean` and `test` arguments apply.
+
+Nothing in the toolkit is owned by a package manager, so each library records
+itself in the sysroot's licence manifest (`manifest_add` in
+`tools/build-env.sh`) with its version, licence and source, and keeps its
+licence files from its own source tree. `deploy_write_licenses` reads that in
+place of rpm, so the ARM64 package lists every library it ships as "built from
+source", with the release it came from. The x64 build's source-built liblzma
+records itself the same way.
+
+The host Qt the cross build takes `moc`, `rcc` and `uic` from is Fedora 44's,
+pinned to the same version as the Qt source (`WOA64_QT_VERSION`); that is why
+the image is `fedora:44` rather than `:latest`. Raising any version means
+raising its checksum with it; the image tag changes, and the image is rebuilt.
+[arm64qtcross.md](arm64qtcross.md) has every step worked through by hand, with
+what each one showed and why each choice was made.
+
 ## Testing the GPT repair
 
 `relocateBackupGPT()` rewrites partition tables and zeroes the stale backup left

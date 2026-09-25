@@ -47,7 +47,8 @@ file "$build/WinDiskImager.exe"
 
 if [ -n "${W32DI_IN_CONTAINER:-}" ]; then
     # Run by tools/build-container.sh: the host has no toolchain to deploy with.
-    build_report "$build" "tools/deploy-container.sh"
+    # The ARM64 image names its own wrapper (tools/Containerfile.arm64).
+    build_report "$build" "${W32DI_DEPLOY_HINT:-tools/deploy-container.sh}"
 elif [ "$build" = "$REPO/build" ]; then
     build_report "$build" "tools/deploy-cross.sh"
 else

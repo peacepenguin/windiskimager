@@ -1,0 +1,31 @@
+# Cross-compile image for Windows-on-ARM64 builds from Linux. The toolkit --
+# llvm-mingw, zlib, xz, zstd, bzip2 and Qt, built from pinned, checksummed
+# source releases -- is built by tools/woa64-env.sh; see it for the versions.
+#
+#   podman build -t w32di-build-arm64 --build-arg BASE=fedora:44 \
+#       -f tools/Containerfile.arm64 .
+#
+# tools/build-container-arm64.sh builds it on first use, tagged from the
+# pinned versions (WOA64_IMAGE). Expect the one-time build to take a long
+# while, most of it Qt, and the image to be several GB.
+#
+# The ENV below is what tools/woa64-env.sh env prints: with it, the same
+# tools/build-cross.sh and tools/deploy-cross.sh the x64 image runs build and
+# package for ARM64 instead.
+#
+# See BUILD.md, "Windows on ARM64, cross-compiled from Linux".
+ARG BASE=fedora:44
+FROM ${BASE}
+
+COPY tools/build-env.sh tools/woa64-env.sh /usr/local/lib/
+RUN bash /usr/local/lib/woa64-env.sh install && dnf clean all
+
+ENV PATH=/opt/llvm-mingw/bin:$PATH \
+    CROSS_TOOLCHAIN=/opt/woa64/sysroot/lib/cmake/Qt6/qt.toolchain.cmake \
+    CROSS_SYSROOT=/opt/woa64/sysroot \
+    CROSS_XZ_PREFIX=/opt/woa64/sysroot \
+    OBJDUMP=llvm-objdump \
+    STRIP=llvm-strip \
+    W32DI_DEPLOY_HINT=tools/deploy-container-arm64.sh
+
+WORKDIR /src

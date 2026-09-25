@@ -92,7 +92,11 @@ CROSS_DNF_FLAGS="--setopt=tsflags="
 # the xz release built from source:
 # container_run only builds an image that does not exist yet, so a changed
 # toolchain needs a new name.
-CROSS_IMAGE="${IMAGE:-w32di-build:$(printf '%s' "$CROSS_BASE_IMAGE$CROSS_PACKAGES$CROSS_DNF_FLAGS$CROSS_XZ_VERSION$CROSS_XZ_SHA256" | cksum | cut -d' ' -f1)}"
+# CROSS_IMAGE_REVISION counts changes to what install does beyond those values
+# (2: cross_build_xz records its licence manifest), so an image built by an
+# older install gets a new name too.
+CROSS_IMAGE_REVISION=2
+CROSS_IMAGE="${IMAGE:-w32di-build:$(printf '%s' "$CROSS_BASE_IMAGE$CROSS_PACKAGES$CROSS_DNF_FLAGS$CROSS_XZ_VERSION$CROSS_XZ_SHA256$CROSS_IMAGE_REVISION" | cksum | cut -d' ' -f1)}"
 
 # Extra "podman run" arguments a caller wants, as an array.
 CONTAINER_ENV=()
@@ -140,7 +144,36 @@ cross_build_xz()
     cmake --install "$work/build"
     mkdir -p "$CROSS_XZ_PREFIX/share/licenses/xz"
     cp "$src/COPYING" "$src/COPYING.0BSD" "$CROSS_XZ_PREFIX/share/licenses/xz/"
+    # liblzma is 0BSD; COPYING, shipped with it, says so.
+    manifest_add "$CROSS_XZ_PREFIX" liblzma.dll xz "$CROSS_XZ_VERSION" 0BSD "$CROSS_XZ_URL"
     rm -rf "$work"
+}
+
+# manifest_add ROOT PATTERN PACKAGE VERSION LICENCE SOURCE
+#
+# Records that files shipped from ROOT whose path in the package matches
+# PATTERN (a shell glob against the path in dist/: "libz.dll",
+# "platforms/*", "translations/qtbase_*.qm") were built from PACKAGE's source
+# release, not taken from a package manager. deploy_write_licenses reads it in
+# place of asking rpm or pacman, and ships ROOT/share/licenses/PACKAGE/ as
+# that package's licence files, which the builder copies there from the
+# source tree. A PATTERN already recorded is replaced; the first matching line
+# wins, so list the narrower patterns first.
+#
+# The manifest is ROOT/share/windiskimager/sources.tsv: one tab-separated
+# line per pattern -- PATTERN PACKAGE VERSION LICENCE SOURCE -- and '#'
+# comments.
+manifest_add()
+{
+    local root=${1:?usage: manifest_add ROOT PATTERN PACKAGE VERSION LICENCE SOURCE}
+    local pattern=${2:?} package=${3:?} version=${4:?} licence=${5:?} source=${6:?}
+    local manifest="$root/share/windiskimager/sources.tsv"
+    mkdir -p "${manifest%/*}"
+    touch "$manifest"
+    awk -F '\t' -v p="$pattern" '$1 != p' "$manifest" > "$manifest.new"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$pattern" "$package" "$version" "$licence" "$source" \
+        >> "$manifest.new"
+    mv "$manifest.new" "$manifest"
 }
 
 # Fail early and loudly if the layout is not what the build and deploy expect.
@@ -254,6 +287,10 @@ drop_foreign_cache()
 # Runs COMMAND in the Fedora image with REPO mounted at /src, building the image
 # first if it is not there yet.
 #
+# The x64 image by default. CONTAINER_IMAGE, CONTAINER_BASE and CONTAINER_FILE
+# (the Containerfile, relative to REPO) select another: the ARM64 wrappers set
+# them from tools/woa64-env.sh.
+#
 # W32DI_IN_CONTAINER tells the script inside where it is, so one that falls back
 # to the container cannot recurse forever when the image is missing something.
 container_run()
@@ -267,10 +304,12 @@ container_run()
         echo "         sudo bash tools/build-env.sh install" >&2
         return 1
     }
-    if ! podman image exists "$CROSS_IMAGE"; then
-        echo "building $CROSS_IMAGE (one time)..." >&2
-        podman build -t "$CROSS_IMAGE" --build-arg BASE="$CROSS_BASE_IMAGE" \
-            -f "$repo/tools/Containerfile.build" "$repo"
+    local image=${CONTAINER_IMAGE:-$CROSS_IMAGE}
+    local base=${CONTAINER_BASE:-$CROSS_BASE_IMAGE}
+    local file=${CONTAINER_FILE:-tools/Containerfile.build}
+    if ! podman image exists "$image"; then
+        echo "building $image (one time)..." >&2
+        podman build -t "$image" --build-arg BASE="$base" -f "$repo/$file" "$repo"
     fi
     # label=disable: on an SELinux host (Fedora, RHEL) the bind-mounted repo
     # is otherwise unreadable in the container. The ${a[@]+...} form: bash
@@ -278,7 +317,7 @@ container_run()
     podman run --rm -v "$repo:/src" -w /src --security-opt label=disable \
         -e W32DI_IN_CONTAINER=1 \
         ${CONTAINER_ENV[@]+"${CONTAINER_ENV[@]}"} \
-        "$CROSS_IMAGE" "$@"
+        "$image" "$@"
 }
 
 # ------------------------------------------------------------------- build ---
@@ -443,11 +482,28 @@ deploy_write_licenses()
     local dist=${2:?} plugindir=${4:?} trdir=${5:?}
     local notices="$dist/THIRD-PARTY-NOTICES.txt"
     local rel src pkg line d
-    declare -A files_of=() owner_of=() ver_of=() lic_of=() list_of=() built_of=()
-    local -a rels=() srcs=() bindirs
+    declare -A files_of=() owner_of=() ver_of=() lic_of=() list_of=() built_of=() url_of=()
+    local -a rels=() srcs=() bindirs roots=() m_root=() m_pat=() m_pkg=() m_ver=() m_lic=() m_url=()
     # In the order deploy_resolve_closure searched them, so each DLL is traced
     # to the copy that was shipped.
     IFS=: read -r -a bindirs <<< "${3:?}"
+
+    # Libraries built from source record themselves in a manifest next to
+    # their bin/ (see manifest_add); those entries answer before the package
+    # manager is asked.
+    local root m f1 f2 f3 f4 f5
+    for d in "${bindirs[@]}"; do
+        root=${d%/bin}
+        m="$root/share/windiskimager/sources.tsv"
+        [ "$root" != "$d" ] && [ -f "$m" ] || continue
+        case " ${roots[*]} " in *" $root "*) continue ;; esac
+        roots+=("$root")
+        while IFS=$'\t' read -r f1 f2 f3 f4 f5; do
+            case "$f1" in ''|'#'*) continue ;; esac
+            m_root+=("$root"); m_pat+=("$f1"); m_pkg+=("$f2")
+            m_ver+=("$f3");    m_lic+=("$f4"); m_url+=("$f5")
+        done < "$m"
+    done
 
     while IFS= read -r rel; do
         case "$rel" in
@@ -482,11 +538,28 @@ deploy_write_licenses()
     for i in "${!rels[@]}"; do
         rel=${rels[$i]}
         src=${srcs[$i]}
-        if [ -n "${CROSS_XZ_PREFIX:-}" ] && [ "${src#"$CROSS_XZ_PREFIX"/}" != "$src" ]; then
-            # Built from xz's own release by cross_build_xz; no package owns it.
-            pkg=xz
-            built_of[$pkg]=1
-        else
+        pkg=""
+        local inroot="" j
+        for j in "${!m_pat[@]}"; do
+            [ "${src#"${m_root[$j]}"/}" != "$src" ] || continue
+            inroot=${m_root[$j]}
+            # shellcheck disable=SC2053   # the pattern is a glob on purpose
+            if [[ $rel == ${m_pat[$j]} ]]; then
+                pkg=${m_pkg[$j]}
+                built_of[$pkg]=${m_root[$j]}
+                ver_of[$pkg]=${m_ver[$j]}
+                lic_of[$pkg]=${m_lic[$j]}
+                url_of[$pkg]=${m_url[$j]}
+                break
+            fi
+        done
+        if [ -z "$pkg" ] && [ -n "$inroot" ]; then
+            # From a built-from-source prefix, so no package manager knows it.
+            echo "error: $src is not in $inroot/share/windiskimager/sources.tsv," >&2
+            echo "       so its licence is unknown." >&2
+            return 1
+        fi
+        if [ -z "$pkg" ]; then
             case "$backend" in
                 pacman) pkg=${owner_of[$src]:-} ;;
                 rpm)    pkg=$(rpm -qf --qf '%{NAME}\n' "$src" 2>/dev/null || true) ;;
@@ -499,7 +572,11 @@ deploy_write_licenses()
         files_of[$pkg]="${files_of[$pkg]:+${files_of[$pkg]}, }$rel"
     done
 
-    if [ "$backend" = pacman ] && [ "${#files_of[@]}" -gt 0 ]; then
+    local -a packaged=()
+    for pkg in "${!files_of[@]}"; do
+        [ -n "${built_of[$pkg]:-}" ] || packaged+=("$pkg")
+    done
+    if [ "$backend" = pacman ] && [ "${#packaged[@]}" -gt 0 ]; then
         local name=""
         while IFS= read -r line; do
             case "$line" in
@@ -507,13 +584,13 @@ deploy_write_licenses()
                 "Version "*)  ver_of[$name]=${line#*: } ;;
                 "Licenses "*) lic_of[$name]=${line#*: } ;;
             esac
-        done < <(pacman -Qi "${!files_of[@]}")
+        done < <(pacman -Qi "${packaged[@]}")
         # Qt alone lists thousands of files; keep only what could be a
         # licence or README, which the copy loop below narrows further.
         while IFS= read -r line; do
             pkg=${line%% *}
             list_of[$pkg]+="${line#* }"$'\n'
-        done < <(pacman -Ql "${!files_of[@]}" |
+        done < <(pacman -Ql "${packaged[@]}" |
                      grep -iE '/share/licenses/.+[^/]$|/(LICENSE|LICENCE|COPYING)[^/]*$|/README[^/]*$' || true)
     fi
 
@@ -522,14 +599,21 @@ deploy_write_licenses()
     {
         printf '\n\nLibraries shipped with this build\n'
         printf '=================================\n\n'
-        printf 'Every DLL, Qt plugin and Qt translation in this folder comes from the\n'
-        printf '%s package named below. Each package'"'"'s licence files are in\n' "$mgr"
-        printf 'licenses/<package>/, and its source is at the address given. The\n'
-        printf 'program'"'"'s own source is at https://github.com/peacepenguin/windiskimager.\n'
-        if [ "${#built_of[@]}" -gt 0 ]; then
-            printf '\nThe exceptions, marked "built from source", were compiled for this build\n'
-            printf 'from the project'"'"'s own release, given as their source.\n'
+        if [ "${#packaged[@]}" -eq 0 ]; then
+            printf 'Every DLL, Qt plugin and Qt translation in this folder was compiled\n'
+            printf 'for this build from the source release of the project named below.\n'
+        else
+            printf 'Every DLL, Qt plugin and Qt translation in this folder comes from the\n'
+            printf '%s package named below' "$mgr"
+            if [ "${#built_of[@]}" -gt 0 ]; then
+                printf ', except those marked\n"built from source", compiled for this build from their project'"'"'s\n'
+                printf 'own source release'
+            fi
+            printf '.\n'
         fi
+        printf 'Each one'"'"'s licence files are in licenses/<name>/, and its source is at\n'
+        printf 'the address given. The program'"'"'s own source is at\n'
+        printf 'https://github.com/peacepenguin/windiskimager.\n'
         printf '\nQt contains third-party code of its own, listed with its copyright notices\n'
         printf 'in "Third-Party Code Used in Qt": https://doc.qt.io/qt-6/licenses-used-in-qt.html\n'
     } >> "$notices"
@@ -540,10 +624,9 @@ deploy_write_licenses()
         [ -n "${built_of[$pkg]:-}" ] && via=built
         case "$via" in
             built)
-                # liblzma is 0BSD; COPYING, shipped with it, says so.
-                version="$CROSS_XZ_VERSION (built from source)"
-                licence="0BSD"
-                url=$CROSS_XZ_URL
+                version="${ver_of[$pkg]} (built from source)"
+                licence=${lic_of[$pkg]}
+                url=${url_of[$pkg]}
                 ;;
             pacman)
                 version=${ver_of[$pkg]:-}
@@ -596,7 +679,7 @@ deploy_write_licenses()
                 n=$((n + 1))
             done < <(case "$via:$kind" in
                          # Copied from the source tree by cross_build_xz.
-                         built:licence)  find "$CROSS_XZ_PREFIX/share/licenses/$pkg" -type f 2>/dev/null || true ;;
+                         built:licence)  find "${built_of[$pkg]}/share/licenses/$pkg" -type f 2>/dev/null | sort || true ;;
                          built:readme)   ;;
                          pacman:licence|pacman:readme) printf '%s' "${list_of[$pkg]:-}" ;;
                          # Some packages file their licence as %doc, not %license.

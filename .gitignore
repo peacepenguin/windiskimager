@@ -7,3 +7,5 @@ build-gpttest/
 build-imgtest/
 gpttest.img
 __pycache__/
+build-arm64/
+dist-arm64/
