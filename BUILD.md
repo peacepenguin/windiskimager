@@ -266,9 +266,9 @@ the path.
 ## Testing shrink-on-read
 
 "Skip unpartitioned space" repacks a GPT or MBR device to remove the
-unpartitioned gaps between partitions and after the last one, keeping
-everything before the first partition as it is, instead of reading the device
-byte for byte. It has no
+unpartitioned gaps between partitions and after the last one, and any of the
+gap before the first partition past 32 MiB after the table, instead of reading
+the device byte for byte. It has no
 automated harness of its own; `tools/make-test-images.sh` (Linux only, see
 above) instead builds seven device images purpose-built to exercise it, each
 with a gap or region that must (or must not) survive the shrink stamped with

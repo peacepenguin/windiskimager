@@ -216,15 +216,17 @@ struct PartitionShrinkPlan
     // primary header and entry array for GPT.
     QByteArray headerregion;
     unsigned long long headersectors;
-    // First everything from the end of the table to where the first partition
-    // starts, excluded or not, copied where it is. Board images keep their
-    // bootloader there, and nothing reliably says how much of it they use:
-    // FirstUsableLBA is often just 2048 with the bootloader running well past
-    // it. Then the kept partitions in on-disk order, the first where the first
-    // partition was, the rest each aligned to alignsectors but never moved
-    // later than it was. Only the space between and after the partitions is
-    // dropped. Gaps between ranges must be written as explicit zeros: the
-    // output may not be a sparse file that zero-fills skipped regions.
+    // First the area from the end of the table towards where the first
+    // partition starts, excluded or not, copied where it is. Board images keep
+    // their bootloader there, and nothing reliably says how much of it they
+    // use: FirstUsableLBA is often just 2048 with the bootloader running well
+    // past it. So all of it is kept when it is 32 MiB or less; when it is more,
+    // 32 MiB of it is (rounded up to alignsectors, and at least up to a GPT's
+    // FirstUsableLBA) and the rest is dropped. Then the kept partitions in
+    // on-disk order, the first right after the kept area, the rest each
+    // aligned to alignsectors but never moved later than it was. Gaps between
+    // ranges must be written as explicit zeros: the output may not be a sparse
+    // file that zero-fills skipped regions.
     QList<ShrinkCopyRange> ranges;
     // Sectors [totalsectors - backupsectors, totalsectors): the backup entry
     // array and header for the repacked layout, precomputed so the image is
@@ -236,8 +238,9 @@ struct PartitionShrinkPlan
 };
 
 // Plan a GPT "Skip unpartitioned space" read that removes the unpartitioned space
-// between and after the partitions, and any excluded partition. Everything
-// before the first partition is kept (see PartitionShrinkPlan). Pass
+// between and after the partitions, any excluded partition, and whatever of
+// the space before the first partition lies past 32 MiB (see
+// PartitionShrinkPlan). Pass
 // alignsectors = 1048576 / sectorsize so every partition after the first
 // starts on a 1MiB boundary (the Windows/parted/sgdisk default, a multiple of
 // any real sector or erase-block size). Returns false, with *plan untouched, if the device
@@ -251,7 +254,7 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
                    PartitionShrinkPlan *plan, QString *detail,
                    const QList<int> *excludeSlots = NULL);
 
-// planGptShrink() for a legacy MBR, keeping everything before the first
+// planGptShrink() for a legacy MBR, treating the space before the first
 // partition in the same way. Only the four primary entries are walked; an extended partition moves as a
 // whole with its logical ones inside.
 // Returns false, with *plan untouched, if the device holds no MBR, has a GPT

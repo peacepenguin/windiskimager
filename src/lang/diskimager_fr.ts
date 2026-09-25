@@ -96,6 +96,10 @@
         <translation type="vanished">Le format compressé de lecture : .img.gz est plus rapide à créer, .img.xz est plus petit</translation>
     </message>
     <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>Lit le MBR ou la GPT du périphérique et laisse de côté l&apos;espace non partitionné entre ses partitions et après elles. L&apos;espace qui précède la première partition, où se trouve un chargeur d&apos;amorçage, est lu tel quel jusqu&apos;à 32 Mo après la table de partitions ; seul ce qui dépasse est laissé de côté. La GPT de secours est déplacée à la nouvelle fin de l&apos;image.</translation>
+    </message>
+    <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
         <translation>Avant la lecture, affiche les partitions du périphérique et permet de choisir lesquelles inclure. Tout ce qui est laissé de côté est retiré de l&apos;image, comme l&apos;espace non partitionné -- l&apos;espace non partitionné est alors toujours ignoré aussi, que « Ignorer l&apos;espace non partitionné » soit cochée ou non.</translation>
     </message>
@@ -149,7 +153,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
-        <translation>Lit le MBR ou la GPT du périphérique et laisse de côté l&apos;espace non partitionné entre ses partitions et après elles. Tout ce qui précède la première partition, où se trouve un chargeur d&apos;amorçage, est lu tel quel, et la première partition ne bouge pas. La GPT de secours est déplacée à la nouvelle fin de l&apos;image.</translation>
+        <translation type="vanished">Lit le MBR ou la GPT du périphérique et laisse de côté l&apos;espace non partitionné entre ses partitions et après elles. Tout ce qui précède la première partition, où se trouve un chargeur d&apos;amorçage, est lu tel quel, et la première partition ne bouge pas. La GPT de secours est déplacée à la nouvelle fin de l&apos;image.</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>

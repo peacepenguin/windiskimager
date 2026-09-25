@@ -96,6 +96,10 @@
         <translation type="vanished">Das komprimierte Format zum Lesen: .img.gz ist schneller erstellt, .img.xz ist kleiner</translation>
     </message>
     <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>Liest den MBR oder die GPT des Datenträgers und lässt den nicht partitionierten Speicherplatz zwischen und nach seinen Partitionen weg. Der Bereich vor der ersten Partition, in dem ein Bootloader liegt, wird bis 32 MB nach der Partitionstabelle unverändert gelesen; nur was darüber hinausgeht, wird weggelassen. Die Sicherungs-GPT wird an das neue Ende des Images verschoben.</translation>
+    </message>
+    <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
         <translation>Listet vor dem Lesen die Partitionen des Datenträgers auf und lässt auswählen, welche einbezogen werden. Alles Ausgelassene wird aus dem Image entfernt, genau wie nicht partitionierter Speicherplatz -- dabei wird nicht partitionierter Speicherplatz immer mit übersprungen, unabhängig davon, ob „Nicht partitionierten Bereich überspringen“ auch aktiviert ist.</translation>
     </message>
@@ -149,7 +153,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
-        <translation>Liest den MBR oder die GPT des Datenträgers und lässt den nicht partitionierten Speicherplatz zwischen und nach seinen Partitionen weg. Alles vor der ersten Partition, wo ein Bootloader liegt, wird unverändert gelesen, und die erste Partition wird nicht verschoben. Die Sicherungs-GPT wird an das neue Ende des Images verschoben.</translation>
+        <translation type="vanished">Liest den MBR oder die GPT des Datenträgers und lässt den nicht partitionierten Speicherplatz zwischen und nach seinen Partitionen weg. Alles vor der ersten Partition, wo ein Bootloader liegt, wird unverändert gelesen, und die erste Partition wird nicht verschoben. Die Sicherungs-GPT wird an das neue Ende des Images verschoben.</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>

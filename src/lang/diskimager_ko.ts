@@ -96,6 +96,10 @@
         <translation type="vanished">읽을 때의 압축 형식: .img.gz는 만들기가 빠르고, .img.xz는 더 작습니다</translation>
     </message>
     <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>장치의 MBR 또는 GPT를 읽고 파티션 사이와 뒤에 있는 파티션되지 않은 공간을 제외합니다. 부트로더가 있는 첫 번째 파티션 앞의 공간은 파티션 테이블 뒤 32 MB까지 그대로 읽으며, 그 이후의 공간만 제외합니다. 백업 GPT는 이미지의 새 끝으로 옮겨집니다.</translation>
+    </message>
+    <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
         <translation>읽기 전에 장치의 파티션을 나열하고 포함할 항목을 선택합니다. 제외된 항목은 파티션되지 않은 공간과 마찬가지로 이미지에서 제거됩니다 -- &quot;파티션되지 않은 공간 건너뛰기&quot;가 선택되어 있는지 여부와 관계없이 파티션되지 않은 공간도 항상 건너뜁니다.</translation>
     </message>
@@ -149,7 +153,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
-        <translation>장치의 MBR 또는 GPT를 읽고 파티션 사이와 뒤에 있는 파티션되지 않은 공간을 제외합니다. 부트로더가 있는 첫 번째 파티션 앞의 모든 영역은 그대로 읽으며, 첫 번째 파티션은 옮기지 않습니다. 백업 GPT는 이미지의 새 끝으로 옮겨집니다.</translation>
+        <translation type="vanished">장치의 MBR 또는 GPT를 읽고 파티션 사이와 뒤에 있는 파티션되지 않은 공간을 제외합니다. 부트로더가 있는 첫 번째 파티션 앞의 모든 영역은 그대로 읽으며, 첫 번째 파티션은 옮기지 않습니다. 백업 GPT는 이미지의 새 끝으로 옮겨집니다.</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>

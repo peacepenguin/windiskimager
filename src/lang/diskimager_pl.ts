@@ -96,6 +96,10 @@
         <translation type="vanished">Format kompresji odczytu: .img.gz powstaje szybciej, .img.xz jest mniejszy</translation>
     </message>
     <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>Odczytuje MBR lub GPT urządzenia i pomija niespartycjonowaną przestrzeń między partycjami i za nimi. Obszar przed pierwszą partycją, gdzie znajduje się program rozruchowy, jest odczytywany bez zmian do 32 MB za tablicą partycji; pomijane jest tylko to, co leży dalej. Zapasowa GPT zostaje przeniesiona na nowy koniec obrazu.</translation>
+    </message>
+    <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
         <translation>Przed odczytem wyświetla partycje urządzenia i pozwala wybrać, które uwzględnić. Wszystko, co zostanie pominięte, jest usuwane z obrazu, podobnie jak niespartycjonowana przestrzeń -- niespartycjonowana przestrzeń jest wtedy zawsze pomijana, niezależnie od tego, czy zaznaczono „Pomiń niespartycjonowaną przestrzeń”.</translation>
     </message>
@@ -149,7 +153,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
-        <translation>Odczytuje MBR lub GPT urządzenia i pomija niespartycjonowaną przestrzeń między partycjami i za nimi. Wszystko przed pierwszą partycją, gdzie znajduje się program rozruchowy, jest odczytywane bez zmian, a pierwsza partycja nie jest przesuwana. Zapasowa GPT zostaje przeniesiona na nowy koniec obrazu.</translation>
+        <translation type="vanished">Odczytuje MBR lub GPT urządzenia i pomija niespartycjonowaną przestrzeń między partycjami i za nimi. Wszystko przed pierwszą partycją, gdzie znajduje się program rozruchowy, jest odczytywane bez zmian, a pierwsza partycja nie jest przesuwana. Zapasowa GPT zostaje przeniesiona na nowy koniec obrazu.</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>

@@ -1027,6 +1027,143 @@ static void caseGptShrinkEndToEnd(const char *name, const QList<int> &exclude)
     printf("\n");
 }
 
+// More than 32 MiB between the table and the first partition: the first
+// 32 MiB after the table is kept where it is, rounded up to 1 MiB, and the
+// first partition moves down to the end of it; the rest of the gap goes.
+static const unsigned long long RESERVE = 32ull * 1024 * 1024 / SEC;   // 65536
+
+static void caseGptLeadingGapOverReserve(const char *name, const QList<int> &exclude)
+{
+    printf("%s\n", name);
+    const unsigned long long device = 140000, firstusable = 34;
+    QList<GptPart> parts = { {0, 100000, 109999, "A"}, {1, 120000, 129999, "B"} };
+    QByteArray dev = buildMultiGptDisk(device, firstusable, parts);
+    fillSectors(dev, 64, 100, (char)0x1D);       // a loader
+    fillSectors(dev, 60000, 100, (char)0x1E);    // within the 32 MiB kept
+    fillSectors(dev, 80000, 100, (char)0x1F);    // past it
+    fillSectors(dev, 100000, 10000, (char)0xA1);
+    fillSectors(dev, 120000, 10000, (char)0xB2);
+
+    HANDLE h = writeTestFile(dev);
+    if (h == INVALID_HANDLE_VALUE) return;
+    PartitionShrinkPlan plan;
+    QString detail;
+    bool ok = planGptShrink(h, SEC, device, ALIGN_1MIB, &plan, &detail,
+                            exclude.isEmpty() ? NULL : &exclude);
+    CloseHandle(h);
+    check(ok, "planned");
+    if (!ok) { printf("  -> %s\n\n", detail.toLocal8Bit().constData()); return; }
+
+    const unsigned long long headerend = 2 + ENTRYSECTORS;
+    const unsigned long long keepend = ((headerend + RESERVE + ALIGN_1MIB - 1) / ALIGN_1MIB) * ALIGN_1MIB;
+    check(keepend == 67584, "fixture: the kept area ends on the first 1MiB boundary past 32 MiB");
+    check(!plan.ranges.isEmpty() && plan.ranges[0].srcfirst == headerend
+              && plan.ranges[0].dstfirst == headerend && plan.ranges[0].length == keepend - headerend,
+          "32 MiB after the table, rounded up to 1 MiB, is copied where it is");
+
+    QByteArray img = applyPlan(dev, plan);
+    if (img.isEmpty()) { printf("\n"); return; }
+    h = writeTestFile(img);
+    if (h == INVALID_HANDLE_VALUE) return;
+    check(gptPrimaryState(h, SEC, plan.totalsectors) == GPT_PRIMARY_OK,
+          "the image's primary GPT is consistent");
+    QList<PartitionInfo> found;
+    check(listGptPartitions(h, SEC, plan.totalsectors, &found, &detail), "the image's GPT lists");
+    CloseHandle(h);
+
+    check(img.mid(64 * SEC, 100 * SEC) == dev.mid(64 * SEC, 100 * SEC)
+              && img.mid(60000 * SEC, 100 * SEC) == dev.mid(60000 * SEC, 100 * SEC),
+          "data within the kept 32 MiB is at the same sectors");
+    check(noSectorFilledWith(img, (char)0x1F), "data past the kept 32 MiB is not kept");
+    check(!found.isEmpty() && found[0].firstSector == keepend,
+          "the first kept partition moves down to the end of the kept area");
+    QList<KeptPart> want;
+    if (!exclude.contains(0)) want.append({10000, (char)0xA1});
+    want.append({10000, (char)0xB2});
+    checkImagePartitions(img, found, want);
+    if (exclude.contains(0))
+    {
+        check(noSectorFilledWith(img, (char)0xA1), "no sector of the excluded partition was copied");
+    }
+    printf("\n");
+}
+
+// Where the first partition would land for a gap of the given size.
+static unsigned long long gptFirstAfterGap(unsigned long long firstusable, unsigned long long partfirst,
+                                           unsigned long long *keptlen)
+{
+    // Room enough that FirstUsableLBA stays under half the device, which
+    // readValidGpt() requires.
+    const unsigned long long device = 2 * partfirst + 2000;
+    QList<GptPart> parts = { {0, partfirst, partfirst + 999, "A"} };
+    HANDLE h = writeTestFile(buildMultiGptDisk(device, firstusable, parts));
+    if (h == INVALID_HANDLE_VALUE) return 0;
+    PartitionShrinkPlan plan;
+    QString detail;
+    bool ok = planGptShrink(h, SEC, device, ALIGN_1MIB, &plan, &detail);
+    CloseHandle(h);
+    if (!ok || plan.ranges.size() < 2) return 0;
+    *keptlen = plan.ranges[0].length;
+    return plan.ranges[1].dstfirst;
+}
+
+static void caseGptLeadingGapEdges()
+{
+    printf("GPT leading gap at and around 32 MiB\n");
+    const unsigned long long headerend = 2 + ENTRYSECTORS;
+    unsigned long long kept = 0;
+    // Exactly 32 MiB: not over it, so nothing moves.
+    unsigned long long at = headerend + RESERVE;
+    check(gptFirstAfterGap(34, at, &kept) == at && kept == RESERVE,
+          "a gap of exactly 32 MiB is kept whole and the partition stays put");
+    // Just over, but short of the next 1 MiB boundary: never later than it was.
+    at = headerend + RESERVE + 100;
+    check(gptFirstAfterGap(34, at, &kept) == at,
+          "a gap just over 32 MiB leaves the partition where it was");
+    // FirstUsableLBA past 32 MiB reserves more, and a GPT partition must not
+    // start below it.
+    const unsigned long long firstusable = 90000;
+    const unsigned long long got = gptFirstAfterGap(firstusable, 100000, &kept);
+    check(got == 90112 && got >= firstusable,
+          "with FirstUsableLBA past 32 MiB, the partition stops at the 1MiB boundary after it");
+    printf("\n");
+}
+
+static void caseMbrLeadingGapOverReserve()
+{
+    printf("MBR shrink with more than 32 MiB before the first partition\n");
+    const unsigned long long device = 140000;
+    QList<MbrPart> parts = { {0, 100000, 10000, 0x83}, {1, 120000, 10000, 0x83} };
+    QByteArray dev = buildMultiMbrDisk(device, parts);
+    fillSectors(dev, 16, 1000, (char)0x1D);      // an Allwinner-style loader
+    fillSectors(dev, 80000, 100, (char)0x1F);    // past the kept 32 MiB
+    fillSectors(dev, 100000, 10000, (char)0xA1);
+    fillSectors(dev, 120000, 10000, (char)0xB2);
+
+    HANDLE h = writeTestFile(dev);
+    if (h == INVALID_HANDLE_VALUE) return;
+    PartitionShrinkPlan plan;
+    QString detail;
+    bool ok = planMbrShrink(h, SEC, device, ALIGN_1MIB, &plan, &detail);
+    CloseHandle(h);
+    check(ok, "planned");
+    if (!ok) { printf("  -> %s\n\n", detail.toLocal8Bit().constData()); return; }
+    QByteArray img = applyPlan(dev, plan);
+    if (img.isEmpty()) { printf("\n"); return; }
+    h = writeTestFile(img);
+    if (h == INVALID_HANDLE_VALUE) return;
+    QList<PartitionInfo> found;
+    check(listMbrPartitions(h, SEC, plan.totalsectors, &found, &detail), "the image's MBR lists");
+    CloseHandle(h);
+    check(img.mid(16 * SEC, 1000 * SEC) == dev.mid(16 * SEC, 1000 * SEC),
+          "the loader after the boot sector is at the same sectors");
+    check(noSectorFilledWith(img, (char)0x1F), "data past the kept 32 MiB is not kept");
+    check(!found.isEmpty() && found[0].firstSector == 67584,
+          "the first partition moves down to the first 1MiB boundary past 32 MiB");
+    checkImagePartitions(img, found, { {10000, (char)0xA1}, {10000, (char)0xB2} });
+    printf("\n");
+}
+
 // Read tries planGptShrink() and, if that declines, planMbrShrink(). On a GPT
 // disk the second must decline too: its MBR is only a protective or hybrid
 // copy, and repacking it would move partitions the GPT still describes where
@@ -1372,6 +1509,10 @@ int main(int argc, char **argv)
     caseGptShrinkEndToEnd("GPT shrink applied end to end, one partition excluded", {2});
     caseGptShrinkEndToEnd("GPT shrink applied end to end, first partition excluded", {0});
     caseGptShrinkUnalignedFirstUsable();
+    caseGptLeadingGapOverReserve("GPT shrink with more than 32 MiB before the first partition", {});
+    caseGptLeadingGapOverReserve("GPT shrink with more than 32 MiB before it, first partition excluded", {0});
+    caseGptLeadingGapEdges();
+    caseMbrLeadingGapOverReserve();
     caseGptFallbackToHybridMbr();
     caseMbrPlanOnGptWithoutProtectiveEntry();
     caseMbrShrinkEndToEnd("MBR shrink applied end to end", {});

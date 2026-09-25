@@ -311,6 +311,25 @@ write_fat_part() {
     dd if="$blob" of="$disk" bs=512 seek="$off" conv=notrunc status=none
 }
 
+# fill_front_gap PATH FROM_SECTOR TO_SECTOR -- stamps the gap between the end of
+# the partition table and the first partition. A shrink keeps it all when it
+# is 32 MiB or less; past that, it keeps up to the first 1MiB boundary at least
+# 32 MiB after FROM_SECTOR (sector 67584 for either table here) and drops the
+# rest, so each part gets its own tag.
+fill_front_gap() {
+    local path=$1 from=$2 to=$3 sector=512
+    local keepend=$(( (from + 65536 + 2047) / 2048 * 2048 ))
+    if [ $(( to - from )) -le 65536 ]; then
+        fill_pattern "$path" $(( from * sector )) $(( (to - from) * sector )) \
+            "FRONT-GAP-MUST-SURVIVE "
+    else
+        fill_pattern "$path" $(( from * sector )) $(( (keepend - from) * sector )) \
+            "FRONT-GAP-FIRST-32MB-MUST-SURVIVE "
+        fill_pattern "$path" $(( keepend * sector )) $(( (to - keepend) * sector )) \
+            "FRONT-GAP-PAST-32MB-MUST-BE-DROPPED "
+    fi
+}
+
 # check_firstusablelba PATH WANT -- the same check make_gpt_image() does.
 check_firstusablelba() {
     local path=$1 want=$2 got
@@ -324,9 +343,9 @@ check_firstusablelba() {
 
 # make_shrink_mbr_image PATH
 #
-# 200 MB MBR disk: 50 MB gap, a 100 MB FAT partition, 50 MB gap. Everything
-# before the first partition is kept where it is, so the front gap must survive
-# and the partition stay put; the back gap must go.
+# 200 MB MBR disk: 50 MB gap, a 100 MB FAT partition, 50 MB gap. The front gap
+# is over 32 MiB, so its first 33 MiB must survive, the rest go, and the
+# partition move down to 33 MiB; the back gap must go.
 make_shrink_mbr_image() {
     local path=$1
     local sector=512
@@ -344,8 +363,7 @@ EOF
     write_fat_part "$path" "$part_start" "$part_sectors" SHRINKMBR
 
     # Sector 0 carries the MBR itself; the fillable front gap starts at 1.
-    fill_pattern "$path" "$sector" $(( (part_start - 1) * sector )) \
-        "FRONT-GAP-BEFORE-PARTITION-MUST-SURVIVE "
+    fill_front_gap "$path" 1 "$part_start"
     local back_off=$(( (part_start + part_sectors) * sector ))
     fill_pattern "$path" "$back_off" $(( gap_sectors * sector )) \
         "BACK-GAP-MUST-BE-DROPPED-BY-SHRINK "
@@ -393,8 +411,7 @@ start=$p1_start, size=$p1, type=e, bootable
 start=$p2_start, size=$p2, type=e
 start=$p3_start, size=$p3, type=e
 EOF
-    fill_pattern "$path" "$sector" $(( gap1 * sector )) \
-        "GAP1-BEFORE-PART1-MUST-SURVIVE "
+    fill_front_gap "$path" 1 "$p1_start"
     fill_pattern "$path" $(( p1_start * sector )) $(( p1 * sector )) "PART1-DATA "
     fill_pattern "$path" $(( (p1_start + p1) * sector )) $(( gap2 * sector )) \
         "GAP2-BETWEEN-PART1-AND-PART2-MUST-BE-DROPPED "
@@ -405,9 +422,10 @@ EOF
 # make_shrink_gpt_image PATH
 #
 # ~200 MB GPT disk, FirstUsableLBA 34: 50 MB gap, a 100 MB FAT partition, 50 MB
-# gap, backup GPT. The front gap is before the first partition, so it must
-# survive and the partition stay at its unaligned start (102434); the back gap
-# must go and the backup GPT follow the partition.
+# gap, backup GPT. The front gap is over 32 MiB, so its first 33 MiB must
+# survive, the rest go, and the partition move from its unaligned start
+# (102434) down to 33 MiB; the back gap must go and the backup GPT follow the
+# partition.
 make_shrink_gpt_image() {
     local path=$1
     local sector=512
@@ -427,8 +445,7 @@ start=$part_start, size=$part_sectors, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4
 EOF
     write_fat_part "$path" "$part_start" "$part_sectors" SHRINKGPT
 
-    fill_pattern "$path" $(( front_reserved * sector )) $(( gap_sectors * sector )) \
-        "GAP-BEFORE-PARTITION-MUST-SURVIVE "
+    fill_front_gap "$path" "$front_reserved" "$part_start"
     local back_off=$(( (part_start + part_sectors) * sector ))
     fill_pattern "$path" "$back_off" $(( gap_sectors * sector )) \
         "GAP-AFTER-PARTITION-MUST-BE-DROPPED "
@@ -439,10 +456,10 @@ EOF
 # make_shrink_gpt_reserved_image PATH
 #
 # FirstUsableLBA 65536 (32 MiB), as some rk3588 images reserve for
-# idbloader/U-Boot, then 20 MB more before the partition -- the way Armbian's
-# Rockchip images run their bootloader past a FirstUsableLBA of 2048. Both are
-# before the first partition, so both must survive a shrink unchanged; only the
-# 20 MB gap before the backup GPT must go.
+# idbloader/U-Boot, then 20 MB more before the partition. The reserved span
+# must survive a shrink unchanged, and so must the first 1 MiB above it: the
+# kept area runs to 33 MiB. The rest of the 20 MB, and the 20 MB gap before
+# the backup GPT, must go.
 make_shrink_gpt_reserved_image() {
     local path=$1
     local sector=512
@@ -465,10 +482,12 @@ EOF
     # [34, firstusable): the reserved span itself -- must be copied verbatim.
     fill_pattern "$path" $(( 34 * sector )) $(( (firstusable - 34) * sector )) \
         "RESERVED-BOOTLOADER-DATA-MUST-SURVIVE "
-    # [firstusable, part_start): past FirstUsableLBA but still before the
-    # first partition -- must be copied verbatim too.
-    fill_pattern "$path" $(( firstusable * sector )) $(( gap_sectors * sector )) \
-        "DATA-ABOVE-FIRSTUSABLE-MUST-SURVIVE "
+    # [firstusable, part_start): past FirstUsableLBA, before the partition.
+    # Kept up to 33 MiB (sector 67584), dropped after.
+    fill_pattern "$path" $(( firstusable * sector )) $(( (67584 - firstusable) * sector )) \
+        "DATA-ABOVE-FIRSTUSABLE-TO-33MB-MUST-SURVIVE "
+    fill_pattern "$path" $(( 67584 * sector )) $(( (part_start - 67584) * sector )) \
+        "DATA-PAST-33MB-MUST-BE-DROPPED "
     local back_off=$(( (part_start + part_sectors) * sector ))
     fill_pattern "$path" "$back_off" $(( gap_sectors * sector )) \
         "TAIL-GAP-MUST-BE-DROPPED "
@@ -504,8 +523,9 @@ EOF
 # make_shrink_gpt_multi_image PATH
 #
 # Three partitions with a gap ahead of each of the first two, to exercise gaps
-# between partitions. The one before the first partition must survive, the one
-# between the first two must go. No start is 1MiB-aligned, so a repack that
+# between partitions. The one before the first partition is over 32 MiB, so
+# its first 33 MiB must survive and the rest go; the one between the first two
+# must go. No start is 1MiB-aligned, so a repack that
 # failed to realign the later partitions would still be caught. No filesystems: each region gets its own
 # stamp instead.
 make_shrink_gpt_multi_image() {
@@ -529,8 +549,7 @@ start=$p1_start, size=$p1, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name="PART
 start=$p2_start, size=$p2, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name="PART2"
 start=$p3_start, size=$p3, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name="PART3"
 EOF
-    fill_pattern "$path" $(( front_reserved * sector )) $(( gap1 * sector )) \
-        "GAP1-BEFORE-PART1-MUST-SURVIVE "
+    fill_front_gap "$path" "$front_reserved" "$p1_start"
     fill_pattern "$path" $(( p1_start * sector )) $(( p1 * sector )) "PART1-DATA "
     fill_pattern "$path" $(( (p1_start + p1) * sector )) $(( gap2 * sector )) \
         "GAP2-BETWEEN-PART1-AND-PART2-MUST-BE-DROPPED "
@@ -634,12 +653,13 @@ region that must survive is stamped with its own ASCII tag rather than left
 zero, so diffing the shrunk output against the original catches a gap left
 in, or real data left out, that comparing sizes alone would miss.
   test-shrink-mbr.img          MBR: 50 MB gap, 100 MB FAT partition, 50 MB gap.
-                               Everything before the first partition is kept
-                               where it is, so the front gap (tagged
-                               ...-MUST-SURVIVE) comes through byte for byte
-                               and the partition does not move; the back gap
-                               (...-MUST-BE-DROPPED) should be gone. Shrunk
-                               size: ~150 MB.
+                               The front gap is over 32 MiB, so its first
+                               33 MiB (FRONT-GAP-FIRST-32MB-MUST-SURVIVE) comes
+                               through byte for byte, the rest of it
+                               (...-PAST-32MB-MUST-BE-DROPPED) is gone, and the
+                               partition moves down to 33 MiB. The back gap
+                               (...-MUST-BE-DROPPED) should be gone too. Shrunk
+                               size: ~133 MB.
   test-shrink-mbr-tight.img    MBR, one partition already spanning from the
                                sector right after the boot sector to the end
                                of the device: nothing to shrink anywhere.
@@ -649,8 +669,9 @@ in, or real data left out, that comparing sizes alone would miss.
                                the negative case for the two MBR images here.
   test-shrink-mbr-multi.img    MBR, three primary partitions with a gap ahead
                                of each of the first two and none after the
-                               last. GAP1, before the first partition, must
-                               survive; GAP2, "between partitions", which
+                               last. GAP1, before the first partition, keeps
+                               its first 33 MiB and loses the rest, as in
+                               test-shrink-mbr.img; GAP2, "between partitions", which
                                test-shrink-mbr.img's single partition cannot
                                exercise, must go. No start is on a 1MiB
                                boundary, so the second and third partitions
@@ -659,22 +680,25 @@ in, or real data left out, that comparing sizes alone would miss.
                                PART<n>-DATA tag), the same as its GPT
                                counterpart below.
   test-shrink-gpt.img          GPT, default FirstUsableLBA: 50 MB gap, 100 MB
-                               FAT partition, 50 MB gap, backup GPT. The front
-                               gap (tagged ...-MUST-SURVIVE) is kept and the
-                               partition stays at its unaligned start; the back
-                               gap (...-MUST-BE-DROPPED) should be gone and the
-                               backup GPT relocated right after the partition.
-                               Shrunk size: ~150 MB plus one
+                               FAT partition, 50 MB gap, backup GPT. As in
+                               test-shrink-mbr.img, the front gap keeps its
+                               first 33 MiB and loses the rest, and the
+                               partition moves from its unaligned start down to
+                               33 MiB; the back gap (...-MUST-BE-DROPPED) should
+                               be gone and the backup GPT relocated right after
+                               the partition. Shrunk size: ~133 MB plus one
                                entry-array-and-header's worth of sectors.
   test-shrink-gpt-reserved.img GPT, FirstUsableLBA raised to 65536 (32 MiB), as
                                rk3588 and similar boards reserve for U-Boot.
                                The reserved span itself (tagged
                                RESERVED-BOOTLOADER-DATA-MUST-SURVIVE) and the
-                               20 MB after it, still before the partition
-                               (DATA-ABOVE-FIRSTUSABLE-MUST-SURVIVE), must
-                               come through byte for byte; the 20 MB gap
-                               before the backup GPT (...-MUST-BE-DROPPED)
-                               must not.
+                               1 MiB above it up to 33 MiB
+                               (DATA-ABOVE-FIRSTUSABLE-TO-33MB-MUST-SURVIVE)
+                               must come through byte for byte, with the
+                               partition moved down to 33 MiB; the rest of the
+                               gap before it (DATA-PAST-33MB-MUST-BE-DROPPED)
+                               and the 20 MB gap before the backup GPT
+                               (...-MUST-BE-DROPPED) must not.
 
                                DO NOT attempt volume creation at that reserved span in Disk
                                Management once this is on a device. GPT itself
@@ -706,9 +730,10 @@ in, or real data left out, that comparing sizes alone would miss.
                                images above.
   test-shrink-gpt-multi.img    GPT, three partitions with a gap ahead of each
                                of the first two and none after the last. GAP1,
-                               before the first partition, must survive; GAP2,
-                               "between partitions", which a single-partition
-                               image cannot exercise, must go.
+                               before the first partition, keeps its first
+                               33 MiB and loses the rest; GAP2, "between
+                               partitions", which a single-partition image
+                               cannot exercise, must go.
                                No start is on a 1MiB boundary. Geometry only,
                                no filesystems (each partition is instead
                                filled with its own PART<n>-DATA tag), so

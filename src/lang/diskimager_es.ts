@@ -96,6 +96,10 @@
         <translation type="vanished">El formato comprimido de lectura: .img.gz se crea más rápido, .img.xz ocupa menos</translation>
     </message>
     <message>
+        <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. The space before the first partition, where a bootloader is kept, is read as it is up to 32 MB after the partition table; only space beyond that is left out. The backup GPT is moved to the new end of the image.</source>
+        <translation>Lee el MBR o la GPT del dispositivo y deja fuera el espacio sin particionar entre sus particiones y después de ellas. El espacio anterior a la primera partición, donde se guarda el gestor de arranque, se lee tal cual hasta 32 MB después de la tabla de particiones; solo se omite lo que haya más allá. La GPT de respaldo se mueve al nuevo final de la imagen.</translation>
+    </message>
+    <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
         <translation>Antes de leer, muestra las particiones del dispositivo y permite elegir cuáles incluir. Todo lo que se deje fuera se elimina de la imagen, igual que el espacio sin particionar -- esto siempre omite también el espacio sin particionar, esté o no marcada la opción «Omitir espacio sin particionar».</translation>
     </message>
@@ -149,7 +153,7 @@
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Everything before the first partition, where a bootloader is kept, is read as it is, and the first partition does not move. The backup GPT is moved to the new end of the image.</source>
-        <translation>Lee el MBR o la GPT del dispositivo y deja fuera el espacio sin particionar entre sus particiones y después de ellas. Todo lo que hay antes de la primera partición, donde se guarda el gestor de arranque, se lee tal cual, y la primera partición no se mueve. La GPT de respaldo se mueve al nuevo final de la imagen.</translation>
+        <translation type="vanished">Lee el MBR o la GPT del dispositivo y deja fuera el espacio sin particionar entre sus particiones y después de ellas. Todo lo que hay antes de la primera partición, donde se guarda el gestor de arranque, se lee tal cual, y la primera partición no se mueve. La GPT de respaldo se mueve al nuevo final de la imagen.</translation>
     </message>
     <message>
         <source>The compressed format to Read to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>

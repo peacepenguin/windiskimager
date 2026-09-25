@@ -1219,6 +1219,32 @@ bool listMbrPartitions(HANDLE hRawDisk, unsigned long long sectorsize,
     return true;
 }
 
+// Space kept between the end of the partition table and the first partition
+// when there is more than this of it. Every boot layout known to store a
+// bootloader, its environment or vendor data there keeps them within 16 MiB,
+// Rockchip's reserve being the largest; twice that leaves room for the unknown.
+static const unsigned long long LEADING_RESERVE_BYTES = 32ull * 1024ull * 1024ull;
+
+// Where the area after the table ends, and so where packing starts. At or
+// under LEADING_RESERVE_BYTES of space before the first partition, all of it
+// is kept and the first partition stays put. Over it, the first
+// LEADING_RESERVE_BYTES are kept -- rounded up to alignsectors, and never
+// below floor (a GPT's FirstUsableLBA, which reserves space of its own) -- and
+// the rest is dropped. Never past the first partition's own start.
+static unsigned long long leadingKeepEnd(unsigned long long tableend, unsigned long long firstpart,
+                                         unsigned long long floor, unsigned long long sectorsize,
+                                         unsigned long long alignsectors)
+{
+    const unsigned long long reserve = LEADING_RESERVE_BYTES / sectorsize;
+    if (firstpart <= tableend || firstpart - tableend <= reserve)
+    {
+        return firstpart;
+    }
+    unsigned long long end = qMax(tableend + reserve, floor);
+    end = ((end + alignsectors - 1) / alignsectors) * alignsectors;
+    return qMin(end, firstpart);
+}
+
 bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
                    unsigned long long devicesectors, unsigned long long alignsectors,
                    PartitionShrinkPlan *plan, QString *detail,
@@ -1269,15 +1295,17 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         return a.first < b.first;
     });
 
-    // The leading area, boot sector aside, is copied where it is; packing
-    // starts where the first partition did.
+    // The area after the boot sector is copied where it is, up to
+    // leadingKeepEnd(); packing starts there.
+    const unsigned long long keepend = leadingKeepEnd(1ull, leading, 1ull, sectorsize, alignsectors);
     QList<ShrinkCopyRange> ranges;
-    if (leading > 1ull)
+    if (keepend > 1ull)
     {
-        ranges.append(ShrinkCopyRange{1ull, 1ull, leading - 1ull});
+        ranges.append(ShrinkCopyRange{1ull, 1ull, keepend - 1ull});
     }
-    unsigned long long cursor = leading;
+    unsigned long long cursor = keepend;
     unsigned long long prevend = leading;      // original end of the last kept partition
+    bool firstkept = true;
     for (const MbrSlot &s : order)
     {
         if (s.first < prevend)
@@ -1287,12 +1315,14 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
             return false;
         }
         prevend = s.first + s.count;
-        // The first kept partition goes where the first partition was, even
-        // off a 1MiB boundary, as it was on the device; the rest are aligned.
+        // The first kept partition goes right after the kept area -- where
+        // the first partition was, unless the area was cut down -- even off a
+        // 1MiB boundary, as it was on the device; the rest are aligned.
         // Never later than it already is: a partition already packed tighter
         // than the alignment stays put.
-        unsigned long long newfirst = (cursor == leading) ? leading : qMin(s.first,
+        unsigned long long newfirst = firstkept ? keepend : qMin(s.first,
             ((cursor + alignsectors - 1) / alignsectors) * alignsectors);
+        firstkept = false;
         unsigned long long newlast  = newfirst + s.count - 1;
         if (newfirst > 0xFFFFFFFFull)
         {
@@ -1487,9 +1517,8 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
     DWORD headersize = rd32(hdr, GPT_OFF_HEADERSIZE);
     unsigned long long entrybytes = numentries * entrysize;
 
-    // The tables themselves; the area after them, up to the first partition,
-    // is copied as a range (see PartitionShrinkPlan) rather than held in
-    // memory.
+    // The tables themselves; the area after them, up to leadingKeepEnd(), is
+    // copied as a range (see PartitionShrinkPlan) rather than held in memory.
     const unsigned long long headerend = entrylba + entrysectors;
     if (headerend * sectorsize > 64ull * 1024ull * 1024ull)
     {
@@ -1535,15 +1564,18 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         return rd64(ea, GPT_ENT_FIRSTLBA) < rd64(eb, GPT_ENT_FIRSTLBA);
     });
 
-    // Everything from the end of the table to the first partition is copied
-    // where it is; packing starts where the first partition did.
+    // The area from the end of the table is copied where it is, up to
+    // leadingKeepEnd(); packing starts there.
+    const unsigned long long keepend = leadingKeepEnd(headerend, leading, firstusable,
+                                                      sectorsize, alignsectors);
     QList<ShrinkCopyRange> ranges;
-    if (leading > headerend)
+    if (keepend > headerend)
     {
-        ranges.append(ShrinkCopyRange{headerend, headerend, leading - headerend});
+        ranges.append(ShrinkCopyRange{headerend, headerend, keepend - headerend});
     }
-    unsigned long long cursor = leading;
+    unsigned long long cursor = keepend;
     unsigned long long prevend = leading;      // original end of the last kept partition
+    bool firstkept = true;
     for (int idx : order)
     {
         unsigned char *e = (unsigned char *)entries.data() + (size_t)idx * entrysize;
@@ -1557,10 +1589,11 @@ bool planGptShrink(HANDLE hRawDisk, unsigned long long sectorsize,
         }
         prevend = origlast + 1;
         unsigned long long length  = origlast - origfirst + 1;
-        // As in planMbrShrink(): the first kept partition goes where the first
-        // partition was, the rest aligned and never later than they were.
-        unsigned long long newfirst = (cursor == leading) ? leading : qMin(origfirst,
+        // As in planMbrShrink(): the first kept partition goes right after
+        // the kept area, the rest aligned and never later than they were.
+        unsigned long long newfirst = firstkept ? keepend : qMin(origfirst,
             ((cursor + alignsectors - 1) / alignsectors) * alignsectors);
+        firstkept = false;
         unsigned long long newlast  = newfirst + length - 1;
         ranges.append(ShrinkCopyRange{origfirst, newfirst, length});
         wr64(e, GPT_ENT_FIRSTLBA, newfirst);
