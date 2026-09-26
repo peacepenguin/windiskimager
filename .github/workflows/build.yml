@@ -8,12 +8,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Cross-compile a win64 binary from Linux, exactly as a developer does with
+  # Release files, artifacts and jobs are named win-x64 and win-arm64, as
+  # Windows names the two (Settings, System, About) and as .NET and Node.js
+  # name their Windows builds.
+
+  # Cross-compile an x64 binary from Linux, exactly as a developer does with
   # podman: the two scripts below build the Fedora image from
   # tools/Containerfile.build (Ubuntu has no MinGW Qt6 packages; Fedora does)
   # and run the build and the packaging inside it. The runner itself only
   # needs podman, which ubuntu-latest has.
-  windows-x86_64:
+  win-x64:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Builds the image on first use, then the exe; fails if it is not win64 PE.
+      # Builds the image on first use, then the exe; fails if it is not a 64-bit PE.
       - name: Build
         run: bash tools/build-container.sh
 
@@ -30,7 +34,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: WinDiskImager-win64
+          name: WinDiskImager-win-x64
           path: dist/
           if-no-files-found: error
 
@@ -38,7 +42,7 @@ jobs:
   # builds: llvm-mingw, and zlib, xz, zstd, bzip2 and Qt compiled from
   # Fedora's source RPMs. The image is built fresh every run, so this job
   # takes most of an hour, nearly all of it Qt; it runs alongside the x64 one.
-  windows-arm64:
+  win-arm64:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     permissions:
@@ -70,7 +74,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: WinDiskImager-arm64
+          name: WinDiskImager-win-arm64
           path: dist-arm64/
           if-no-files-found: error
 
@@ -78,7 +82,7 @@ jobs:
   # never publishes one architecture without the other.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows-x86_64, windows-arm64]
+    needs: [win-x64, win-arm64]
     runs-on: ubuntu-latest
     # Needed to create the GitHub release.
     permissions:
@@ -97,17 +101,17 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          name: WinDiskImager-win64
-          path: WinDiskImager-${{ github.ref_name }}-win64
+          name: WinDiskImager-win-x64
+          path: WinDiskImager-${{ github.ref_name }}-win-x64
 
       - uses: actions/download-artifact@v8
         with:
-          name: WinDiskImager-arm64
-          path: WinDiskImager-${{ github.ref_name }}-arm64
+          name: WinDiskImager-win-arm64
+          path: WinDiskImager-${{ github.ref_name }}-win-arm64
 
       - name: Build the release zips
         run: |
-          for arch in win64 arm64; do
+          for arch in win-x64 win-arm64; do
             name="WinDiskImager-${GITHUB_REF_NAME}-$arch"
             zip -qr "$name.zip" "$name"
             sha256sum "$name.zip" > "$name.zip.sha256"
@@ -122,8 +126,11 @@ jobs:
           cat > notes.md <<'EOF'
           Standalone builds for Windows:
 
-          - `win64`: x64 PCs.
-          - `arm64`: Windows on ARM (Snapdragon and other ARM64 devices).
+          - `win-x64`: most Windows PCs (Intel and AMD).
+          - `win-arm64`: Windows on ARM (Snapdragon and other ARM64 devices).
+
+          Settings > System > About shows which one a PC has: an
+          "x64-based processor" or an "ARM-based processor".
 
           Unzip the one for your machine and run `WinDiskImager.exe` as Administrator.
 
@@ -134,8 +141,8 @@ jobs:
           # --repo makes gh resolve the target over the API rather than by
           # inspecting the local git remote.
           gh release create "${GITHUB_REF_NAME}" \
-            "$base-win64.zip" "$base-win64.zip.sha256" \
-            "$base-arm64.zip" "$base-arm64.zip.sha256" \
+            "$base-win-x64.zip" "$base-win-x64.zip.sha256" \
+            "$base-win-arm64.zip" "$base-win-arm64.zip.sha256" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "${GITHUB_REF_NAME}" \
             --notes-file notes.md \

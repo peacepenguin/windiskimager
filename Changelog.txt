@@ -1,3 +1,18 @@
+Release 2.0.4
+=============
+A build for Windows on ARM: Snapdragon and other ARM64 PCs. It runs natively
+  instead of under x64 emulation. It was first published alongside 2.0.3,
+  whose entry below does not mention it
+The release zips are now named win-x64 and win-arm64, the way Windows names
+  the two kinds of PC (Settings > System > About: "x64-based processor" or
+  "ARM-based processor"). In 2.0.3 they were -win64 and -arm64
+Each release package is built with the current Fedora updates of every
+  library it ships, so a new release picks up their fixes. liblzma now comes
+  from the source of Fedora's own xz package: 5.8.2 in Fedora 44. That is
+  also what the 2.0.3 packages shipped, not the 5.8.4 its entry names, which
+  describes an earlier build. The multi-threaded .img.xz decoding it
+  describes is unaffected: that needs 5.4
+
 Release 2.0.3
 =============
 Writing or verifying an .img.xz made in several blocks now decompresses on

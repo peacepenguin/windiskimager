@@ -238,11 +238,12 @@ sysroot, `llvm-objdump` and `llvm-strip` (`tools/woa64-env.sh env` prints it).
 Output goes to `build-arm64/` and `dist-arm64/`, apart from the x64 build's.
 The same `clean` and `test` arguments apply.
 
-CI runs both as the `windows-arm64` job, beside the x64 one. It builds the
+CI runs both as the `win-arm64` job, beside the `win-x64` one. It builds the
 image fresh each run, so the job takes most of an hour, and it frees disk
 space on the runner first, since Qt's build tree and the image's layers need
 more than an `ubuntu-latest` runner leaves free. A tag's release waits for
-both jobs and carries both zips, `-win64` and `-arm64`.
+both jobs and carries both zips, `-win-x64` and `-win-arm64` (before 2.0.4,
+the x64 zip was `-win64`).
 
 The one GitHub API call in the image build -- the lookup of llvm-mingw's
 newest release -- is limited to 60 an hour without a token. With
