@@ -1,24 +1,38 @@
-# The cross-build image for one Windows target: the toolkit
-# tools/toolkit-env.sh builds -- llvm-mingw, and zlib, xz, zstd, bzip2 and Qt
-# from Fedora's source RPMs -- on Fedora, with nothing else. The build and
-# package commands run in it are the same ones a Fedora host runs natively.
+# The cross-build image: the toolkit tools/toolkit-env.sh builds, for every
+# Windows target, on Fedora -- llvm-mingw, and for each target a sysroot of
+# zlib, xz, zstd, bzip2 and Qt from Fedora's source RPMs. The build and
+# package commands run in it are the same ones a Fedora host runs natively,
+# for either target.
 #
-#   podman build -t w32di-toolkit-arm64 --build-arg ARCH=arm64 \
-#       -f tools/Containerfile.toolkit .
+#   podman build -t w32di-toolkit -f tools/Containerfile.toolkit .
 #
-# tools/build-container.sh ARCH builds it on first use, as TOOLKIT_IMAGE, and
+# tools/build-container.sh builds it on first use, as TOOLKIT_IMAGE, and
 # rebuilds it when what it was built from has been updated. Expect the build
-# to take a while, most of it Qt.
+# to take a while, nearly all of it Qt, once per target.
+#
+# In stages, so the image holds each thing once: the host part both targets
+# build on, then each target's sysroot built on that in a stage of its own,
+# and finally the host part with the finished sysroots copied in -- none of
+# their sources, build trees or package metadata.
 #
 # See BUILD.md, "Windows, cross-compiled from Linux".
 ARG BASE=quay.io/fedora/fedora-minimal:latest
-FROM ${BASE}
-ARG ARCH
 
+# The host packages and llvm-mingw. The secret is the optional GitHub token
+# container_run passes (see toolkit_llvm_mingw_release); it is mounted for
+# this step only, not stored.
+FROM ${BASE} AS host
 COPY tools/build-env.sh tools/toolkit-env.sh /usr/local/lib/
-# The secret is the optional GitHub token container_run passes (see
-# toolkit_llvm_mingw_release); it is mounted for this step only, not stored.
 RUN --mount=type=secret,id=github_token \
-    bash /usr/local/lib/toolkit-env.sh "$ARCH" install && dnf clean all
+    bash /usr/local/lib/toolkit-env.sh host install && dnf clean all
 
+FROM host AS x64
+RUN bash /usr/local/lib/toolkit-env.sh x64 sysroot
+
+FROM host AS arm64
+RUN bash /usr/local/lib/toolkit-env.sh arm64 sysroot
+
+FROM host
+COPY --from=x64 /opt/win-x64 /opt/win-x64
+COPY --from=arm64 /opt/win-arm64 /opt/win-arm64
 WORKDIR /src

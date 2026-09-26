@@ -40,7 +40,8 @@ if ! LUPDATE=$(lupdate_path); then
         echo "       Anywhere else: install podman and this will use a container." >&2
         exit 1
     fi
-    # Any toolkit image has the host lupdate; the x64 one is as good as any.
+    # The toolkit image has the host lupdate; the target named is only to
+    # load tools/toolkit-env.sh, and makes no difference.
     TOOLKIT_ARCH=x64
     . "$REPO/tools/toolkit-env.sh"
     toolkit_container_run "$REPO" /src/tools/lupdate.sh "$@"

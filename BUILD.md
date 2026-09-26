@@ -51,7 +51,7 @@ A native Windows build lands in `build/`; a cross build in `build-x64/` or
 
 - **`tools/lupdate.sh`** → `src/lang/*.ts`
   - whichever Qt 6 `lupdate` the host has — MSYS2's `lupdate`, Fedora's
-    `lupdate-qt6` — else podman running *itself* in the x64 toolkit's image
+    `lupdate-qt6` — else podman running *itself* in the toolkit's image
 
 **On Linux:**
 
@@ -183,15 +183,20 @@ tools/build-cross.sh x64
 tools/deploy-cross.sh x64
 ```
 
-and the same with `arm64`. The two toolkits share one llvm-mingw, in
-`/opt/llvm-mingw`, which targets every Windows architecture. `tools/toolkit-env.sh
-ARCH check` says whether a toolkit is complete, and `stale` whether anything it
-was built from has been updated since.
+and the same with `arm64`, or `sudo tools/toolkit-env.sh all install` for
+both. The two toolkits share everything but their sysroots: the host
+packages, and one llvm-mingw in `/opt/llvm-mingw`, which targets every
+Windows architecture. `tools/toolkit-env.sh ARCH check` (or `all check`)
+says whether a toolkit is complete, and `stale` whether anything it was
+built from has been updated since.
 
 **Anywhere podman runs**, including a Fedora host that would rather not
-install the toolkit. The target's image builds itself on first use, from
-`tools/Containerfile.toolkit`, by running the same `tools/toolkit-env.sh
-install` on `quay.io/fedora/fedora-minimal:latest`:
+install the toolkit. One image holds both targets' toolkits, and builds
+itself on first use from `tools/Containerfile.toolkit`, by running the same
+`tools/toolkit-env.sh` on `quay.io/fedora/fedora-minimal:latest`: the host
+part in one stage, each target's sysroot on it in a stage of its own, and the
+finished sysroots copied into the image, so it holds each thing once and none
+of the build trees:
 
 ```
 tools/build-container.sh x64
@@ -217,10 +222,9 @@ container sees this tree as `/src`, so a cache from the other route is
 dropped and rebuilt -- the script says so when it happens. `BUILD_DIR=...`
 overrides the directory.
 
-CI builds both targets side by side, as the `win-x64` and `win-arm64` jobs,
-with the image built fresh on every run. A tag's release waits for both and
-carries both zips, `-win-x64` and `-win-arm64` (before 2.0.4, the x64 zip was
-`-win64`).
+CI builds the image fresh on every run, then both targets in it, one after
+the other, in a single job. A tag's release waits for it and carries both
+zips, `-win-x64` and `-win-arm64` (before 2.0.4, the x64 zip was `-win64`).
 
 The one GitHub API call in the image build -- the lookup of llvm-mingw's
 newest release -- is limited to 60 an hour without a token. With
@@ -268,18 +272,19 @@ does not know stops the deploy. [arm64qtcross.md](arm64qtcross.md) has every
 step worked through by hand, with what each one showed and why each choice
 was made.
 
-## Keeping the images current
+## Keeping the image current
 
 The toolkits are built from Fedora's repositories, updates included, so a
-build is only as current as its image. CI builds the images fresh on every
+build is only as current as its image. CI builds the image fresh on every
 run. Locally, each `tools/build-container.sh` run first checks the existing
 image (`container_stale` in `tools/build-env.sh`) and rebuilds it, from
 scratch and under the same tag, when:
 
 - `fedora-minimal:latest` is a newer Fedora release than the image was built
   on, or
-- the image's `stale` command (`tools/toolkit-env.sh ARCH stale`) finds a
-  newer source RPM for any library or Qt, or a newer llvm-mingw. Updates to
+- the image's `stale` command (`tools/toolkit-env.sh all stale`) finds, for
+  either target, a newer source RPM for any library or Qt, or a newer
+  llvm-mingw. Updates to
   the build tools alone -- cmake, gcc, mesa -- do not count: nothing of them
   is shipped.
 
@@ -291,7 +296,7 @@ its build used -- run the build wrapper first. The image replaced is left
 untagged; `podman image prune` reclaims it.
 
 The image tag itself changes only when what the image is asked to be
-changes: the target, the base image, the package list, the llvm-mingw pin,
+changes: the targets, the base image, the package list, the llvm-mingw pin,
 and `TOOLKIT_IMAGE_REVISION`, raised when the install steps change.
 
 ## Testing the GPT repair

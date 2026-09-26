@@ -4,7 +4,7 @@
 #   tools/deploy-container.sh x64         # build-x64/ -> dist-x64/
 #   tools/deploy-container.sh arm64       # build-arm64/ -> dist-arm64/
 #
-# Runs tools/deploy-cross.sh inside the target's toolkit image, where its
+# Runs tools/deploy-cross.sh inside the toolkit image, where the target's
 # sysroot and licence manifest are; the host needs only podman. The folder
 # lands in the repo through the same bind mount the build uses. The image is
 # not checked for updates here, so a package is always made from the image

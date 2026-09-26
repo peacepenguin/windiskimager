@@ -22,11 +22,18 @@
 # available now, so the container build rebuilds it when any of it has been
 # updated.
 #
-# It runs the same on any Fedora host as in the image:
+# The two targets share everything but their sysroots: the host packages and
+# llvm-mingw, which targets every Windows architecture from one install, are
+# the "host" part, and each target's sysroot is built on it. One image
+# (tools/Containerfile.toolkit) holds both. It runs the same on any Fedora
+# host as in the image:
 #
-#   sudo tools/toolkit-env.sh ARCH install     # build the toolkit (what the image runs)
-#   tools/toolkit-env.sh ARCH check            # assert it is all there
-#   tools/toolkit-env.sh ARCH stale            # have updates come out since?
+#   sudo tools/toolkit-env.sh ARCH install     # host part and ARCH's sysroot
+#   sudo tools/toolkit-env.sh all install      # host part and both sysroots
+#   sudo tools/toolkit-env.sh host install     # the host part alone
+#   sudo tools/toolkit-env.sh ARCH sysroot     # ARCH's sysroot, on an installed host part
+#   tools/toolkit-env.sh ARCH|all check        # assert it is all there
+#   tools/toolkit-env.sh ARCH|all stale        # have updates come out since?
 #   tools/toolkit-env.sh ARCH env              # the exports a cross build needs
 #   tools/toolkit-env.sh ARCH print NAME       # one value (IMAGE, SYSROOT, TOOLCHAIN, ...)
 #
@@ -39,12 +46,28 @@
 
 # -------------------------------------------------------------- the target ---
 
+# Every target the toolkit is built for.
+TOOLKIT_TARGETS="x64 arm64"
+
+# toolkit_usage -- the commands, from the comment above.
+toolkit_usage()
+{
+    sed -n '/as in the image:$/,/^# ARCH is/p' "${BASH_SOURCE[0]}" | sed '1d;$d' |
+        sed 's/^# \{0,1\}//'
+}
+
 # Sourced with TOOLKIT_ARCH set, or run with ARCH as the first argument.
+# "all" and "host" are for the command only: both targets, or the part they
+# share.
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     TOOLKIT_ARCH=${1:-}
     shift || true
 fi
 case "${TOOLKIT_ARCH:-}" in
+    all|host)
+        [ "${BASH_SOURCE[0]}" = "$0" ] || {
+            echo "error: TOOLKIT_ARCH=$TOOLKIT_ARCH is only for the command" >&2; return 2; }
+        ;;
     x64)
         TOOLKIT_TRIPLE=x86_64-w64-mingw32
         TOOLKIT_PROCESSOR=AMD64         # CMAKE_SYSTEM_PROCESSOR, as Windows names it
@@ -58,7 +81,7 @@ case "${TOOLKIT_ARCH:-}" in
     *)
         echo "error: the target is x64 or arm64, not '${TOOLKIT_ARCH:-}'" >&2
         if [ "${BASH_SOURCE[0]}" = "$0" ]; then
-            sed -n '26,32p' "$0" | sed 's/^# \{0,1\}//' >&2
+            toolkit_usage >&2
             exit 2
         fi
         return 2
@@ -104,14 +127,14 @@ TOOLKIT_QT_TOOLCHAIN="$TOOLKIT_SYSROOT/lib/cmake/Qt6/qt.toolchain.cmake"
 SRPM_LOCK="$TOOLKIT_ROOT/sources.lock"
 TOOLKIT_LLVM_MINGW_STAMP="$TOOLKIT_ROOT/llvm-mingw.version"
 
-# The image tools/Containerfile.toolkit produces for this target, tagged by
-# what it is asked to be -- everything above and TOOLKIT_IMAGE_REVISION,
-# raised when the install steps below or in tools/build-env.sh change.
-# Updates to what they fetch rebuild it in place (container_stale).
-# Override with TOOLKIT_IMAGE=...
-TOOLKIT_IMAGE_REVISION=1
-TOOLKIT_IMAGE="${TOOLKIT_IMAGE:-w32di-toolkit-$TOOLKIT_ARCH:$(printf '%s' \
-    "$TOOLKIT_ARCH$TOOLKIT_BASE_IMAGE$TOOLKIT_PACKAGES$CROSS_DNF_FLAGS$TOOLKIT_LLVM_MINGW_PIN$TOOLKIT_IMAGE_REVISION" \
+# The image tools/Containerfile.toolkit produces, with every target's
+# toolkit in it, tagged by what it is asked to be -- the targets, everything
+# above and TOOLKIT_IMAGE_REVISION, raised when the install steps below or in
+# tools/build-env.sh change. Updates to what they fetch rebuild it in place
+# (container_stale). Override with TOOLKIT_IMAGE=...
+TOOLKIT_IMAGE_REVISION=2
+TOOLKIT_IMAGE="${TOOLKIT_IMAGE:-w32di-toolkit:$(printf '%s' \
+    "$TOOLKIT_TARGETS$TOOLKIT_BASE_IMAGE$TOOLKIT_PACKAGES$CROSS_DNF_FLAGS$TOOLKIT_LLVM_MINGW_PIN$TOOLKIT_IMAGE_REVISION" \
     | cksum | cut -d' ' -f1)}"
 
 # What each library was built from, for toolkit_record_sources: version and
@@ -174,11 +197,14 @@ toolkit_licences()
     cp "$@" "$TOOLKIT_SYSROOT/share/licenses/$pkg/"
 }
 
-toolkit_install_toolchain()
+# toolkit_install_llvm_mingw
+#
+# llvm-mingw into TOOLKIT_LLVM_MINGW, in the current directory's scratch: the
+# release toolkit_llvm_mingw_release names, unless that one is there already.
+# .release and .release-url record which, for the sysroots built on it.
+toolkit_install_llvm_mingw()
 {
     toolkit_llvm_mingw_release
-    # Shared by both targets: a Fedora host building the second one keeps the
-    # install the first one downloaded, if it is the same release.
     local have=""
     [ ! -f "$TOOLKIT_LLVM_MINGW/.release" ] || have=$(cat "$TOOLKIT_LLVM_MINGW/.release")
     if [ "$have" != "$TOOLKIT_LLVM_MINGW_VERSION" ]; then
@@ -186,11 +212,33 @@ toolkit_install_toolchain()
         curl -fsSL -o "$file" "$TOOLKIT_LLVM_MINGW_URL"
         echo "$TOOLKIT_LLVM_MINGW_SHA256  $file" | sha256sum -c --quiet -
         tar -xf "$file"
+        rm -f "$file"
         rm -rf "$TOOLKIT_LLVM_MINGW"
         mv "${file%.tar.xz}" "$TOOLKIT_LLVM_MINGW"
         echo "$TOOLKIT_LLVM_MINGW_VERSION" > "$TOOLKIT_LLVM_MINGW/.release"
     fi
+    echo "$TOOLKIT_LLVM_MINGW_URL" > "$TOOLKIT_LLVM_MINGW/.release-url"
+}
 
+# toolkit_llvm_mingw_installed -- sets TOOLKIT_LLVM_MINGW_VERSION and _URL
+# from the installed llvm-mingw, for a sysroot built on it.
+toolkit_llvm_mingw_installed()
+{
+    if [ ! -f "$TOOLKIT_LLVM_MINGW/.release" ] || [ ! -f "$TOOLKIT_LLVM_MINGW/.release-url" ]; then
+        echo "error: no llvm-mingw in $TOOLKIT_LLVM_MINGW;" \
+             "sudo tools/toolkit-env.sh host install puts it there" >&2
+        return 1
+    fi
+    TOOLKIT_LLVM_MINGW_VERSION=$(cat "$TOOLKIT_LLVM_MINGW/.release")
+    TOOLKIT_LLVM_MINGW_URL=$(cat "$TOOLKIT_LLVM_MINGW/.release-url")
+}
+
+# toolkit_target_toolchain
+#
+# This target's cmake toolchain file, for llvm-mingw's clang for its triple,
+# and llvm-mingw's C++ runtime DLLs into its sysroot.
+toolkit_target_toolchain()
+{
     local bin="$TOOLKIT_LLVM_MINGW/bin/$TOOLKIT_TRIPLE"
     cat > "$TOOLKIT_TOOLCHAIN" <<EOF
 # Cross-compile for Windows $TOOLKIT_ARCH with llvm-mingw; written by tools/toolkit-env.sh.
@@ -397,12 +445,26 @@ toolkit_record_sources()
         "GPL-3.0-only WITH Qt-GPL-exception-1.0" "${U[qt6-translations]}"
 }
 
-toolkit_install()
+# toolkit_install_host
+#
+# What every target builds on: the host packages, Fedora's signing key for
+# srpm_fetch, and llvm-mingw.
+toolkit_install_host()
 {
     # shellcheck disable=SC2086   # deliberate word splitting
     dnf -y install $CROSS_DNF_FLAGS $TOOLKIT_PACKAGES
     srpm_keys
+    local work
+    work=$(mktemp -d)
+    ( set -e; cd "$work"; toolkit_install_llvm_mingw ) || { rm -rf "$work"; return 1; }
+    rm -rf "$work"
+}
 
+# toolkit_install_sysroot
+#
+# This target's sysroot, from scratch, on the installed host part.
+toolkit_install_sysroot()
+{
     # A fresh sysroot: nothing left from an earlier install can be shipped
     # without the manifest knowing where it came from. TOOLKIT_ROOT can be
     # overridden, so it must at least be a directory of its own.
@@ -415,7 +477,8 @@ toolkit_install()
     (
         set -e
         cd "$TOOLKIT_ROOT/src"
-        toolkit_install_toolchain
+        toolkit_llvm_mingw_installed
+        toolkit_target_toolchain
         toolkit_build_libraries
         toolkit_build_qt
         toolkit_record_sources
@@ -424,6 +487,13 @@ toolkit_install()
     # Sources and build trees: several GB the image does not need.
     rm -rf "$TOOLKIT_ROOT/src"
     toolkit_check
+}
+
+# toolkit_install -- the host part, then this target's sysroot.
+toolkit_install()
+{
+    toolkit_install_host
+    toolkit_install_sysroot
 }
 
 # toolkit_use
@@ -500,17 +570,31 @@ EOF
 
 # toolkit_container_run REPO COMMAND...
 #
-# container_run in this target's image, built from tools/Containerfile.toolkit
-# on first use. CONTAINER_REFRESH=1 (the build wrapper) checks it for updates
-# first with toolkit_stale.
+# container_run in the toolkit image, built from tools/Containerfile.toolkit
+# on first use: the same image for every target. CONTAINER_REFRESH=1 (the
+# build wrapper) checks it for updates first, for every target's toolkit.
 toolkit_container_run()
 {
     CONTAINER_IMAGE=$TOOLKIT_IMAGE
     CONTAINER_BASE=$TOOLKIT_BASE_IMAGE
     CONTAINER_FILE=tools/Containerfile.toolkit
-    CONTAINER_BUILD_ARGS=(--build-arg ARCH="$TOOLKIT_ARCH")
-    CONTAINER_STALE=(bash /usr/local/lib/toolkit-env.sh "$TOOLKIT_ARCH" stale)
+    CONTAINER_BUILD_ARGS=()
+    CONTAINER_STALE=(bash /usr/local/lib/toolkit-env.sh all stale)
     container_run "$@"
+}
+
+# toolkit_each COMMAND -- COMMAND for every target, as its own run of this
+# script; returns the worst result (for stale: 0 current, 1 stale, 2 could
+# not tell).
+toolkit_each()
+{
+    local a r rc=0
+    for a in $TOOLKIT_TARGETS; do
+        r=0
+        bash "${BASH_SOURCE[0]}" "$a" "$@" || r=$?
+        [ "$r" -le "$rc" ] || rc=$r
+    done
+    return $rc
 }
 
 # ----------------------------------------------------------------- command ---
@@ -519,12 +603,27 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     set -euo pipefail
     cmd=${1:-}
     shift || true
-    case "$cmd" in
-        install) toolkit_install ;;
-        check)   toolkit_check ;;
-        stale)   toolkit_stale ;;
-        env)     toolkit_env ;;
-        print)
+    case "$TOOLKIT_ARCH:$cmd" in
+        host:install) toolkit_install_host ;;
+        all:install)  toolkit_install_host; toolkit_each sysroot ;;
+        all:check|all:stale) toolkit_each "$cmd" ;;
+        all:print)
+            case "${1:-}" in
+                IMAGE)      echo "$TOOLKIT_IMAGE" ;;
+                BASE_IMAGE) echo "$TOOLKIT_BASE_IMAGE" ;;
+                *) echo "print: 'all' has only IMAGE and BASE_IMAGE" >&2; exit 2 ;;
+            esac
+            ;;
+        host:*|all:*)
+            toolkit_usage >&2
+            exit 2
+            ;;
+        *:install) toolkit_install ;;
+        *:sysroot) toolkit_install_sysroot ;;
+        *:check)   toolkit_check ;;
+        *:stale)   toolkit_stale ;;
+        *:env)     toolkit_env ;;
+        *:print)
             case "${1:-}" in
                 IMAGE)      echo "$TOOLKIT_IMAGE" ;;
                 BASE_IMAGE) echo "$TOOLKIT_BASE_IMAGE" ;;
@@ -536,7 +635,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
             esac
             ;;
         *)
-            sed -n '26,32p' "$0" | sed 's/^# \{0,1\}//'
+            toolkit_usage
             [ -n "$cmd" ] && exit 2
             exit 0
             ;;

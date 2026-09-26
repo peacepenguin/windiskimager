@@ -6,8 +6,8 @@
 #   tools/build-container.sh ARCH clean   # drop the build dir first
 #   tools/build-container.sh ARCH test    # a binary that asks for no elevation
 #
-# Runs tools/build-cross.sh, with all its arguments, inside the target's
-# toolkit image (tools/Containerfile.toolkit), built on first use and checked
+# Runs tools/build-cross.sh, with all its arguments, inside the toolkit image
+# (tools/Containerfile.toolkit, both targets in one), built on first use and checked
 # for updates on every run after (container_stale). For a host that is not
 # Fedora or would rather not install the toolkit. Output lands in build-ARCH/.
 #
