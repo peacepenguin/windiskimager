@@ -1,109 +1,221 @@
 # Build
 
-Everything is done by a script in `tools/`. You run all of them the same way —
-from the repo root, on your own machine. What differs is where the work then
-happens.
+Every script is in `tools/` and runs from the repo root. The release builds,
+`win-x64` and `win-arm64`, are cross-compiled on Fedora with llvm-mingw
+against a Qt built for them; the two differ only in the target named. MSYS2
+builds x64 natively, for quick work on a Windows box.
 
-A native Windows build lands in `build/`; a cross build in `build-x64/` or
-`build-arm64/`, whichever route it took.
+| Way | Once | Build | Package |
+|---|---|---|---|
+| [Fedora, no podman](#fedora-no-podman) | `sudo tools/toolkit-env.sh ARCH install` | `tools/build-cross.sh ARCH` | `tools/deploy-cross.sh ARCH` |
+| [Podman, toolkit built locally](#podman-toolkit-built-locally) | | `TOOLKIT_IMAGE_SOURCE=local tools/build-container.sh ARCH` | `TOOLKIT_IMAGE_SOURCE=local tools/deploy-container.sh ARCH` |
+| [Podman, toolkit from ghcr.io](#podman-toolkit-from-ghcrio) | | `tools/build-container.sh ARCH` | `tools/deploy-container.sh ARCH` |
+| [Windows, MSYS2](#windows-msys2) (x64) | see below | `tools/build.sh` | `tools/deploy.sh` |
 
-## What runs what
+`ARCH` is `x64` or `arm64`. A cross build lands in `build-ARCH/` and
+packages into `dist-ARCH/`; MSYS2 uses `build/` and `dist/`. Run a package's
+`WinDiskImager.exe` **as Administrator**, which raw device access needs.
 
-**On Windows**, in the MSYS2 UCRT64 shell:
+## Fedora, no podman
 
-- **`tools/build.sh`** → `build/`
-  - cmake and ninja against the native Qt
-- **`tools/deploy.sh`** → `dist/`
-  - `windeployqt6`, then `objdump` for what it misses, then the licence of
-    every library it ships, from `pacman`
-- **`tools/gpttest.sh`** → pass or fail
-  - builds the harness in `tools/gpttest/`, which links the real
-    `src/disk.cpp`, and runs it
-- **`tools/imgtest.sh`** → pass or fail
-  - the same idea for `src/imagesource.cpp`: reads images back and compares
-    them with what went in. Builds its own fixtures
-- **`tools/mkicon/`** → the executable's `.ico`, into the build directory
-  - renders the app icon SVG into the multi-size `.ico` the executable needs.
-    Run by the build itself, on both platforms; never invoked by hand
-- **`tools/gui-probe.ps1`** → measurements of the running window
-  - PowerShell and UI Automation, against a test build already on screen
-
-**On a Fedora host, with the target's toolkit installed**
-(`sudo tools/toolkit-env.sh x64 install`, or `arm64`):
-
-- **`tools/build-cross.sh x64|arm64`** → `build-x64/`, `build-arm64/`
-  - cmake and ninja against the toolkit's llvm-mingw and Qt
-- **`tools/deploy-cross.sh x64|arm64`** → `dist-x64/`, `dist-arm64/`
-  - `llvm-objdump`, and the Qt plugins gathered by hand, then the licence of
-    every library it ships, from the toolkit's manifest
-
-**On Linux, without it** — the same build, one step further out:
-
-- **`tools/build-container.sh x64|arm64`** → `build-x64/`, `build-arm64/`
-  - podman, which pulls the toolkit image, llvm-mingw-qt6, and runs
-    **`tools/build-cross.sh`** inside it
-- **`tools/deploy-container.sh x64|arm64`** → `dist-x64/`, `dist-arm64/`
-  - podman, which runs **`tools/deploy-cross.sh`** inside the image
-
-  You run these on the host; it is the *build* and the *packaging* that happen
-  in a container. The scripts are wrappers and nothing else.
-
-**On Windows or Linux:**
-
-- **`tools/lupdate.sh`** → `src/lang/*.ts`
-  - whichever Qt 6 `lupdate` the host has — MSYS2's `lupdate`, Fedora's
-    `lupdate-qt6` — else podman running *itself* in the toolkit's image
-
-**On Linux:**
-
-- **`tools/make-test-images.sh`** → test images, and a `MANIFEST.txt`
-  describing them
-  - `sfdisk`, `mkfs.vfat`, gzip and xz -- raw/gzip/xz sets, the GPT-rewrite
-    pair (see [TESTING-GPT-BUG.md](TESTING-GPT-BUG.md)), and the
-    shrink-on-read set (see below)
-- **`tools/verify-flashed.sh`** → pass or fail
-  - `cmp`, an image against a device
-
-Every build script reads **`tools/build-env.sh`** for the cmake flags, the
-packaging and licence steps and the podman plumbing, and every cross build
-reads **`tools/toolkit-env.sh`** for the toolkit it builds against —
-including `tools/Containerfile.toolkit` when it builds the image, and
-[.github/workflows/build.yml](.github/workflows/build.yml), which runs
-`tools/build-container.sh` and `tools/deploy-container.sh` for each target
-the same as anyone with podman.
-
-## Windows, natively
-
-Once:
+Install the toolkit once, for one target or both. Most of it is Qt, so
+expect it to take a while:
 
 ```
-# non-admin powershell:
+sudo tools/toolkit-env.sh x64 install      # or arm64, or all
+```
+
+Then:
+
+```
+tools/build-cross.sh x64
+tools/deploy-cross.sh x64
+```
+
+The toolkit is `/opt/llvm-mingw`, shared by both targets, and a sysroot per
+target, `/opt/win-x64` and `/opt/win-arm64`. `tools/toolkit-env.sh ARCH check`
+says whether one is complete, and `stale` whether anything it was built from
+has been updated since; run `install` again to rebuild it.
+
+## Podman, toolkit built locally
+
+The same toolkit, built into an image here from the working tree, on
+`quay.io/fedora/fedora-minimal:latest`. Nothing is installed on the host.
+For working on the toolkit itself, or without network access to ghcr.io:
+
+```
+TOOLKIT_IMAGE_SOURCE=local tools/build-container.sh x64
+TOOLKIT_IMAGE_SOURCE=local tools/deploy-container.sh x64
+```
+
+The first build makes the image, both targets in one; each later build first
+checks it for updates, and rebuilds it if it has fallen behind (see
+[Keeping the toolkit current](#keeping-the-toolkit-current)).
+
+## Podman, toolkit from ghcr.io
+
+The default: the published image, `ghcr.io/peacepenguin/llvm-mingw-qt6`, so
+there is no Qt to build. This is what CI does.
+
+```
+tools/build-container.sh x64
+tools/deploy-container.sh x64
+```
+
+The build pulls the image first, which fetches nothing if it has not
+changed. If it cannot be pulled and there is no copy here, the build makes
+it locally instead.
+
+## Windows, MSYS2
+
+Once, in a non-admin PowerShell:
+
+```
 winget install --id MSYS2.MSYS2 -e --source winget
 ```
 
-Then in the **MSYS2 UCRT64** shell, from the repo root:
+then in the **MSYS2 UCRT64** shell, from the repo root:
 
 ```
-# update all msys2 base packages first:
 pacman -Suy
-
-# then install dependancy packages:
 pacman -S --needed $(bash tools/build-env.sh packages-msys2)
 ```
 
 Then, any time:
 
 ```
-tools/build.sh                 # into build/
-tools/deploy.sh                # into dist/
+tools/build.sh
+tools/deploy.sh
 ```
 
-`build/WinDiskImager.exe` only runs inside the MSYS2 shell, because its Qt
-DLLs are not next to it. `dist/` is the standalone copy: move it anywhere and run
-`dist/WinDiskImager.exe` **as Administrator**, which raw device access needs.
+`build/WinDiskImager.exe` only runs inside the MSYS2 shell, where its Qt DLLs
+are; `dist/` is the standalone copy.
 
-`tools/build.sh clean` drops the build directory first. Without it, ninja stays
-incremental.
+## Options
+
+Every build script takes these after the target (MSYS2's take them alone):
+
+- **`clean`** drops the build directory first. Otherwise ninja stays
+  incremental: a no-op rebuild is well under a second.
+- **`test`** builds a binary that asks for no elevation -- see
+  [Working on the interface](#working-on-the-interface). Neither deploy script
+  will package one.
+
+And from the environment:
+
+- **`BUILD_DIR=...`** builds somewhere other than `build-ARCH/`.
+- **`W32DI_REFRESH=0`** skips the container build's update check or pull, for
+  working offline.
+- **`GITHUB_TOKEN=...`** lifts GitHub's limit of 60 anonymous API requests an
+  hour for the one lookup a toolkit build makes, llvm-mingw's newest release.
+  It is passed in as a podman secret, never stored in the image:
+  `GITHUB_TOKEN=$(gh auth token) TOOLKIT_IMAGE_SOURCE=local tools/build-container.sh arm64`.
+
+A cross build fails if what comes out is not a Windows binary for its target.
+A Fedora host's build and a container's share `build-ARCH/`; switching
+between them drops the cmake cache once, and says so.
+
+## How the cross build works
+
+[tools/toolkit-env.sh](tools/toolkit-env.sh) builds the toolkit, the same way
+on a Fedora host as in the image: the host packages and llvm-mingw, then for
+each target zlib, xz, zstd, bzip2 and Qt into its sysroot. Nothing is pinned;
+each is the upstream tarball from Fedora's source RPM, checked against
+Fedora's signature, with none of Fedora's patches:
+
+| Library | Source RPM of |
+|---|---|
+| Qt (qtbase, qtsvg, qttranslations) | `qt6-qtbase`, `qt6-qtsvg`, `qt6-qttranslations`: the builds the host Qt, whose `moc`, `rcc` and `uic` the cross build uses, is installed from |
+| zlib, zstd, bzip2 | `mingw64-zlib`, `mingw64-zstd`, `mingw64-bzip2` (Fedora's native zlib is zlib-ng) |
+| xz | `xz` (`mingw64-xz` is 5.2.4; the multi-threaded decoder needs 5.4) |
+
+llvm-mingw is its newest GitHub release, checked against GitHub's SHA-256;
+`TOOLKIT_LLVM_MINGW_PIN` holds it at one. Qt has only what a widgets app
+needs -- no ICU, OpenSSL, D-Bus or SQL -- so a package is four Qt DLLs,
+`libc++.dll` and `libunwind.dll`, and the four compression libraries.
+
+Each library records its version, licence and source RPM in its sysroot's
+manifest, `share/llvm-mingw-qt6/sources.tsv`, with its licence files beside
+it. The deploy ships those and lists them in `THIRD-PARTY-NOTICES.txt`, which
+ends by naming the image the package was built in, by digest; a file the
+manifest does not know stops the deploy.
+
+`tools/build-cross.sh` and `tools/deploy-cross.sh` are the cross build. The
+container scripts run them inside the image and nothing else;
+[tools/build-env.sh](tools/build-env.sh) holds what every build shares.
+
+## The toolkit image
+
+`tools/Containerfile.toolkit` builds `llvm-mingw-qt6` in stages -- the host
+part, each target's sysroot on it, then the host part with both sysroots
+copied in -- so it holds each thing once and no build trees. Nothing in it is
+particular to WinDiskImager.
+
+[.github/workflows/toolkit.yml](.github/workflows/toolkit.yml) publishes it
+to `ghcr.io/peacepenguin/llvm-mingw-qt6` with `tools/toolkit-publish.sh`,
+after building and packaging WinDiskImager in it for both targets:
+
+| Tag | |
+|---|---|
+| `r3-YYYYMMDD` | one build, kept |
+| `r3` | the newest build for toolkit revision 3: what the build pulls |
+| `latest` | the newest build |
+
+`TOOLKIT_IMAGE_REVISION` in `tools/toolkit-env.sh` is raised whenever what the
+image holds or how it is laid out changes, so a build never runs in an image
+made for another revision; until the new one is published, the build makes it
+locally. Raising it is also what gets the new image published: the toolkit
+workflow builds for a revision it has not published, and otherwise only for
+updates.
+
+### Keeping the toolkit current
+
+An image is behind when `fedora-minimal:latest` is a newer Fedora release
+than it was built on, or when `tools/toolkit-env.sh all stale` finds a newer
+source RPM for any library or Qt, or a newer llvm-mingw. Updates to build
+tools alone -- cmake, gcc, mesa -- do not count, being shipped nowhere.
+
+- The toolkit workflow checks the published image **daily**, and **when a
+  file that goes into the image changes** on master, and publishes a new one
+  only if there is none for the current revision or it is behind. **By hand**
+  from the Actions tab it can be forced, for an install-step change that did
+  not raise the revision. A
+  daily check that cannot be made -- the registry or base image will not
+  pull, or dnf or GitHub errs -- fails the run, so GitHub reports it instead
+  of the image quietly going stale.
+- A **locally built** image is checked before each build and rebuilt, from
+  scratch under the same tag, if it is behind; `podman image prune` reclaims
+  the old one.
+- The deploy scripts never refresh or pull, so a package is always made from
+  the image its build used.
+
+To publish by hand, after `podman login ghcr.io`: `tools/toolkit-publish.sh`,
+or `--force` to rebuild regardless.
+
+GitHub leaves two things to the repository's owner: the package starts out
+**private** -- make it public under Package settings, Change visibility -- and
+scheduled workflows stop after 60 days without activity in the repository,
+which the Actions tab offers to re-enable.
+
+## CI
+
+[.github/workflows/build.yml](.github/workflows/build.yml) runs
+`tools/build-container.sh` and `tools/deploy-container.sh` for each target,
+as the `win-x64` and `win-arm64` jobs, exactly as above. A `v*` tag's release
+waits for both and carries `WinDiskImager-vX-win-x64.zip` and
+`-win-arm64.zip`, each with its `.sha256` (before 2.0.4, the x64 zip was
+`-win64`).
+
+## Other tools
+
+- **`tools/gpttest.sh`**, **`tools/imgtest.sh`** (MSYS2): test harnesses, below.
+- **`tools/lupdate.sh`**: refreshes `src/lang/*.ts`, with the host's Qt 6
+  `lupdate` or else in the toolkit image; see
+  [Updating the translations](#updating-the-translations).
+- **`tools/make-test-images.sh`**, **`tools/verify-flashed.sh`** (Linux): test
+  images, and `cmp` of an image against a device.
+- **`tools/gui-probe.ps1`**: measures a running test build's widgets.
+- **`tools/mkicon/`**: renders the icon during every build; never run by hand.
 
 ## Working on the interface
 
@@ -157,194 +269,6 @@ pointer landed on the tooltip instead: hover that widget on its own.
 Positions are read from the application again before every move, so the window
 can be anywhere. It drives the real pointer, though, so leave the mouse alone
 while it runs.
-
-## Windows, cross-compiled from Linux
-
-The release builds, `win-x64` and `win-arm64`, are cross-compiled on Fedora,
-and the two are built the same way: one toolkit recipe,
-[tools/toolkit-env.sh](tools/toolkit-env.sh), with the target architecture
-the only thing that differs. Each target's toolkit is llvm-mingw (clang, lld
-and the mingw-w64 runtime) and a sysroot of its own, `/opt/win-x64` or
-`/opt/win-arm64`, holding zlib, xz, zstd, bzip2 and Qt compiled from source.
-The MSYS2 build above stays for quick work on a Windows box; what ships is
-this one.
-
-`tools/build-cross.sh` *is* the cross build. Run it on a Fedora host and it
-builds; `tools/build-container.sh` runs that same script inside the toolkit's
-image, and [.github/workflows/build.yml](.github/workflows/build.yml) runs
-`tools/build-container.sh` for each target. However this is built, it is
-built by that one script, against a toolkit built by that one recipe.
-
-**On a Fedora host.** Build the target's toolkit once -- most of it is Qt, so
-expect it to take a while -- then build and package against it:
-
-```
-sudo tools/toolkit-env.sh x64 install
-tools/build-cross.sh x64
-tools/deploy-cross.sh x64
-```
-
-and the same with `arm64`, or `sudo tools/toolkit-env.sh all install` for
-both. The two toolkits share everything but their sysroots: the host
-packages, and one llvm-mingw in `/opt/llvm-mingw`, which targets every
-Windows architecture. `tools/toolkit-env.sh ARCH check` (or `all check`)
-says whether a toolkit is complete, and `stale` whether anything it was
-built from has been updated since.
-
-**Anywhere podman runs**, including a Fedora host that would rather not
-install the toolkit. One image, llvm-mingw-qt6, holds both targets'
-toolkits; the wrapper pulls the published one (see "The toolkit image"
-below), so there is no Qt to build:
-
-```
-tools/build-container.sh x64
-tools/deploy-container.sh x64
-```
-
-Those scripts are wrappers: each starts the container and runs `build-cross.sh`
-or `deploy-cross.sh` inside it, where the toolkit is already installed, so
-the host needs nothing but podman. `build-container.sh` and `build-cross.sh`
-take the same arguments — the target, then `clean` to start over, `test` for a
-no-elevation build — and both fail if what comes out is not a Windows binary
-for that target, which is what a host compiler picked up by mistake, or the
-other target's, would produce.
-
-Either one before a push catches a broken cross build without waiting on the
-workflow. Everything they write is gitignored, so the build directory persists
-and ninja stays incremental: a no-op rebuild is well under a second, a one-file
-change around twenty.
-
-The two routes share `build-ARCH/`, and switching between them costs one
-reconfigure. A cmake cache is tied to the path it was generated for, and the
-container sees this tree as `/src`, so a cache from the other route is
-dropped and rebuilt -- the script says so when it happens. `BUILD_DIR=...`
-overrides the directory.
-
-CI builds both targets side by side, as the `win-x64` and `win-arm64` jobs,
-each pulling the published image. A tag's release waits for both and carries
-both zips, `-win-x64` and `-win-arm64` (before 2.0.4, the x64 zip was
-`-win64`). Each package's `THIRD-PARTY-NOTICES.txt` ends by naming the image
-it was built in, by digest, so a release says exactly which toolkit build it
-shipped with.
-
-### Where the toolkit's sources come from
-
-Nothing in the toolkit is pinned. The libraries and Qt are built from the
-upstream tarballs in Fedora's own source RPMs, fetched and signature-checked
-by `srpm_fetch`, without Fedora's patches or spec files:
-
-| Library | Source RPM of |
-|---|---|
-| Qt (qtbase, qtsvg, qttranslations) | `qt6-qtbase`, `qt6-qtsvg`, `qt6-qttranslations`: the very builds the host Qt is installed from |
-| zlib, zstd, bzip2 | `mingw64-zlib`, `mingw64-zstd`, `mingw64-bzip2` (Fedora's native zlib is zlib-ng) |
-| xz | `xz`: Fedora's `mingw64-xz` is 5.2.4, older than the 5.4 the multi-threaded decoder needs |
-
-The host Qt the cross build takes `moc`, `rcc` and `uic` from must be the
-same version as the target Qt; taking the source from the host Qt's own build
-makes it so. llvm-mingw is the newest release on GitHub, checked against the
-SHA-256 GitHub publishes for it; `TOOLKIT_LLVM_MINGW_PIN` in
-`tools/toolkit-env.sh` holds it at a release instead, for when a new one
-breaks something. Moving to a new Fedora release needs no edit:
-`fedora-minimal:latest` moves, and the image is rebuilt on it.
-
-Qt is configured for what a widgets app on Windows needs and no more: no ICU
-(35 MB of DLLs the app has no use for), no OpenSSL, D-Bus or SQL, and its own
-bundled copies of the image and font libraries it does use. That is why a
-package holds four Qt DLLs, the C++ runtime (`libc++.dll`, `libunwind.dll`)
-and the four compression libraries, and nothing else.
-
-Nothing in the toolkit is owned by a package manager, so each library records
-itself in the sysroot's licence manifest (`manifest_add` in
-`tools/build-env.sh`) with its version, licence and source RPM, and keeps its
-licence files from its own source tree. `deploy_write_licenses` reads that in
-place of rpm, so the package lists every library it ships as "built from
-source", with the source it came from; a file in the sysroot the manifest
-does not know stops the deploy. [arm64qtcross.md](arm64qtcross.md) has every
-step worked through by hand, with what each one showed and why each choice
-was made.
-
-## The toolkit image
-
-`tools/Containerfile.toolkit` builds llvm-mingw-qt6 by running
-`tools/toolkit-env.sh` on `quay.io/fedora/fedora-minimal:latest`, in stages:
-the host packages and llvm-mingw in one, each target's sysroot on it in a
-stage of its own, and the finished sysroots copied into the image, so it
-holds each thing once and none of the build trees. Nothing in it is
-particular to WinDiskImager: it suits any Qt Widgets application that needs
-no more of Qt than qtbase, qtsvg and qtbase's translations -- no ICU,
-OpenSSL, D-Bus or SQL -- with zlib, xz, zstd and bzip2 beside it.
-
-It is published as `ghcr.io/peacepenguin/llvm-mingw-qt6`
-(`TOOLKIT_REGISTRY` in `tools/toolkit-env.sh`), by
-[.github/workflows/toolkit.yml](.github/workflows/toolkit.yml) running
-`tools/toolkit-publish.sh`, with three tags:
-
-| Tag | What it is |
-|---|---|
-| `r3-20261003` | one build, kept for good |
-| `r3` | the newest build for toolkit revision 3: what the build pulls |
-| `latest` | the newest build |
-
-`TOOLKIT_IMAGE_REVISION` is the revision: raised whenever what the image
-holds or how it is laid out changes, so a build never runs in an image made
-for another one. A commit that raises it builds the new revision's image
-itself until that is published.
-
-The workflow keeps it current, since the toolkit is built from Fedora's
-repositories, updates included, and a build is only as current as its
-image:
-
-- **Daily**, it checks the published image with the `stale` test below and
-  rebuilds only if that finds something.
-- **When a file that goes into the image changes** on master, it rebuilds
-  regardless.
-- **By hand**, from the Actions tab, optionally forcing a rebuild.
-
-The image is stale when `fedora-minimal:latest` is a newer Fedora release
-than it was built on, or its `stale` command (`tools/toolkit-env.sh all
-stale`) finds, for either target, a newer source RPM for any library or Qt,
-or a newer llvm-mingw. Updates to the build tools alone -- cmake, gcc, mesa
--- do not count: nothing of them is shipped. A new image is built from
-scratch and is published only once WinDiskImager builds and packages in it
-for both targets.
-
-Two things GitHub leaves to the repository's owner, once, after the first
-publish: the package starts out **private**, so make it public in the
-package's settings (Package settings, Change visibility) for anyone to pull it
-without logging in; and GitHub stops scheduled workflows in a repository with
-no activity for 60 days, which the Actions tab offers to re-enable.
-
-### Locally
-
-`tools/build-container.sh` pulls `r3` before each build -- a check that
-fetches nothing when the image has not changed -- and `W32DI_REFRESH=0`
-skips that, for working offline. The deploy wrapper never pulls, so a
-package is always made from the image its build used: run the build wrapper
-first. If the image cannot be pulled and there is no copy here, the wrapper
-builds it here instead.
-
-To work on the toolkit itself, build it here from the working tree:
-
-```
-TOOLKIT_IMAGE_SOURCE=local tools/build-container.sh arm64
-```
-
-That image is tagged by what it is asked to be -- the targets, the base
-image, the package list, the llvm-mingw pin and the revision -- and is
-checked for updates like the published one before each build, then rebuilt
-from scratch under the same tag when it has fallen behind; `podman image
-prune` reclaims the one replaced. To publish by hand, after `podman login
-ghcr.io`: `tools/toolkit-publish.sh`, or `--force` to rebuild regardless.
-
-The one GitHub API call in an image build -- the lookup of llvm-mingw's
-newest release -- is limited to 60 an hour without a token. With
-`GITHUB_TOKEN` set, `container_run` passes it into the build as a podman
-secret, mounted for that step only and never stored in the image; both
-workflows set it to the run's own token. Locally, if the limit is ever hit:
-
-```
-GITHUB_TOKEN=$(gh auth token) TOOLKIT_IMAGE_SOURCE=local tools/build-container.sh arm64
-```
 
 ## Testing the GPT repair
 
@@ -520,24 +444,18 @@ Two lists would otherwise be written down in several places, so each has one hom
 and everything else reads it from there.
 
 **The toolkit** — the Fedora packages, llvm-mingw, the libraries and Qt it
-builds and where each target's sysroot is — lives in
-[tools/toolkit-env.sh](tools/toolkit-env.sh), and **the rest of the build** —
-the paths to `lrelease-qt6` and `lupdate-qt6`, the cmake flags, the
-packaging and licence steps, the MSYS2 package list, and the podman plumbing
-every container run goes through — in [tools/build-env.sh](tools/build-env.sh).
-The container image, CI and every cross script read them, so a local
-container build, a Fedora host's build and the CI job cannot end up on
-different toolkits. A path can be pointed elsewhere for a host that lays it
-out differently:
-
-```
-CROSS_LUPDATE=/usr/bin/lupdate-qt6 tools/lupdate.sh
-```
+builds, and where each target's sysroot is — lives in
+[tools/toolkit-env.sh](tools/toolkit-env.sh); **the rest of the build** — the
+host's `lrelease-qt6` and `lupdate-qt6`, the cmake flags, the packaging and
+licence steps, the MSYS2 package list and the podman plumbing — in
+[tools/build-env.sh](tools/build-env.sh). Every route and CI read them, so no
+two can end up on different toolkits.
 
 ```
 tools/toolkit-env.sh arm64 print SYSROOT    # where the arm64 toolkit is
 tools/toolkit-env.sh x64 env                # its settings, for a shell of your own
 tools/build-env.sh packages-msys2           # what a native Windows build needs
+CROSS_LUPDATE=/usr/bin/lupdate-qt6 tools/lupdate.sh    # a tool somewhere else
 ```
 
 **The shipped languages** live in `src/CMakeLists.txt`, and both deploy scripts

@@ -6,7 +6,8 @@
 #   tools/toolkit-publish.sh --force     # regardless
 #
 # .github/workflows/toolkit.yml runs this daily and whenever the toolkit's
-# files change. By hand it needs "podman login" to the registry first.
+# files change, and with --force when asked to by hand. By hand here it needs
+# "podman login" to the registry first.
 #
 # The published image is TOOLKIT_PUBLISHED (tools/toolkit-env.sh), and
 # "fallen behind" is what the container build means by it (container_stale):
@@ -20,6 +21,12 @@
 #   latest        the newest build
 #
 # where N is TOOLKIT_IMAGE_REVISION.
+#
+# Without --force, a check that cannot be made fails the run rather than
+# passing for "current": the published image will not pull for any reason
+# but not existing yet, the base image will not pull, or the stale test
+# itself errs (dnf, GitHub). The scheduled workflow then fails, and GitHub
+# says so, instead of the image quietly going stale.
 #
 # Copyright (C) 2026 peacepenguin, GPL-2.0-or-later.
 set -euo pipefail
@@ -37,14 +44,26 @@ esac
 command -v podman >/dev/null 2>&1 || { echo "error: podman not found" >&2; exit 1; }
 
 if [ "$force" = 0 ]; then
-    if podman pull -q "$TOOLKIT_PUBLISHED" >/dev/null 2>&1; then
-        if ! W32DI_REFRESH=1 container_stale "$TOOLKIT_PUBLISHED" "$TOOLKIT_BASE_IMAGE" \
-                bash /usr/local/lib/toolkit-env.sh all stale; then
-            echo "$TOOLKIT_PUBLISHED is current; nothing to publish."
-            exit 0
-        fi
+    if out=$(podman pull -q "$TOOLKIT_PUBLISHED" 2>&1); then
+        rc=0
+        CONTAINER_STALE_STRICT=1 container_stale "$TOOLKIT_PUBLISHED" "$TOOLKIT_BASE_IMAGE" \
+            bash /usr/local/lib/toolkit-env.sh all stale || rc=$?
+        case $rc in
+            0) echo "$TOOLKIT_PUBLISHED is behind; building a new one." ;;
+            1) echo "$TOOLKIT_PUBLISHED is current; nothing to publish."; exit 0 ;;
+            *) echo "error: could not check $TOOLKIT_PUBLISHED; nothing was published." >&2; exit 1 ;;
+        esac
     else
-        echo "$TOOLKIT_PUBLISHED is not published yet; building it."
+        # Only a tag the registry does not have is a reason to build; an
+        # outage, a refused login or a network fault is a reason to stop.
+        case "$out" in
+            *"manifest unknown"*|*"name unknown"*|*"not found"*)
+                echo "$TOOLKIT_PUBLISHED is not published yet; building it." ;;
+            *)
+                echo "error: could not pull $TOOLKIT_PUBLISHED:" >&2
+                printf '%s\n' "$out" >&2
+                exit 1 ;;
+        esac
     fi
 fi
 

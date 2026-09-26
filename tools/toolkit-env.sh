@@ -15,8 +15,7 @@
 # qttranslations' qtbase_*.qm), all into the target's sysroot. Each records
 # itself in that sysroot's licence manifest (manifest_add in
 # tools/build-env.sh), so the package lists every library with its version,
-# licence and source. arm64qtcross.md has the same steps worked through by
-# hand, with what each one showed.
+# licence and source.
 #
 # Nothing is pinned. The libraries and Qt are built from the upstream
 # tarballs in Fedora's own source RPMs (srpm_fetch in tools/build-env.sh), so
@@ -139,7 +138,10 @@ TOOLKIT_LLVM_MINGW_STAMP="$TOOLKIT_ROOT/llvm-mingw.version"
 # TOOLKIT_IMAGE_REVISION counts changes to what the image holds or how it is
 # laid out -- the install steps below and in tools/build-env.sh, the
 # manifest's place -- so a build never runs in an image made for another
-# revision (3: the manifest moved to share/llvm-mingw-qt6/).
+# revision (3: the manifest moved to share/llvm-mingw-qt6/). Raise it with
+# any such change: that is what gets the new image published, since the
+# toolkit workflow rebuilds only for a revision it has not published, or
+# for updates to what the image is built from.
 TOOLKIT_IMAGE_REVISION=3
 
 # The published image (tools/toolkit-publish.sh), which the container build

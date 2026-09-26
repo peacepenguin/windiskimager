@@ -4,12 +4,14 @@ name: toolkit
 # current: tools/toolkit-publish.sh builds and publishes it to GitHub's
 # container registry.
 #
-# - Daily, it checks the published image and rebuilds only if something it is
-#   built from has an update: a new Fedora release, a newer source RPM for a
-#   library or Qt, or a newer llvm-mingw.
-# - When a file that goes into the image changes on master, it rebuilds
-#   regardless.
-# - By hand, from the Actions tab, optionally forcing a rebuild.
+# - Daily, and when a file that goes into the image changes on master, it
+#   checks the published image and rebuilds only if there is none for the
+#   current TOOLKIT_IMAGE_REVISION, or something it is built from has an
+#   update: a new Fedora release, a newer source RPM for a library or Qt, or a
+#   newer llvm-mingw. A change to what the image holds raises the revision,
+#   so it is built; a comment or a change to this publishing is not.
+# - By hand, from the Actions tab, optionally forcing a rebuild: for a change
+#   to the install steps that did not raise the revision.
 #
 # A new image is published only once WinDiskImager builds and packages in it
 # for both targets.
@@ -58,7 +60,7 @@ jobs:
       - name: Build and publish
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          FORCE: ${{ github.event_name == 'push' || inputs.force == true }}
+          FORCE: ${{ inputs.force == true }}
         run: |
           if [ "$FORCE" = true ]; then
             bash tools/toolkit-publish.sh --force

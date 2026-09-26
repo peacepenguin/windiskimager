@@ -293,31 +293,53 @@ drop_foreign_cache()
 # Whether IMAGE, built from BASE, should be rebuilt to pick up updates: BASE
 # is now a newer Fedora release, or COMMAND, run in the image, says the
 # repositories have moved on (toolkit_stale: 0 current, 1 stale, 2 could not
-# tell). Only asked by the build wrapper, never by the deploy one, so a
-# package is made from the image its build used. W32DI_REFRESH=0 skips it,
-# for working offline or in a hurry. If the check itself cannot run, it says
-# so and the image is used as it is.
+# tell). Returns 0 if it should, 1 if not. Only asked by the build wrapper,
+# never by the deploy one, so a package is made from the image its build
+# used. W32DI_REFRESH=0 skips it, for working offline or in a hurry.
+#
+# If the check itself cannot run -- the base will not pull, or COMMAND could
+# not tell -- a build is better served by the image as it is, so it warns and
+# returns 1. With CONTAINER_STALE_STRICT=1 it returns 2 instead, for a caller
+# that must not take "could not check" for "current": tools/toolkit-publish.sh.
 container_stale()
 {
     local image=$1 base=$2 was now rc=0
     shift 2
-    [ "${W32DI_REFRESH:-1}" != 0 ] || return 1
-    echo "checking $image for updates (W32DI_REFRESH=0 skips this)..." >&2
+    local strict=${CONTAINER_STALE_STRICT:-0}
+    [ "$strict" = 1 ] || [ "${W32DI_REFRESH:-1}" != 0 ] || return 1
+    if [ "$strict" = 1 ]; then
+        echo "checking $image for updates..." >&2
+    else
+        echo "checking $image for updates (W32DI_REFRESH=0 skips this)..." >&2
+    fi
     if ! podman pull -q "$base" >/dev/null; then
+        if [ "$strict" = 1 ]; then
+            echo "error: could not pull $base, so $image could not be checked." >&2
+            return 2
+        fi
         echo "warning: could not pull $base; building with $image as it is." >&2
         return 1
     fi
     was=$(podman run --rm "$image" rpm -E %fedora) || was=""
     now=$(podman run --rm "$base" rpm -E %fedora) || now=""
-    if [ -n "$now" ] && [ "$was" != "$now" ]; then
-        echo "$image is Fedora ${was:-?}; $base is now Fedora $now." >&2
+    if [ -z "$was" ] || [ -z "$now" ]; then
+        if [ "$strict" = 1 ]; then
+            echo "error: could not read the Fedora release of $image ('$was') or $base ('$now')." >&2
+            return 2
+        fi
+    elif [ "$was" != "$now" ]; then
+        echo "$image is Fedora $was; $base is now Fedora $now." >&2
         return 0
     fi
     podman run --rm ${GITHUB_TOKEN:+-e GITHUB_TOKEN} "$image" "$@" >&2 || rc=$?
     case $rc in
         0) return 1 ;;
         1) return 0 ;;
-        *) echo "warning: could not check $image for updates; building with it as it is." >&2
+        *) if [ "$strict" = 1 ]; then
+               echo "error: '$*' in $image could not tell whether it is current (exit $rc)." >&2
+               return 2
+           fi
+           echo "warning: could not check $image for updates; building with it as it is." >&2
            return 1 ;;
     esac
 }
