@@ -8,58 +8,34 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Cross-compile for Windows from Linux, exactly as a developer does with
+  # podman: build-container.sh builds the target's toolkit image from
+  # tools/Containerfile.toolkit -- llvm-mingw, and zlib, xz, zstd, bzip2 and
+  # Qt compiled from Fedora's source RPMs -- and runs the build in it;
+  # deploy-container.sh packages it there. The two targets differ only in
+  # the architecture named. The runner itself only needs podman, which
+  # ubuntu-latest has.
+  #
   # Release files, artifacts and jobs are named win-x64 and win-arm64, as
   # Windows names the two (Settings, System, About) and as .NET and Node.js
   # name their Windows builds.
-
-  # Cross-compile an x64 binary from Linux, exactly as a developer does with
-  # podman: the two scripts below build the Fedora image from
-  # tools/Containerfile.build (Ubuntu has no MinGW Qt6 packages; Fedora does)
-  # and run the build and the packaging inside it. The runner itself only
-  # needs podman, which ubuntu-latest has.
-  win-x64:
+  build:
+    name: win-${{ matrix.arch }}
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     permissions:
       contents: read
+    strategy:
+      # One target failing says nothing about the other; let both finish.
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
 
     steps:
       - uses: actions/checkout@v7
 
-      # Builds the image on first use, then the exe; fails if it is not a 64-bit PE.
-      - name: Build
-        run: bash tools/build-container.sh
-
-      - name: Package
-        run: bash tools/deploy-container.sh
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: WinDiskImager-win-x64
-          path: dist/
-          if-no-files-found: error
-
-  # The same for Windows on ARM64, in the image tools/Containerfile.arm64
-  # builds: llvm-mingw, and zlib, xz, zstd, bzip2 and Qt compiled from
-  # Fedora's source RPMs. The image is built fresh every run, so this job
-  # takes most of an hour, nearly all of it Qt; it runs alongside the x64 one.
-  win-arm64:
-    runs-on: ubuntu-latest
-    timeout-minutes: 240
-    permissions:
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v7
-
-      # Qt's build tree and the image's layers together need more room than
-      # the runner leaves free. These are preinstalled SDKs nothing here uses.
-      - name: Free disk space
-        run: |
-          df -h /
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
-            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
-          df -h /
-
+      # Builds the image (fresh on every run, most of it Qt), then the exe;
+      # fails if it is not a Windows binary for this architecture.
       # GITHUB_TOKEN: the run's own token, for the GitHub API lookup of
       # llvm-mingw's newest release, which anonymously is limited to 60
       # requests an hour. container_run passes it into the image build as a
@@ -67,22 +43,22 @@ jobs:
       - name: Build
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: bash tools/build-container-arm64.sh
+        run: bash tools/build-container.sh ${{ matrix.arch }}
 
       - name: Package
-        run: bash tools/deploy-container-arm64.sh
+        run: bash tools/deploy-container.sh ${{ matrix.arch }}
 
       - uses: actions/upload-artifact@v7
         with:
-          name: WinDiskImager-win-arm64
-          path: dist-arm64/
+          name: WinDiskImager-win-${{ matrix.arch }}
+          path: dist-${{ matrix.arch }}/
           if-no-files-found: error
 
   # One release for both builds, made only once both have succeeded, so a tag
   # never publishes one architecture without the other.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [win-x64, win-arm64]
+    needs: build
     runs-on: ubuntu-latest
     # Needed to create the GitHub release.
     permissions:

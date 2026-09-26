@@ -4,10 +4,13 @@ Working notes, not a supported build. Nothing in the real build uses any of
 this yet, and none of it has been run end to end: treat every command as a
 starting point to verify, and record what actually happened next to it.
 
-> **Scripted since:** these steps are now `tools/woa64-env.sh install`, run by
-> `tools/Containerfile.arm64`; `tools/build-container-arm64.sh` and
-> `tools/deploy-container-arm64.sh` build and package with it (BUILD.md,
-> "Windows on ARM64, cross-compiled from Linux"). Two of the workarounds below
+> **Scripted since:** these steps are now `tools/toolkit-env.sh arm64 install`,
+> run by `tools/Containerfile.toolkit`; `tools/build-container.sh arm64` and
+> `tools/deploy-container.sh arm64` build and package with it (BUILD.md,
+> "Windows, cross-compiled from Linux"). The x64 release build now uses the
+> same recipe with `x64` -- llvm-mingw and a Qt of its own in place of
+> Fedora's MinGW packages -- so the two differ only in the target triple.
+> Two of the workarounds below
 > are gone there: Qt is configured with `-plugindir lib/qt6/plugins` and
 > `-translationdir share/qt6/translations`, so the layout symlinks in section 6
 > are not needed; and the licence gap at the end of section 6 is closed by the
@@ -665,7 +668,8 @@ requires.
 per shipped-file pattern (`PATTERN PACKAGE VERSION LICENCE SOURCE`, first match
 wins), with that package's licence files in `share/licenses/<package>/`.
 `manifest_add` in `tools/build-env.sh` writes it (xz's build records itself);
-`woa64_record_sources` in `tools/woa64-env.sh` records the rest.
+`toolkit_record_sources` in `tools/toolkit-env.sh` (then `woa64-env.sh`)
+records the rest.
 `deploy_write_licenses` reads it before asking the package manager, and a file
 under a manifest root that no line matches is an error rather than a guess.
 

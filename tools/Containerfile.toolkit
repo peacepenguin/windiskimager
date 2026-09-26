@@ -1,0 +1,24 @@
+# The cross-build image for one Windows target: the toolkit
+# tools/toolkit-env.sh builds -- llvm-mingw, and zlib, xz, zstd, bzip2 and Qt
+# from Fedora's source RPMs -- on Fedora, with nothing else. The build and
+# package commands run in it are the same ones a Fedora host runs natively.
+#
+#   podman build -t w32di-toolkit-arm64 --build-arg ARCH=arm64 \
+#       -f tools/Containerfile.toolkit .
+#
+# tools/build-container.sh ARCH builds it on first use, as TOOLKIT_IMAGE, and
+# rebuilds it when what it was built from has been updated. Expect the build
+# to take a while, most of it Qt.
+#
+# See BUILD.md, "Windows, cross-compiled from Linux".
+ARG BASE=quay.io/fedora/fedora-minimal:latest
+FROM ${BASE}
+ARG ARCH
+
+COPY tools/build-env.sh tools/toolkit-env.sh /usr/local/lib/
+# The secret is the optional GitHub token container_run passes (see
+# toolkit_llvm_mingw_release); it is mounted for this step only, not stored.
+RUN --mount=type=secret,id=github_token \
+    bash /usr/local/lib/toolkit-env.sh "$ARCH" install && dnf clean all
+
+WORKDIR /src

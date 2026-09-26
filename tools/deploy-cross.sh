@@ -1,23 +1,29 @@
 #!/usr/bin/env bash
 # Assemble a standalone Windows folder from a cross-compiled build.
 #
-#   tools/deploy-cross.sh                          # build/ -> dist/
-#   tools/deploy-cross.sh <build-dir> <dist-dir> [mingw-sysroot]
+#   tools/deploy-cross.sh x64                       # build-x64/ -> dist-x64/
+#   tools/deploy-cross.sh arm64                     # build-arm64/ -> dist-arm64/
+#   tools/deploy-cross.sh ARCH <build-dir> <dist-dir>
 #
 # windeployqt is itself a Windows binary and cannot run on the build host, so
-# the Qt DLLs, plugins and translations are gathered by hand and the dependency
-# closure is resolved with objdump.
+# the Qt DLLs, plugins and translations are gathered by hand from the target's
+# toolkit (tools/toolkit-env.sh) and the dependency closure is resolved with
+# llvm-objdump. Every file shipped comes from that toolkit's sysroot, whose
+# licence manifest says what each was built from.
 #
 # Copyright (C) 2026 peacepenguin, GPL-2.0-or-later.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-. "$root/tools/build-env.sh"
+TOOLKIT_ARCH=${1:-}
+shift || true
+. "$root/tools/toolkit-env.sh" || exit 2
+toolkit_use
 
-build=${1:-$root/build}
-dist=${2:-$root/dist}
-sysroot=${3:-$CROSS_SYSROOT}
-objdump=${OBJDUMP:-x86_64-w64-mingw32-objdump}
+build=${1:-$root/build-$TOOLKIT_ARCH}
+dist=${2:-$root/dist-$TOOLKIT_ARCH}
+sysroot=$CROSS_SYSROOT
+objdump=$OBJDUMP
 bin="$sysroot/bin"
 
 [ -f "$build/WinDiskImager.exe" ] || {
@@ -68,7 +74,7 @@ LANGUAGES=$(sed -n 's/^set(LANGUAGES \(.*\))$/\1/p' "$root/src/CMakeLists.txt")
 [ -n "$LANGUAGES" ] || { echo "error: no LANGUAGES in src/CMakeLists.txt" >&2; exit 1; }
 qttr="$sysroot/share/qt6/translations"
 if [ ! -d "$qttr" ]; then
-    echo "error: no Qt translations at $qttr (is mingw64-qt6-qttranslations installed?)" >&2
+    echo "error: no Qt translations at $qttr (sudo tools/toolkit-env.sh $TOOLKIT_ARCH install)" >&2
     exit 1
 fi
 mkdir -p "$dist/translations"
@@ -84,28 +90,28 @@ fi
 # reported ready around an executable that cannot start.
 command -v "$objdump" >/dev/null 2>&1 || {
     echo "error: $objdump not found, so the DLLs the build depends on could not" >&2
-    echo "       be resolved. It comes with binutils; see tools/build-env.sh." >&2
+    echo "       be resolved. It comes with llvm-mingw; see tools/toolkit-env.sh." >&2
     exit 1
 }
 
-# liblzma comes from cross_build_xz's prefix rather than Fedora's sysroot; see
-# CROSS_XZ_PREFIX in tools/build-env.sh.
-deploy_resolve_closure "$objdump" "$CROSS_XZ_PREFIX/bin:$bin" "$dist"
+deploy_resolve_closure "$objdump" "$bin" "$dist"
 if [ ! -f "$dist/liblzma.dll" ]; then
-    echo "error: liblzma.dll was not found in $CROSS_XZ_PREFIX/bin, so the package" >&2
-    echo "       cannot start. tools/build-env.sh install builds it." >&2
+    echo "error: liblzma.dll was not found in $bin, so the package cannot start." >&2
+    echo "       sudo tools/toolkit-env.sh $TOOLKIT_ARCH install builds it." >&2
     exit 1
 fi
 
-deploy_write_licenses rpm "$dist" "$CROSS_XZ_PREFIX/bin:$bin" "$qtplugins" "$qttr"
+# Everything is in the sysroot's manifest, so rpm is never asked; a file that
+# is not there stops the deploy (deploy_write_licenses).
+deploy_write_licenses rpm "$dist" "$bin" "$qtplugins" "$qttr"
 
-# Fedora ships its MinGW DLLs unstripped; libstdc++ alone is ~26 MB of debug
-# symbols. strip is checked for and its errors left visible, so a missing or
-# failing strip cannot quietly ship them.
-strip_tool=${STRIP:-x86_64-w64-mingw32-strip}
+# Symbols the release build left in are dead weight in a package. strip is
+# checked for and its errors left visible, so a missing or failing strip
+# cannot quietly ship them.
+strip_tool=$STRIP
 command -v "$strip_tool" >/dev/null 2>&1 || {
     echo "error: $strip_tool not found, so the package would ship its debug" >&2
-    echo "       symbols. It comes with binutils; see tools/build-env.sh." >&2
+    echo "       symbols. It comes with llvm-mingw; see tools/toolkit-env.sh." >&2
     exit 1
 }
 find "$dist" \( -name '*.dll' -o -name '*.exe' \) \

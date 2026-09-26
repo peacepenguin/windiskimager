@@ -1,65 +1,29 @@
 #!/usr/bin/env bash
-# The cross-build environment, in one place: which Fedora packages the toolchain
-# needs, where that toolchain lives, and how cmake is invoked against it.
+# The build environment's shared parts, in one place: how cmake is invoked,
+# how a build is packaged and its licences gathered, and the podman plumbing.
 #
-# Everything that cross-builds reads this file, so none of it is written down
-# twice: tools/Containerfile.build, tools/build-cross.sh, tools/build-container.sh,
-# tools/deploy-cross.sh, tools/deploy-container.sh, tools/lupdate.sh and
-# .github/workflows/build.yml.
-# BUILD.md points here rather than repeating the values.
+# Every build script reads this file, so none of it is written down twice:
+# tools/build.sh and tools/deploy.sh (MSYS2), tools/build-cross.sh and
+# tools/deploy-cross.sh (the cross build, on a Fedora host or in the
+# container), tools/toolkit-env.sh (the cross toolkit they build against),
+# tools/build-container.sh, tools/deploy-container.sh, tools/lupdate.sh and
+# .github/workflows/build.yml. BUILD.md points here rather than repeating the
+# values.
 #
-# Use it either way. As a library:
+# Sourced, as a library. As a command it only answers one question:
 #
-#   . tools/build-env.sh
-#   cross_configure /src/src /src/build
-#
-# or as a command:
-#
-#   tools/build-env.sh install            # dnf install the toolchain
-#   tools/build-env.sh check              # assert the layout is as expected
-#   tools/build-env.sh stale              # in the image: have updates come out?
-#   tools/build-env.sh configure SRC BUILD [extra cmake args...]
-#   tools/build-env.sh packages           # print the package list
-#   tools/build-env.sh packages-msys2     # print the MSYS2 list, for a native build
-#   tools/build-env.sh print NAME         # print one value (SYSROOT, TOOLCHAIN, ...)
+#   tools/build-env.sh packages-msys2     # the MSYS2 packages, for a native build
 #
 # Copyright (C) 2026 peacepenguin, GPL-2.0-or-later.
 
 # ---------------------------------------------------------------- toolchain ---
 
-# Fedora is not a preference: Debian and Ubuntu ship no MinGW Qt6 packages, so
-# there is nothing to link against there. The container and CI both build from
-# this. CI builds its image fresh each run; a local one is checked for updates
-# before each build (container_stale), so it follows this -- a new Fedora
-# release included -- the same way.
-CROSS_BASE_IMAGE="quay.io/fedora/fedora-minimal:latest"
-
-# qt6-linguist is the *native* Linguist: lrelease-qt6 compiles lang/*.ts for the
-# build, lupdate-qt6 serves tools/lupdate.sh. The mingw64-qt6-qttools copies are
-# Windows .exe files and cannot run here. gcc-c++ and the native qt6 -devel
-# packages are only for tools/mkicon, which renders the icon during the build
-# and so must run on the build host.
-# cpio unpacks source RPMs (srpm_fetch); gzip and xz are the compressors tar
-# runs to unpack the tarballs, which fedora-minimal does not include.
-CROSS_PACKAGES="cmake ninja-build file findutils binutils curl tar gzip xz cpio
-                mingw64-gcc-c++ mingw64-qt6-qtbase mingw64-qt6-qttools
-                mingw64-qt6-qttranslations mingw64-qt6-qtsvg
-                mingw64-zlib mingw64-bzip2 mingw64-zstd
-                qt6-linguist
-                gcc-c++ qt6-qtbase-devel qt6-qtsvg-devel"
-
-# liblzma for the cross build is not Fedora's mingw64-xz, which has stayed at
-# 5.2.4 (2018) where the multi-threaded decoder imagesource.cpp uses needs
-# 5.4 (CROSS_XZ_MIN). cross_build_xz builds it instead from the source of
-# Fedora's own xz package, which follows upstream. It goes in a prefix of its
-# own, so no file an rpm owns is overwritten, and it names its DLL liblzma.dll
-# where Fedora's is liblzma-5.dll, so the two cannot be mistaken for each
-# other. cross_configure and the deploy functions find it there.
+# The multi-threaded xz decoder imagesource.cpp uses needs liblzma 5.4.
+# cross_check refuses an older one.
 CROSS_XZ_MIN=5.4.0
-CROSS_XZ_PREFIX="${CROSS_XZ_PREFIX:-/opt/mingw64-xz}"
 
-# Every source RPM an image's toolkit was built from (srpm_fetch), for
-# srpm_stale to compare with the repositories.
+# Every source RPM a toolkit was built from (srpm_fetch), for srpm_stale to
+# compare with the repositories. tools/toolkit-env.sh keeps one per target.
 SRPM_LOCK="${SRPM_LOCK:-/usr/local/share/windiskimager/sources.lock}"
 
 # The MSYS2 UCRT64 packages for a native Windows build. Nothing here installs
@@ -76,74 +40,33 @@ MSYS2_PACKAGES="mingw-w64-ucrt-x86_64-gcc
                 mingw-w64-ucrt-x86_64-bzip2
                 mingw-w64-ucrt-x86_64-zstd"
 
-# Where Fedora's mingw64 packages put things; each can be overridden from the
-# environment.
-CROSS_TOOLCHAIN="${CROSS_TOOLCHAIN:-/usr/share/mingw/toolchain-mingw64.cmake}"
+# The cross build's target: its toolchain file, sysroot and liblzma, set by
+# toolkit_use in tools/toolkit-env.sh for the target being built.
+CROSS_TOOLCHAIN="${CROSS_TOOLCHAIN:-}"
+CROSS_SYSROOT="${CROSS_SYSROOT:-}"
+CROSS_XZ_PREFIX="${CROSS_XZ_PREFIX:-$CROSS_SYSROOT}"
+
+# The host's Qt tools. The target Qt's own are Windows .exe files and cannot
+# run here: lrelease-qt6 compiles lang/*.ts for the build, lupdate-qt6 serves
+# tools/lupdate.sh.
 CROSS_LRELEASE="${CROSS_LRELEASE:-/usr/bin/lrelease-qt6}"
 CROSS_LUPDATE="${CROSS_LUPDATE:-/usr/bin/lupdate-qt6}"
-CROSS_SYSROOT="${CROSS_SYSROOT:-/usr/x86_64-w64-mingw32/sys-root/mingw}"
 
 # The host Qt's cmake packages, which tools/mkicon builds against.
 CROSS_NATIVE_QT="${CROSS_NATIVE_QT:-/usr/lib64/cmake/Qt6/Qt6Config.cmake}"
 CROSS_NATIVE_QTSVG="${CROSS_NATIVE_QTSVG:-/usr/lib64/cmake/Qt6Svg/Qt6SvgConfig.cmake}"
 
-# tsflags= undoes the nodocs Fedora's container images set: some packages
-# (mingw64-bzip2) file their licence as %doc, and deploy_write_licenses needs
-# it on disk to ship it. install_weak_deps=False: only what the packages
-# require, not what they recommend.
-CROSS_DNF_FLAGS="--setopt=tsflags= --setopt=install_weak_deps=False"
+# install_weak_deps=False: only what the packages require, not what they
+# recommend.
+CROSS_DNF_FLAGS="--setopt=install_weak_deps=False"
 
-# The image tools/Containerfile.build produces. Override with IMAGE=...
-# The tag is a checksum of what the image is asked to be -- base image,
-# package list and install flags -- so changing any of them builds a new one.
-# What the repositories deliver for those is not in the tag: container_stale
-# rebuilds the image in place when that changes.
-# CROSS_IMAGE_REVISION counts changes to the install steps below (3: xz from
-# Fedora's source RPM), which both images run, so an image an older install
-# built gets a new name too.
-CROSS_IMAGE_REVISION=3
-CROSS_IMAGE="${IMAGE:-w32di-build:$(printf '%s' "$CROSS_BASE_IMAGE$CROSS_PACKAGES$CROSS_DNF_FLAGS$CROSS_IMAGE_REVISION" | cksum | cut -d' ' -f1)}"
-
-# Extra "podman run" arguments a caller wants, as an array.
+# Extra "podman run" arguments a caller wants, and the build arguments and
+# stale-check command container_run uses, as arrays.
 CONTAINER_ENV=()
+CONTAINER_BUILD_ARGS=()
+CONTAINER_STALE=()
 
 # ---------------------------------------------------------------- functions ---
-
-cross_packages()
-{
-    # shellcheck disable=SC2086   # deliberate word splitting: one per line
-    echo $CROSS_PACKAGES
-}
-
-cross_install()
-{
-    # shellcheck disable=SC2046
-    dnf -y install $CROSS_DNF_FLAGS $(cross_packages)
-    srpm_keys
-    cross_build_xz
-    cross_check
-}
-
-# cross_stale
-#
-# Whether the repositories have moved on since this image was built: an
-# update to any installed package (the mingw64 libraries the package ships
-# among them), or a newer source RPM for anything srpm_fetch built from.
-# Prints what changed. 0: current, 1: stale, 2: could not tell.
-cross_stale()
-{
-    local out rc=0
-    out=$(dnf -q check-upgrade 2>&1) || rc=$?
-    case $rc in
-        0)   ;;
-        100) printf 'updates:\n%s\n' "$out" ;;
-        *)   printf '%s\n' "$out" >&2; return 2 ;;
-    esac
-    local src=0
-    srpm_stale || src=$?
-    [ "$src" -le 1 ] || return 2
-    [ "$rc" = 0 ] && [ "$src" = 0 ]
-}
 
 # srpm_keys
 #
@@ -225,39 +148,6 @@ srpm_stale()
     return $stale
 }
 
-# cross_build_xz
-#
-# Builds liblzma for win64 into CROSS_XZ_PREFIX, from the source of Fedora's
-# xz package (srpm_fetch): the version Fedora ships, with its updates. Only
-# the library: none of the xz tools, translations, documentation or tests.
-# Its licence comes from the same source tree -- COPYING says which licence
-# covers what, COPYING.0BSD is liblzma's -- and is kept where an rpm would put
-# it, in share/licenses/xz/, for deploy_write_licenses to ship.
-cross_build_xz()
-{
-    local work
-    work=$(mktemp -d)
-    (
-        set -e
-        cd "$work"
-        srpm_fetch xz 'xz-*.tar.*'
-        cmake -S "$SRPM_SRCDIR" -B build -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="$CROSS_XZ_PREFIX" \
-            -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF \
-            -DXZ_NLS=OFF -DXZ_DOC=OFF \
-            -DXZ_TOOL_XZ=OFF -DXZ_TOOL_XZDEC=OFF -DXZ_TOOL_LZMADEC=OFF -DXZ_TOOL_LZMAINFO=OFF
-        cmake --build build
-        cmake --install build
-        mkdir -p "$CROSS_XZ_PREFIX/share/licenses/xz"
-        cp "$SRPM_SRCDIR/COPYING" "$SRPM_SRCDIR/COPYING.0BSD" "$CROSS_XZ_PREFIX/share/licenses/xz/"
-        # liblzma is 0BSD; COPYING, shipped with it, says so.
-        manifest_add "$CROSS_XZ_PREFIX" liblzma.dll xz "$SRPM_VERSION" 0BSD "$SRPM_URL"
-    )
-    rm -rf "$work"
-}
-
 # manifest_add ROOT PATTERN PACKAGE VERSION LICENCE SOURCE
 #
 # Records that files shipped from ROOT whose path in the package matches
@@ -306,7 +196,7 @@ cross_check()
         && [ -f "$CROSS_XZ_PREFIX/lib/liblzma.dll.a" ] \
         && [ -f "$CROSS_XZ_PREFIX/share/licenses/xz/COPYING" ] || {
         echo "missing liblzma $CROSS_XZ_MIN or later in $CROSS_XZ_PREFIX (found '${xzv:-none}');" \
-             "tools/build-env.sh install builds it" >&2; bad=1; }
+             "tools/toolkit-env.sh install builds it" >&2; bad=1; }
     return $bad
 }
 
@@ -320,8 +210,8 @@ cross_configure()
     local src=${1:?usage: cross_configure SRCDIR BUILDDIR [cmake args...]}
     local build=${2:?}
     shift 2
-    # liblzma from cross_build_xz, named outright: FindLibLZMA then searches
-    # nowhere, so Fedora's older copy cannot be picked up instead.
+    # liblzma named outright: FindLibLZMA then searches nowhere, so no other
+    # copy on the host can be picked up instead.
     cmake -S "$src" -B "$build" -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
@@ -356,10 +246,11 @@ lupdate_path()
 
 # drop_foreign_cache BUILDDIR [EXPECTED_TOOLCHAIN]
 #
-# build/ is shared by the native build, the cross build and the container (which
-# sees this tree as /src). A cmake cache is tied to the absolute path and the
-# toolchain it was generated with, so drop one left by another route and say
-# why, rather than letting cmake fail with a message about a moved directory.
+# A cross build directory is shared by a Fedora host's build and the
+# container's (which sees this tree as /src). A cmake cache is tied to the
+# absolute path and the toolchain it was generated with, so drop one left by
+# the other route and say why, rather than letting cmake fail with a message
+# about a moved directory.
 drop_foreign_cache()
 {
     local build=$1 want=${2:-}
@@ -392,18 +283,19 @@ drop_foreign_cache()
     rm -rf "$build"
 }
 
-# container_stale IMAGE BASE SCRIPT
+# container_stale IMAGE BASE COMMAND...
 #
 # Whether IMAGE, built from BASE, should be rebuilt to pick up updates: BASE
-# is now a newer Fedora release (quay.io/fedora/fedora-minimal:latest after a release), or SCRIPT's
-# "stale" command, run in the image, finds the repositories have moved on
-# (cross_stale, woa64_stale). Only asked by the build wrappers, never by the
-# deploy ones, so a package is made from the image its build used.
-# W32DI_REFRESH=0 skips it, for working offline or in a hurry. If the check
-# itself cannot run, it says so and the image is used as it is.
+# is now a newer Fedora release, or COMMAND, run in the image, says the
+# repositories have moved on (toolkit_stale: 0 current, 1 stale, 2 could not
+# tell). Only asked by the build wrapper, never by the deploy one, so a
+# package is made from the image its build used. W32DI_REFRESH=0 skips it,
+# for working offline or in a hurry. If the check itself cannot run, it says
+# so and the image is used as it is.
 container_stale()
 {
-    local image=$1 base=$2 script=$3 was now rc=0
+    local image=$1 base=$2 was now rc=0
+    shift 2
     [ "${W32DI_REFRESH:-1}" != 0 ] || return 1
     echo "checking $image for updates (W32DI_REFRESH=0 skips this)..." >&2
     if ! podman pull -q "$base" >/dev/null; then
@@ -416,7 +308,7 @@ container_stale()
         echo "$image is Fedora ${was:-?}; $base is now Fedora $now." >&2
         return 0
     fi
-    podman run --rm ${GITHUB_TOKEN:+-e GITHUB_TOKEN} "$image" bash "$script" stale >&2 || rc=$?
+    podman run --rm ${GITHUB_TOKEN:+-e GITHUB_TOKEN} "$image" "$@" >&2 || rc=$?
     case $rc in
         0) return 1 ;;
         1) return 0 ;;
@@ -427,16 +319,13 @@ container_stale()
 
 # container_run REPO COMMAND...
 #
-# Runs COMMAND in the Fedora image with REPO mounted at /src, building the image
-# first if it is not there yet. With CONTAINER_REFRESH=1 (the build wrappers)
-# an existing image is first checked with container_stale, and rebuilt from
-# scratch under the same tag if it is behind; the old one is left untagged,
-# for "podman image prune" to reclaim.
-#
-# The x64 image by default. CONTAINER_IMAGE, CONTAINER_BASE, CONTAINER_FILE
-# (the Containerfile, relative to REPO) and CONTAINER_STALE (the script in the
-# image with the "stale" command) select another: the ARM64 wrappers set them
-# from tools/woa64-env.sh.
+# Runs COMMAND in the image CONTAINER_IMAGE with REPO mounted at /src, building
+# it first from CONTAINER_FILE (relative to REPO), on CONTAINER_BASE and with
+# CONTAINER_BUILD_ARGS, if it is not there yet. With CONTAINER_REFRESH=1 (the
+# build wrapper) an existing image is first checked with container_stale,
+# running CONTAINER_STALE in it, and rebuilt from scratch under the same tag
+# if it is behind; the old one is left untagged, for "podman image prune" to
+# reclaim. toolkit_container_run in tools/toolkit-env.sh sets all of these.
 #
 # W32DI_IN_CONTAINER tells the script inside where it is, so one that falls back
 # to the container cannot recurse forever when the image is missing something.
@@ -447,27 +336,28 @@ container_run()
 
     command -v podman >/dev/null 2>&1 || {
         echo "error: podman not found, and this needs a container." >&2
-        echo "       On Fedora you can install the toolchain instead:" >&2
-        echo "         sudo bash tools/build-env.sh install" >&2
+        echo "       On Fedora you can install the toolkit instead:" >&2
+        echo "         sudo tools/toolkit-env.sh x64 install     (or arm64)" >&2
         return 1
     }
-    local image=${CONTAINER_IMAGE:-$CROSS_IMAGE}
-    local base=${CONTAINER_BASE:-$CROSS_BASE_IMAGE}
-    local file=${CONTAINER_FILE:-tools/Containerfile.build}
-    local stale=${CONTAINER_STALE:-/usr/local/lib/build-env.sh}
+    local image=${CONTAINER_IMAGE:?container_run: no CONTAINER_IMAGE}
+    local base=${CONTAINER_BASE:?container_run: no CONTAINER_BASE}
+    local file=${CONTAINER_FILE:?container_run: no CONTAINER_FILE}
     # GITHUB_TOKEN, if set, goes into the build as a secret: mounted for the
-    # RUN steps that ask for it (Containerfile.arm64's, for GitHub's API),
+    # RUN steps that ask for it (Containerfile.toolkit's, for GitHub's API),
     # never stored in the image or its history, as --build-arg or ENV would be.
     local -a secret=()
     [ -z "${GITHUB_TOKEN:-}" ] || secret=(--secret id=github_token,env=GITHUB_TOKEN)
+    local -a build=(podman build --pull=newer ${secret[@]+"${secret[@]}"}
+                    ${CONTAINER_BUILD_ARGS[@]+"${CONTAINER_BUILD_ARGS[@]}"}
+                    -t "$image" --build-arg BASE="$base" -f "$repo/$file")
     if ! podman image exists "$image"; then
         echo "building $image..." >&2
-        podman build --pull=newer ${secret[@]+"${secret[@]}"} -t "$image" \
-            --build-arg BASE="$base" -f "$repo/$file" "$repo"
-    elif [ "${CONTAINER_REFRESH:-0}" = 1 ] && container_stale "$image" "$base" "$stale"; then
+        "${build[@]}" "$repo"
+    elif [ "${CONTAINER_REFRESH:-0}" = 1 ] && [ "${#CONTAINER_STALE[@]}" -gt 0 ] &&
+         container_stale "$image" "$base" "${CONTAINER_STALE[@]}"; then
         echo "rebuilding $image with the updates..." >&2
-        podman build --pull=newer --no-cache ${secret[@]+"${secret[@]}"} -t "$image" \
-            --build-arg BASE="$base" -f "$repo/$file" "$repo"
+        "${build[@]}" --no-cache "$repo"
     fi
     # label=disable: on an SELinux host (Fedora, RHEL) the bind-mounted repo
     # is otherwise unreadable in the container. The ${a[@]+...} form: bash
@@ -799,9 +689,9 @@ deploy_write_licenses()
         esac
         # Licence files first. Failing those, the README: a public-domain
         # project has no licence file and says so there (win-iconv does).
-        # Then, always, any text kept in tools/licenses/<package>/: for a
-        # package that ships none (Fedora's mingw64-zlib), or whose licence
-        # file only points at one it leaves out (Fedora's icu, pcre2, ...).
+        # Then, always, any text kept in tools/licenses/<package>/, if there
+        # is one: for a package that ships no licence file, or whose licence
+        # file only points at one it leaves out.
         local kind want rest
         local -A made=()
         n=0
@@ -905,8 +795,8 @@ deploy_resolve_closure()
     local f dll d
     local -a bins pending dirs
     local -A seen=()
-    # Searched in order, so a DLL built from source (see cross_build_xz) wins
-    # over a packaged one of the same name.
+    # Searched in order, so a DLL in an earlier directory wins over one of the
+    # same name in a later one.
     IFS=: read -r -a dirs <<< "${2:?}"
 
     while :; do
@@ -941,25 +831,9 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     cmd=${1:-}
     shift || true
     case "$cmd" in
-        install)         cross_install ;;
-        check)           cross_check ;;
-        stale)           cross_stale ;;
-        configure)       cross_configure "$@" ;;
-        packages)        cross_packages ;;
         packages-msys2)  echo $MSYS2_PACKAGES ;;
-        print)
-            case "${1:-}" in
-                BASE_IMAGE) echo "$CROSS_BASE_IMAGE" ;;
-                IMAGE)     echo "$CROSS_IMAGE" ;;
-                TOOLCHAIN) echo "$CROSS_TOOLCHAIN" ;;
-                LRELEASE)  echo "$CROSS_LRELEASE" ;;
-                LUPDATE)   echo "$CROSS_LUPDATE" ;;
-                SYSROOT)   echo "$CROSS_SYSROOT" ;;
-                *) echo "print: unknown name '${1:-}'" >&2; exit 2 ;;
-            esac
-            ;;
         *)
-            sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
             [ -n "$cmd" ] && exit 2
             exit 0
             ;;

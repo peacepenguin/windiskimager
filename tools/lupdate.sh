@@ -30,17 +30,20 @@ if ! LUPDATE=$(lupdate_path); then
     # would only loop.
     if [ -n "${W32DI_IN_CONTAINER:-}" ]; then
         echo "error: no Qt 6 lupdate inside the container image." >&2
-        echo "       Rebuild it: podman build -t $CROSS_IMAGE --build-arg BASE=$CROSS_BASE_IMAGE -f tools/Containerfile.build ." >&2
+        echo "       Rebuild it: podman rmi, then tools/build-container.sh x64" >&2
         exit 1
     fi
     if ! command -v podman >/dev/null 2>&1; then
         echo "error: no Qt 6 lupdate on this host." >&2
         echo "       MSYS2 UCRT64:  pacman -S --needed mingw-w64-ucrt-x86_64-qt6-tools" >&2
-        echo "       Fedora:        sudo bash tools/build-env.sh install" >&2
+        echo "       Fedora:        sudo dnf install qt6-linguist" >&2
         echo "       Anywhere else: install podman and this will use a container." >&2
         exit 1
     fi
-    container_run "$REPO" /src/tools/lupdate.sh "$@"
+    # Any toolkit image has the host lupdate; the x64 one is as good as any.
+    TOOLKIT_ARCH=x64
+    . "$REPO/tools/toolkit-env.sh"
+    toolkit_container_run "$REPO" /src/tools/lupdate.sh "$@"
     exit $?
 fi
 
