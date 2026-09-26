@@ -1,0 +1,67 @@
+name: toolkit
+
+# Keeps llvm-mingw-qt6, the cross-build image the build workflow pulls,
+# current: tools/toolkit-publish.sh builds and publishes it to GitHub's
+# container registry.
+#
+# - Daily, it checks the published image and rebuilds only if something it is
+#   built from has an update: a new Fedora release, a newer source RPM for a
+#   library or Qt, or a newer llvm-mingw.
+# - When a file that goes into the image changes on master, it rebuilds
+#   regardless.
+# - By hand, from the Actions tab, optionally forcing a rebuild.
+#
+# A new image is published only once WinDiskImager builds and packages in it
+# for both targets.
+on:
+  schedule:
+    - cron: '23 5 * * *'
+  push:
+    branches: [master]
+    paths:
+      - tools/Containerfile.toolkit
+      - tools/toolkit-env.sh
+      - tools/build-env.sh
+      - tools/toolkit-publish.sh
+      - .github/workflows/toolkit.yml
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild and publish even if nothing has changed
+        type: boolean
+        default: false
+
+# One publish at a time; a second waits rather than racing the first to push.
+concurrency:
+  group: toolkit
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      # To push the image to ghcr.io.
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to ghcr.io
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GH_TOKEN" | podman login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      # GITHUB_TOKEN: also for the GitHub API lookup of llvm-mingw's newest
+      # release, which anonymously is limited to 60 requests an hour.
+      - name: Build and publish
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          FORCE: ${{ github.event_name == 'push' || inputs.force == true }}
+        run: |
+          if [ "$FORCE" = true ]; then
+            bash tools/toolkit-publish.sh --force
+          else
+            bash tools/toolkit-publish.sh
+          fi

@@ -40,7 +40,8 @@ A native Windows build lands in `build/`; a cross build in `build-x64/` or
 **On Linux, without it** — the same build, one step further out:
 
 - **`tools/build-container.sh x64|arm64`** → `build-x64/`, `build-arm64/`
-  - podman, which runs **`tools/build-cross.sh`** inside the toolkit's image
+  - podman, which pulls the toolkit image, llvm-mingw-qt6, and runs
+    **`tools/build-cross.sh`** inside it
 - **`tools/deploy-container.sh x64|arm64`** → `dist-x64/`, `dist-arm64/`
   - podman, which runs **`tools/deploy-cross.sh`** inside the image
 
@@ -191,12 +192,9 @@ says whether a toolkit is complete, and `stale` whether anything it was
 built from has been updated since.
 
 **Anywhere podman runs**, including a Fedora host that would rather not
-install the toolkit. One image holds both targets' toolkits, and builds
-itself on first use from `tools/Containerfile.toolkit`, by running the same
-`tools/toolkit-env.sh` on `quay.io/fedora/fedora-minimal:latest`: the host
-part in one stage, each target's sysroot on it in a stage of its own, and the
-finished sysroots copied into the image, so it holds each thing once and none
-of the build trees:
+install the toolkit. One image, llvm-mingw-qt6, holds both targets'
+toolkits; the wrapper pulls the published one (see "The toolkit image"
+below), so there is no Qt to build:
 
 ```
 tools/build-container.sh x64
@@ -222,19 +220,12 @@ container sees this tree as `/src`, so a cache from the other route is
 dropped and rebuilt -- the script says so when it happens. `BUILD_DIR=...`
 overrides the directory.
 
-CI builds the image fresh on every run, then both targets in it, one after
-the other, in a single job. A tag's release waits for it and carries both
-zips, `-win-x64` and `-win-arm64` (before 2.0.4, the x64 zip was `-win64`).
-
-The one GitHub API call in the image build -- the lookup of llvm-mingw's
-newest release -- is limited to 60 an hour without a token. With
-`GITHUB_TOKEN` set, `container_run` passes it into the build as a podman
-secret, mounted for that step only and never stored in the image; CI sets it
-to the run's own token. Locally, if the limit is ever hit:
-
-```
-GITHUB_TOKEN=$(gh auth token) tools/build-container.sh arm64
-```
+CI builds both targets side by side, as the `win-x64` and `win-arm64` jobs,
+each pulling the published image. A tag's release waits for both and carries
+both zips, `-win-x64` and `-win-arm64` (before 2.0.4, the x64 zip was
+`-win64`). Each package's `THIRD-PARTY-NOTICES.txt` ends by naming the image
+it was built in, by digest, so a release says exactly which toolkit build it
+shipped with.
 
 ### Where the toolkit's sources come from
 
@@ -272,32 +263,88 @@ does not know stops the deploy. [arm64qtcross.md](arm64qtcross.md) has every
 step worked through by hand, with what each one showed and why each choice
 was made.
 
-## Keeping the image current
+## The toolkit image
 
-The toolkits are built from Fedora's repositories, updates included, so a
-build is only as current as its image. CI builds the image fresh on every
-run. Locally, each `tools/build-container.sh` run first checks the existing
-image (`container_stale` in `tools/build-env.sh`) and rebuilds it, from
-scratch and under the same tag, when:
+`tools/Containerfile.toolkit` builds llvm-mingw-qt6 by running
+`tools/toolkit-env.sh` on `quay.io/fedora/fedora-minimal:latest`, in stages:
+the host packages and llvm-mingw in one, each target's sysroot on it in a
+stage of its own, and the finished sysroots copied into the image, so it
+holds each thing once and none of the build trees. Nothing in it is
+particular to WinDiskImager: it suits any Qt Widgets application that needs
+no more of Qt than qtbase, qtsvg and qtbase's translations -- no ICU,
+OpenSSL, D-Bus or SQL -- with zlib, xz, zstd and bzip2 beside it.
 
-- `fedora-minimal:latest` is a newer Fedora release than the image was built
-  on, or
-- the image's `stale` command (`tools/toolkit-env.sh all stale`) finds, for
-  either target, a newer source RPM for any library or Qt, or a newer
-  llvm-mingw. Updates to
-  the build tools alone -- cmake, gcc, mesa -- do not count: nothing of them
-  is shipped.
+It is published as `ghcr.io/peacepenguin/llvm-mingw-qt6`
+(`TOOLKIT_REGISTRY` in `tools/toolkit-env.sh`), by
+[.github/workflows/toolkit.yml](.github/workflows/toolkit.yml) running
+`tools/toolkit-publish.sh`, with three tags:
 
-The check costs a pull of the base image and a download of the repository
-metadata, well under a minute. `W32DI_REFRESH=0` skips it, for working
-offline; if it cannot run, it warns and builds with the image as it is. The
-deploy wrapper never refreshes, so a package is always made from the image
-its build used -- run the build wrapper first. The image replaced is left
-untagged; `podman image prune` reclaims it.
+| Tag | What it is |
+|---|---|
+| `r3-20261003` | one build, kept for good |
+| `r3` | the newest build for toolkit revision 3: what the build pulls |
+| `latest` | the newest build |
 
-The image tag itself changes only when what the image is asked to be
-changes: the targets, the base image, the package list, the llvm-mingw pin,
-and `TOOLKIT_IMAGE_REVISION`, raised when the install steps change.
+`TOOLKIT_IMAGE_REVISION` is the revision: raised whenever what the image
+holds or how it is laid out changes, so a build never runs in an image made
+for another one. A commit that raises it builds the new revision's image
+itself until that is published.
+
+The workflow keeps it current, since the toolkit is built from Fedora's
+repositories, updates included, and a build is only as current as its
+image:
+
+- **Daily**, it checks the published image with the `stale` test below and
+  rebuilds only if that finds something.
+- **When a file that goes into the image changes** on master, it rebuilds
+  regardless.
+- **By hand**, from the Actions tab, optionally forcing a rebuild.
+
+The image is stale when `fedora-minimal:latest` is a newer Fedora release
+than it was built on, or its `stale` command (`tools/toolkit-env.sh all
+stale`) finds, for either target, a newer source RPM for any library or Qt,
+or a newer llvm-mingw. Updates to the build tools alone -- cmake, gcc, mesa
+-- do not count: nothing of them is shipped. A new image is built from
+scratch and is published only once WinDiskImager builds and packages in it
+for both targets.
+
+Two things GitHub leaves to the repository's owner, once, after the first
+publish: the package starts out **private**, so make it public in the
+package's settings (Package settings, Change visibility) for anyone to pull it
+without logging in; and GitHub stops scheduled workflows in a repository with
+no activity for 60 days, which the Actions tab offers to re-enable.
+
+### Locally
+
+`tools/build-container.sh` pulls `r3` before each build -- a check that
+fetches nothing when the image has not changed -- and `W32DI_REFRESH=0`
+skips that, for working offline. The deploy wrapper never pulls, so a
+package is always made from the image its build used: run the build wrapper
+first. If the image cannot be pulled and there is no copy here, the wrapper
+builds it here instead.
+
+To work on the toolkit itself, build it here from the working tree:
+
+```
+TOOLKIT_IMAGE_SOURCE=local tools/build-container.sh arm64
+```
+
+That image is tagged by what it is asked to be -- the targets, the base
+image, the package list, the llvm-mingw pin and the revision -- and is
+checked for updates like the published one before each build, then rebuilt
+from scratch under the same tag when it has fallen behind; `podman image
+prune` reclaims the one replaced. To publish by hand, after `podman login
+ghcr.io`: `tools/toolkit-publish.sh`, or `--force` to rebuild regardless.
+
+The one GitHub API call in an image build -- the lookup of llvm-mingw's
+newest release -- is limited to 60 an hour without a token. With
+`GITHUB_TOKEN` set, `container_run` passes it into the build as a podman
+secret, mounted for that step only and never stored in the image; both
+workflows set it to the run's own token. Locally, if the limit is ever hit:
+
+```
+GITHUB_TOKEN=$(gh auth token) TOOLKIT_IMAGE_SOURCE=local tools/build-container.sh arm64
+```
 
 ## Testing the GPT repair
 

@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
-# The Windows cross toolkit, in one place: what tools/Containerfile.toolkit
-# builds, where its sources come from, and how the cross build uses it. One
-# recipe for both targets -- x64 and arm64 differ only in the target triple and
-# the directory the toolkit is installed in.
+# llvm-mingw-qt6, the Windows cross toolkit, in one place: what
+# tools/Containerfile.toolkit builds, where its sources come from, and how the
+# cross build uses it. One recipe for both targets -- x64 and arm64 differ
+# only in the target triple and the directory the toolkit is installed in.
+#
+# Qt is built for a Qt Widgets application and no more: qtbase, qtsvg and
+# qttranslations' qtbase_*.qm, without ICU, OpenSSL, D-Bus or SQL, with
+# zlib, xz, zstd and bzip2 beside it. Nothing in it is particular to
+# WinDiskImager; tools/toolkit-publish.sh publishes the image as
+# TOOLKIT_REGISTRY for any project that needs the same.
 #
 # Everything the app links is built here: llvm-mingw (clang, lld and the
 # mingw-w64 runtime), zlib, xz, zstd and bzip2, and Qt 6 (qtbase, qtsvg, and
@@ -57,16 +63,14 @@ toolkit_usage()
 }
 
 # Sourced with TOOLKIT_ARCH set, or run with ARCH as the first argument.
-# "all" and "host" are for the command only: both targets, or the part they
-# share.
+# "all" and "host" are both targets, or the part they share: the image, but
+# no one target's paths.
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     TOOLKIT_ARCH=${1:-}
     shift || true
 fi
 case "${TOOLKIT_ARCH:-}" in
     all|host)
-        [ "${BASH_SOURCE[0]}" = "$0" ] || {
-            echo "error: TOOLKIT_ARCH=$TOOLKIT_ARCH is only for the command" >&2; return 2; }
         ;;
     x64)
         TOOLKIT_TRIPLE=x86_64-w64-mingw32
@@ -127,13 +131,23 @@ TOOLKIT_QT_TOOLCHAIN="$TOOLKIT_SYSROOT/lib/cmake/Qt6/qt.toolchain.cmake"
 SRPM_LOCK="$TOOLKIT_ROOT/sources.lock"
 TOOLKIT_LLVM_MINGW_STAMP="$TOOLKIT_ROOT/llvm-mingw.version"
 
-# The image tools/Containerfile.toolkit produces, with every target's
-# toolkit in it, tagged by what it is asked to be -- the targets, everything
-# above and TOOLKIT_IMAGE_REVISION, raised when the install steps below or in
-# tools/build-env.sh change. Updates to what they fetch rebuild it in place
-# (container_stale). Override with TOOLKIT_IMAGE=...
-TOOLKIT_IMAGE_REVISION=2
-TOOLKIT_IMAGE="${TOOLKIT_IMAGE:-w32di-toolkit:$(printf '%s' \
+# TOOLKIT_IMAGE_REVISION counts changes to what the image holds or how it is
+# laid out -- the install steps below and in tools/build-env.sh, the
+# manifest's place -- so a build never runs in an image made for another
+# revision (3: the manifest moved to share/llvm-mingw-qt6/).
+TOOLKIT_IMAGE_REVISION=3
+
+# The published image (tools/toolkit-publish.sh), which the container build
+# pulls: TOOLKIT_REGISTRY:rN is the newest build for revision N. A fork
+# publishing its own points this at it.
+TOOLKIT_REGISTRY="${TOOLKIT_REGISTRY:-ghcr.io/peacepenguin/llvm-mingw-qt6}"
+TOOLKIT_PUBLISHED="$TOOLKIT_REGISTRY:r$TOOLKIT_IMAGE_REVISION"
+
+# The image built here instead, when TOOLKIT_IMAGE_SOURCE=local or the
+# published one cannot be had: tagged by what it is asked to be -- the
+# targets, everything above and the revision. Updates to what it was built
+# from rebuild it in place (container_stale). Override with TOOLKIT_IMAGE=...
+TOOLKIT_IMAGE="${TOOLKIT_IMAGE:-llvm-mingw-qt6:$(printf '%s' \
     "$TOOLKIT_TARGETS$TOOLKIT_BASE_IMAGE$TOOLKIT_PACKAGES$CROSS_DNF_FLAGS$TOOLKIT_LLVM_MINGW_PIN$TOOLKIT_IMAGE_REVISION" \
     | cksum | cut -d' ' -f1)}"
 
@@ -523,7 +537,7 @@ toolkit_check()
              "$TOOLKIT_SYSROOT/bin/libz.dll" "$TOOLKIT_SYSROOT/bin/liblzma.dll" \
              "$TOOLKIT_SYSROOT/bin/libzstd.dll" "$TOOLKIT_SYSROOT/bin/libbz2-1.dll" \
              "$TOOLKIT_SYSROOT/bin/libc++.dll" "$TOOLKIT_SYSROOT/bin/libunwind.dll" \
-             "$TOOLKIT_SYSROOT/share/windiskimager/sources.tsv"; do
+             "$TOOLKIT_SYSROOT/$MANIFEST"; do
         [ -e "$f" ] || { echo "missing $f" >&2; bad=1; }
     done
     # The app's own cross_check, as build-cross.sh will run it.
@@ -570,16 +584,43 @@ EOF
 
 # toolkit_container_run REPO COMMAND...
 #
-# container_run in the toolkit image, built from tools/Containerfile.toolkit
-# on first use: the same image for every target. CONTAINER_REFRESH=1 (the
-# build wrapper) checks it for updates first, for every target's toolkit.
+# container_run in the toolkit image: the same image for every target.
+#
+# By default the published one, TOOLKIT_PUBLISHED, which
+# tools/toolkit-publish.sh keeps current. CONTAINER_REFRESH=1 (the build
+# wrapper) pulls it first, which fetches nothing when it has not changed;
+# W32DI_REFRESH=0 skips that. If it cannot be had -- offline with no copy
+# here, or a revision not published yet -- the image is built here instead.
+#
+# TOOLKIT_IMAGE_SOURCE=local always builds it here, as TOOLKIT_IMAGE, from
+# tools/Containerfile.toolkit: for working on the toolkit itself. Then
+# CONTAINER_REFRESH=1 checks it for updates first, for every target.
 toolkit_container_run()
 {
-    CONTAINER_IMAGE=$TOOLKIT_IMAGE
     CONTAINER_BASE=$TOOLKIT_BASE_IMAGE
     CONTAINER_FILE=tools/Containerfile.toolkit
     CONTAINER_BUILD_ARGS=()
     CONTAINER_STALE=(bash /usr/local/lib/toolkit-env.sh all stale)
+
+    if [ "${TOOLKIT_IMAGE_SOURCE:-published}" = published ] && command -v podman >/dev/null 2>&1; then
+        local have=0
+        podman image exists "$TOOLKIT_PUBLISHED" && have=1
+        if [ "$have" = 0 ] || { [ "${CONTAINER_REFRESH:-0}" = 1 ] && [ "${W32DI_REFRESH:-1}" != 0 ]; }; then
+            echo "pulling $TOOLKIT_PUBLISHED (W32DI_REFRESH=0 skips this)..." >&2
+            if podman pull -q "$TOOLKIT_PUBLISHED" >/dev/null; then
+                have=1
+            elif [ "$have" = 1 ]; then
+                echo "warning: could not pull $TOOLKIT_PUBLISHED; using the copy here." >&2
+            else
+                echo "warning: could not pull $TOOLKIT_PUBLISHED; building the toolkit here instead." >&2
+            fi
+        fi
+        if [ "$have" = 1 ]; then
+            CONTAINER_IMAGE=$TOOLKIT_PUBLISHED CONTAINER_REFRESH=0 container_run "$@"
+            return
+        fi
+    fi
+    CONTAINER_IMAGE=$TOOLKIT_IMAGE
     container_run "$@"
 }
 
@@ -610,8 +651,9 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
         all:print)
             case "${1:-}" in
                 IMAGE)      echo "$TOOLKIT_IMAGE" ;;
+                PUBLISHED)  echo "$TOOLKIT_PUBLISHED" ;;
                 BASE_IMAGE) echo "$TOOLKIT_BASE_IMAGE" ;;
-                *) echo "print: 'all' has only IMAGE and BASE_IMAGE" >&2; exit 2 ;;
+                *) echo "print: 'all' has only IMAGE, PUBLISHED and BASE_IMAGE" >&2; exit 2 ;;
             esac
             ;;
         host:*|all:*)
@@ -626,6 +668,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
         *:print)
             case "${1:-}" in
                 IMAGE)      echo "$TOOLKIT_IMAGE" ;;
+                PUBLISHED)  echo "$TOOLKIT_PUBLISHED" ;;
                 BASE_IMAGE) echo "$TOOLKIT_BASE_IMAGE" ;;
                 ROOT)       echo "$TOOLKIT_ROOT" ;;
                 SYSROOT)    echo "$TOOLKIT_SYSROOT" ;;

@@ -22,9 +22,14 @@
 # cross_check refuses an older one.
 CROSS_XZ_MIN=5.4.0
 
+# Where a root built from source (a toolkit's sysroot) records what each of
+# its files was built from: manifest_add writes it, deploy_write_licenses
+# reads it. Relative to the root.
+MANIFEST="share/llvm-mingw-qt6/sources.tsv"
+
 # Every source RPM a toolkit was built from (srpm_fetch), for srpm_stale to
 # compare with the repositories. tools/toolkit-env.sh keeps one per target.
-SRPM_LOCK="${SRPM_LOCK:-/usr/local/share/windiskimager/sources.lock}"
+SRPM_LOCK="${SRPM_LOCK:-/usr/local/share/llvm-mingw-qt6/sources.lock}"
 
 # The MSYS2 UCRT64 packages for a native Windows build. Nothing here installs
 # them -- that is done by hand, once -- but the list belongs with the others.
@@ -159,14 +164,14 @@ srpm_stale()
 # source tree. A PATTERN already recorded is replaced; the first matching line
 # wins, so list the narrower patterns first.
 #
-# The manifest is ROOT/share/windiskimager/sources.tsv: one tab-separated
+# The manifest is ROOT/$MANIFEST: one tab-separated
 # line per pattern -- PATTERN PACKAGE VERSION LICENCE SOURCE -- and '#'
 # comments.
 manifest_add()
 {
     local root=${1:?usage: manifest_add ROOT PATTERN PACKAGE VERSION LICENCE SOURCE}
     local pattern=${2:?} package=${3:?} version=${4:?} licence=${5:?} source=${6:?}
-    local manifest="$root/share/windiskimager/sources.tsv"
+    local manifest="$root/$MANIFEST"
     mkdir -p "${manifest%/*}"
     touch "$manifest"
     awk -F '\t' -v p="$pattern" '$1 != p' "$manifest" > "$manifest.new"
@@ -359,11 +364,18 @@ container_run()
         echo "rebuilding $image with the updates..." >&2
         "${build[@]}" --no-cache "$repo"
     fi
+    # W32DI_IMAGE names the exact image, by digest, for the package to record
+    # what it was built in: the registry's digest for a pulled image, the
+    # local ID for one built here.
+    local ref
+    ref=$(podman image inspect --format \
+          '{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}}' "$image" 2>/dev/null) ||
+        ref=$image
     # label=disable: on an SELinux host (Fedora, RHEL) the bind-mounted repo
     # is otherwise unreadable in the container. The ${a[@]+...} form: bash
     # before 4.4 (macOS's) treats an empty array as unset under set -u.
     podman run --rm -v "$repo:/src" -w /src --security-opt label=disable \
-        -e W32DI_IN_CONTAINER=1 \
+        -e W32DI_IN_CONTAINER=1 -e W32DI_IMAGE="$ref" \
         ${CONTAINER_ENV[@]+"${CONTAINER_ENV[@]}"} \
         "$image" "$@"
 }
@@ -542,7 +554,7 @@ deploy_write_licenses()
     local root m f1 f2 f3 f4 f5
     for d in "${bindirs[@]}"; do
         root=${d%/bin}
-        m="$root/share/windiskimager/sources.tsv"
+        m="$root/$MANIFEST"
         [ "$root" != "$d" ] && [ -f "$m" ] || continue
         case " ${roots[*]} " in *" $root "*) continue ;; esac
         roots+=("$root")
@@ -603,7 +615,7 @@ deploy_write_licenses()
         done
         if [ -z "$pkg" ] && [ -n "$inroot" ]; then
             # From a built-from-source prefix, so no package manager knows it.
-            echo "error: $src is not in $inroot/share/windiskimager/sources.tsv," >&2
+            echo "error: $src is not in $inroot/$MANIFEST," >&2
             echo "       so its licence is unknown." >&2
             return 1
         fi

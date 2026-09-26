@@ -9,64 +9,69 @@ on:
 
 jobs:
   # Cross-compile for Windows from Linux, exactly as a developer does with
-  # podman: build-container.sh builds the toolkit image from
-  # tools/Containerfile.toolkit -- llvm-mingw, and for each target zlib, xz,
-  # zstd, bzip2 and Qt compiled from Fedora's source RPMs -- and runs the
-  # build in it; deploy-container.sh packages it there. One image holds both
-  # targets, so one job builds it once and then both; the targets differ
-  # only in the architecture named. The runner itself only needs podman,
-  # which ubuntu-latest has.
+  # podman: build-container.sh pulls llvm-mingw-qt6, the toolkit image the
+  # toolkit workflow publishes (llvm-mingw, and for each target zlib, xz,
+  # zstd, bzip2 and Qt compiled from Fedora's source RPMs), and runs the
+  # build in it; deploy-container.sh packages it there. The two targets
+  # differ only in the architecture named. The runner itself only needs
+  # podman, which ubuntu-latest has.
   #
-  # Release files and artifacts are named win-x64 and win-arm64, as Windows
-  # names the two (Settings, System, About) and as .NET and Node.js name
-  # their Windows builds.
+  # If the image for this revision of the toolkit is not published yet -- a
+  # commit that changes the toolkit and raises TOOLKIT_IMAGE_REVISION --
+  # build-container.sh builds it here instead, which takes most of an hour.
+  #
+  # Release files, artifacts and jobs are named win-x64 and win-arm64, as
+  # Windows names the two (Settings, System, About) and as .NET and Node.js
+  # name their Windows builds.
   build:
+    name: win-${{ matrix.arch }}
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 180
     permissions:
       contents: read
-    # GITHUB_TOKEN: the run's own token, for the GitHub API lookup of
-    # llvm-mingw's newest release, which anonymously is limited to 60
-    # requests an hour. container_run passes it into the image build as a
-    # secret, so it is not stored in the image.
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
+      # To pull the toolkit image, should its package not be public.
+      packages: read
+    strategy:
+      # One target failing says nothing about the other; let both finish.
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
 
     steps:
       - uses: actions/checkout@v7
 
-      # The first build builds the image (fresh on every run, nearly all of
-      # it Qt, once per target), then the exe; each fails if it is not a
-      # Windows binary for its architecture.
-      - name: Build win-x64
-        run: bash tools/build-container.sh x64
-
-      - name: Package win-x64
-        run: bash tools/deploy-container.sh x64
-
-      # The image was built minutes ago, by the step above: no update check.
-      - name: Build win-arm64
+      # A public image needs no login, and a pull request from a fork may
+      # not be allowed one, so a failure here is only a warning.
+      - name: Log in to ghcr.io
         env:
-          W32DI_REFRESH: "0"
-        run: bash tools/build-container.sh arm64
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$GH_TOKEN" | podman login ghcr.io -u "$GITHUB_ACTOR" --password-stdin ||
+            echo "::warning::could not log in to ghcr.io; pulling anonymously"
 
-      - name: Package win-arm64
-        run: bash tools/deploy-container.sh arm64
+      # Pulls the toolkit image, then builds the exe; fails if it is not a
+      # Windows binary for this architecture. GITHUB_TOKEN is for the
+      # GitHub API lookup of llvm-mingw's newest release, should the image
+      # have to be built here; container_run passes it in as a secret, so it
+      # is not stored in the image.
+      - name: Build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tools/build-container.sh ${{ matrix.arch }}
+
+      # The package records the image it was built in, by digest, in
+      # THIRD-PARTY-NOTICES.txt.
+      - name: Package
+        run: bash tools/deploy-container.sh ${{ matrix.arch }}
 
       - uses: actions/upload-artifact@v7
         with:
-          name: WinDiskImager-win-x64
-          path: dist-x64/
+          name: WinDiskImager-win-${{ matrix.arch }}
+          path: dist-${{ matrix.arch }}/
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v7
-        with:
-          name: WinDiskImager-win-arm64
-          path: dist-arm64/
-          if-no-files-found: error
-
-  # One release for both builds, made only once the build job has produced
-  # both, so a tag never publishes one architecture without the other.
+  # One release for both builds, made only once both have succeeded, so a tag
+  # never publishes one architecture without the other.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build

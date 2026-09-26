@@ -105,6 +105,20 @@ fi
 # is not there stops the deploy (deploy_write_licenses).
 deploy_write_licenses rpm "$dist" "$bin" "$qtplugins" "$qttr"
 
+# Which toolkit it was built with, exactly: the image, by digest, when this
+# runs in one (container_run sets W32DI_IMAGE), or the host's llvm-mingw and
+# Qt otherwise.
+{
+    printf '\nThe libraries above are from the llvm-mingw-qt6 toolkit'
+    if [ -n "${W32DI_IMAGE:-}" ]; then
+        printf ', in the image\n%s.\n' "$W32DI_IMAGE"
+    else
+        printf ' built on this host: llvm-mingw %s, Qt %s.\n' \
+            "$(cat "$TOOLKIT_LLVM_MINGW/.release" 2>/dev/null || echo unknown)" \
+            "$(rpm -q --qf '%{VERSION}' qt6-qtbase 2>/dev/null || echo unknown)"
+    fi
+} >> "$dist/THIRD-PARTY-NOTICES.txt"
+
 # Symbols the release build left in are dead weight in a package. strip is
 # checked for and its errors left visible, so a missing or failing strip
 # cannot quietly ship them.

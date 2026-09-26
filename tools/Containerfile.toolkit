@@ -1,14 +1,16 @@
-# The cross-build image: the toolkit tools/toolkit-env.sh builds, for every
-# Windows target, on Fedora -- llvm-mingw, and for each target a sysroot of
-# zlib, xz, zstd, bzip2 and Qt from Fedora's source RPMs. The build and
-# package commands run in it are the same ones a Fedora host runs natively,
-# for either target.
+# llvm-mingw-qt6, the cross-build image: the toolkit tools/toolkit-env.sh
+# builds, for every Windows target, on Fedora -- llvm-mingw, and for each
+# target a sysroot of zlib, xz, zstd, bzip2 and Qt from Fedora's source RPMs.
+# The build and package commands run in it are the same ones a Fedora host
+# runs natively, for either target.
 #
-#   podman build -t w32di-toolkit -f tools/Containerfile.toolkit .
+#   podman build -t llvm-mingw-qt6 -f tools/Containerfile.toolkit .
 #
-# tools/build-container.sh builds it on first use, as TOOLKIT_IMAGE, and
-# rebuilds it when what it was built from has been updated. Expect the build
-# to take a while, nearly all of it Qt, once per target.
+# tools/toolkit-publish.sh builds and publishes it (TOOLKIT_REGISTRY), and
+# tools/build-container.sh pulls that; with TOOLKIT_IMAGE_SOURCE=local, or
+# when the published one cannot be had, it builds it here instead, as
+# TOOLKIT_IMAGE. Expect a build to take a while, nearly all of it Qt, once
+# per target.
 #
 # In stages, so the image holds each thing once: the host part both targets
 # build on, then each target's sysroot built on that in a stage of its own,
