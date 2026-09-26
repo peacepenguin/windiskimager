@@ -71,6 +71,11 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 fi
 case "${TOOLKIT_ARCH:-}" in
     all|host)
+        # No one target: empty, so the per-target paths below still expand
+        # under set -u. Nothing run for all or host uses them.
+        TOOLKIT_TRIPLE=""
+        TOOLKIT_PROCESSOR=""
+        TOOLKIT_FILE_ARCH=""
         ;;
     x64)
         TOOLKIT_TRIPLE=x86_64-w64-mingw32
