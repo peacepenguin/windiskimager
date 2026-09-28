@@ -20,7 +20,7 @@
 #ifndef COMBINE_H
 #define COMBINE_H
 
-// "Combine images": partitions taken from several image files, laid out on
+// "Custom Partitioning": partitions taken from several image files, laid out on
 // one device in an order of the user's choosing, under a partition table
 // built for them.
 //

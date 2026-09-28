@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and run the "Combine images" tests.
+# Build and run the "Custom Partitioning" tests.
 #
 #   tools/combinetest.sh          # build (if needed) and run
 #   tools/combinetest.sh clean    # drop the build dir first

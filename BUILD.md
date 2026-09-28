@@ -332,7 +332,7 @@ The fixtures are built by the harness itself with zlib, liblzma, libbz2 and
 libzstd, so nothing compressed is checked in and no compressor needs to be on
 the path.
 
-## Testing Combine images
+## Testing Custom Partitioning
 
 `src/combine.cpp` builds partition tables from pieces of other images, so its
 mistakes would write a device that looks fine and does not boot, or holds the

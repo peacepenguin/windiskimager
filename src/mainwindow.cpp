@@ -891,7 +891,7 @@ static bool lockSourceDisks(const QList<int> &disks,
 
 static QString formatDeviceSize(unsigned long long bytes);
 
-// The devices Combine images offers, worded as the device list words them.
+// The devices Custom Partitioning offers, worded as the device list words them.
 static QList<CombineTarget> combineTargets(bool showAll)
 {
     QList<CombineTarget> targets;
@@ -1284,7 +1284,7 @@ void MainWindow::runCombine(int deviceID, const QString &targetText,
     }
     msg += "\n\n" + tr("Whether it boots depends on its bootloaders finding their partitions "
                        "where they now are.");
-    QMessageBox::information(this, tr("Combine images"), msg);
+    QMessageBox::information(this, tr("Custom Partitioning"), msg);
 
     const bool exiting = (status == STATUS_EXIT);
     status = STATUS_IDLE;
@@ -2909,7 +2909,7 @@ void MainWindow::on_bHashGen_clicked()
 
 }
 
-// "Combine images" to an image file. The image is produced front to back, since
+// "Custom Partitioning" to an image file. The image is produced front to back, since
 // a compressed file can only be written that way, and so is a raw one, which
 // keeps the two alike. A file that could not be finished is deleted: part of a
 // combined image is of no use to anyone.
@@ -3119,7 +3119,7 @@ void MainWindow::runCombineToFile(const CombinePlan &plan, const QStringList &pa
         msg += " " + tr("Its backup GPT ends the image; \"Fix GPT after write\" moves it to the "
                         "end of a larger device when the image is written.");
     }
-    QMessageBox::information(this, tr("Combine images"), msg);
+    QMessageBox::information(this, tr("Custom Partitioning"), msg);
 
     const bool exiting = (status == STATUS_EXIT);
     status = STATUS_IDLE;

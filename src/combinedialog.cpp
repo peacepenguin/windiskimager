@@ -73,7 +73,7 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
       myPreselect(preselect), mySectorSize(sectorsize), myStartDir(startDir),
       myFilters(fileFilters)
 {
-    setWindowTitle(tr("Combine images"));
+    setWindowTitle(tr("Custom Partitioning"));
     QVBoxLayout *top = new QVBoxLayout(this);
 
     QLabel *intro = new QLabel(
@@ -95,7 +95,8 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     // resized, and made resizing the others pull the wrong way; and a tree
     // view pins its first column in place unless told not to.
     myImages->header()->setFirstSectionMovable(true);
-    myImages->setMinimumHeight(myImages->fontMetrics().height() * 10);
+    // A source and its partitions, or two small ones, at the smallest.
+    myImages->setMinimumHeight(rowsHeight(myImages, 4, myImages->header()->sizeHint().height()));
     // Narrower, and its columns and the labels' wrapping stop making sense.
     // Set here, not on the dialog: a minimum set on the window itself would
     // replace the one its layout gives it, heights included.
@@ -250,7 +251,9 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     destinationChanged();
     // As the main window's: once every tooltip is set.
     wrapLongToolTips(this);
-    resize(780, 820);
+    // It opens as small as it can be: everything fits there, and it can be
+    // made larger from that.
+    resize(minimumSizeHint());
 }
 
 QStringList CombineDialog::imagePaths() const
@@ -475,7 +478,7 @@ void CombineDialog::addImageFiles(const QStringList &files)
         QApplication::restoreOverrideCursor();
         if (!ok)
         {
-            QMessageBox::warning(this, tr("Combine images"),
+            QMessageBox::warning(this, tr("Custom Partitioning"),
                 tr("%1 cannot be used: %2.").arg(QFileInfo(path).fileName(), why));
             continue;
         }
@@ -484,7 +487,7 @@ void CombineDialog::addImageFiles(const QStringList &files)
         const int index = mySources.size() - 1;
         if (src.layout.wholeImage && src.layout.partitions[0].sectors == 0)
         {
-            if (QMessageBox::question(this, tr("Combine images"),
+            if (QMessageBox::question(this, tr("Custom Partitioning"),
                     tr("%1 has no partition table, so it is taken as one partition: the "
                        "whole image. The file does not record how big that is, so it has "
                        "to be read to the end to find out.\n\nScan it now?")
@@ -585,7 +588,7 @@ void CombineDialog::addDisk(int number, const QString &label)
     QApplication::restoreOverrideCursor();
     if (!ok)
     {
-        QMessageBox::warning(this, tr("Combine images"),
+        QMessageBox::warning(this, tr("Custom Partitioning"),
             tr("Disk %1 cannot be used: %2.").arg(number).arg(why));
         return;
     }
@@ -992,7 +995,7 @@ void CombineDialog::confirm()
         QString typed = myOutFile->text().trimmed();
         if (typed.isEmpty())
         {
-            QMessageBox::warning(this, tr("Combine images"), tr("Name the image file to write."));
+            QMessageBox::warning(this, tr("Custom Partitioning"), tr("Name the image file to write."));
             return;
         }
         if (QFileInfo(typed).isRelative())
@@ -1006,13 +1009,13 @@ void CombineDialog::confirm()
             if (QFileInfo(s.path).absoluteFilePath().compare(QFileInfo(path).absoluteFilePath(),
                                                              Qt::CaseInsensitive) == 0)
             {
-                QMessageBox::warning(this, tr("Combine images"),
+                QMessageBox::warning(this, tr("Custom Partitioning"),
                     tr("%1 is one of the images being combined; choose another name.").arg(path));
                 return;
             }
         }
         if (QFileInfo::exists(path)
-            && QMessageBox::question(this, tr("Combine images"),
+            && QMessageBox::question(this, tr("Custom Partitioning"),
                    tr("%1 already exists. Overwrite it?").arg(path),
                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
         {
@@ -1022,7 +1025,7 @@ void CombineDialog::confirm()
         {
             if (pathIsOnDisk(path, (ULONG)d))
             {
-                QMessageBox::warning(this, tr("Combine images"),
+                QMessageBox::warning(this, tr("Custom Partitioning"),
                     tr("%1 is on disk %2, which is one of the sources: its volumes are locked "
                        "while it is read, so nothing can be written to them. Choose a place on "
                        "another disk.").arg(path).arg(d));

@@ -30,7 +30,7 @@ corrupting the GPT of images like ARM board images. See
   `.img.gz` (the default), `.img.xz`, `.img.bz2` or `.img.zst`.
   - **Skip unpartitioned space** leaves out the space outside the partitions.
   - **Choose partitions to read** leaves out whole partitions you pick.
-- **Combine images** puts partitions from several image files and disks onto
+- **Custom Partitioning** puts partitions from several image files and disks onto
   one device, or into a new image file, in an order you choose, under a new
   partition table.
 - **Verify** a device against an image byte for byte, compressed images
@@ -87,9 +87,9 @@ cannot be repacked, the read stops rather than including the ones you left out.
 
 Both options work together with **Compress during Read**.
 
-## Combining images
+## Custom partitioning
 
-**Combine images...** builds a device, or a new image file, from the
+**Custom Partitioning...** builds a device, or a new image file, from the
 partitions of several sources: image files, and disks. Add the sources, tick
 the partitions you want, and put them in order; the preview shows where each
 will go and how much space is left.

@@ -697,6 +697,7 @@ static void caseDialog()
     const unsigned long long device = 200000;
     CombineDialog dlg(NULL, fakeDevices({ {90, "test device", "test device", device * SEC} }),
                       fakeSectorSize, 90, false, SEC, ".", QStringList("*.*"));
+    check(dlg.size() == dlg.minimumSizeHint(), "the window opens at its smallest");
     dlg.addImageFiles({ "combinetest-a.img", "combinetest-b.img.gz", "combinetest-f.img" });
     QTreeWidget *images = NULL;
     for (QTreeWidget *t : dlg.findChildren<QTreeWidget *>())
@@ -797,6 +798,7 @@ static void caseDialog()
     // Shrunk as small as it goes: the order list still shows two whole rows,
     // and so does the layout table, which is no longer held at six.
     {
+        const QSize before = dlg.size();
         dlg.show();
         dlg.resize(1, 1);
         QCoreApplication::processEvents();
@@ -819,7 +821,7 @@ static void caseDialog()
         {
             dlg.grab().save(qEnvironmentVariable("COMBINETEST_SHOT_MIN"));
         }
-        dlg.resize(780, 820);
+        dlg.resize(before);
         QCoreApplication::processEvents();
     }
 

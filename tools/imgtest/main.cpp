@@ -594,7 +594,7 @@ static void casePrefetch(const char *name, const QString &file, const QByteArray
     printf("\n");
 }
 
-// "Combine images" reads only the chosen partitions of each image: spans,
+// "Custom Partitioning" reads only the chosen partitions of each image: spans,
 // ascending, with gaps between that must be decompressed and dropped. Each
 // chunk must be the right sectors, the spans in order, and a span running past
 // the end of the image must end short there, as reading in order would.

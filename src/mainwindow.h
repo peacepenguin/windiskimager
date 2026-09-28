@@ -120,13 +120,13 @@ private:
         bool choosePartitionsDialog(const QList<PartitionInfo> &partitions,
                                     unsigned long long sectorsize, int deviceID,
                                     QList<int> *excluded);
-        // "Combine images": writes plan to the device, from the images at
+        // "Custom Partitioning": writes plan to the device, from the images at
         // paths, and verifies it if asked. Runs like a Write, from locking the
         // device to ejecting it.
         void runCombine(int deviceID, const QString &targetText,
                         unsigned long long expectedsectors, const CombinePlan &plan,
                         const QStringList &paths, const QList<int> &sourcedisks, bool verify);
-        // "Combine images" to an image file: the combined image, produced in
+        // "Custom Partitioning" to an image file: the combined image, produced in
         // order (CombineReader), raw or compressed, then verified by reading
         // the file back if asked.
         void runCombineToFile(const CombinePlan &plan, const QStringList &paths,

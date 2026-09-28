@@ -50,7 +50,7 @@ class QRadioButton;
 class QTreeWidget;
 class QTreeWidgetItem;
 
-// "Combine images": the user adds sources -- image files, and disks -- ticks
+// "Custom Partitioning": the user adds sources -- image files, and disks -- ticks
 // the partitions of each to put on the device, orders them, and may pick one
 // source's lead-in. Each
 // image's partition table is read from its first sectors only; a full scan,
