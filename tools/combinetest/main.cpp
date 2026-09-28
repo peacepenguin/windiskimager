@@ -759,6 +759,35 @@ static void caseDialog()
         dlg.grab().save(qEnvironmentVariable("COMBINETEST_SHOT"));
     }
 
+    // Shrunk as small as it goes: the order list still shows two whole rows,
+    // and so does the layout table, which is no longer held at six.
+    {
+        dlg.show();
+        dlg.resize(1, 1);
+        QCoreApplication::processEvents();
+        QTreeWidget *preview = NULL;
+        for (QTreeWidget *t : dlg.findChildren<QTreeWidget *>())
+        {
+            if (t->headerItem()->text(0) == "On the device") preview = t;
+        }
+        const int orderrow = order->sizeHintForRow(0);
+        const int previewrow = preview ? preview->sizeHintForRow(0) : 0;
+        printf("    (smallest: order %d px for %d-px rows, table %d px for %d-px rows)\n",
+               order->viewport()->height(), orderrow,
+               preview ? preview->viewport()->height() : 0, previewrow);
+        check(orderrow > 0 && order->viewport()->height() >= 2 * orderrow,
+              "at its smallest, the order list shows two partitions");
+        check(preview && previewrow > 0 && preview->viewport()->height() >= 2 * previewrow
+              && preview->viewport()->height() < 6 * previewrow,
+              "  and the layout table two rows, not six");
+        if (!qEnvironmentVariableIsEmpty("COMBINETEST_SHOT_MIN"))
+        {
+            dlg.grab().save(qEnvironmentVariable("COMBINETEST_SHOT_MIN"));
+        }
+        dlg.resize(780, 820);
+        QCoreApplication::processEvents();
+    }
+
     // To an image file instead: planned to fit, not to the device.
     QRadioButton *tofile = NULL;
     for (QRadioButton *r : dlg.findChildren<QRadioButton *>())

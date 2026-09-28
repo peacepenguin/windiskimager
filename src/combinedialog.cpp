@@ -38,6 +38,32 @@ static const unsigned long long SCAN_BYTES = 4ull * 1024ull * 1024ull;
 
 enum { ROLE_IMAGE = Qt::UserRole, ROLE_PARTITION = Qt::UserRole + 1 };
 
+// A wrapping label given a fixed number of lines, top-aligned, and laid out as
+// that many and no more. Otherwise the layout sizes it by its height at each
+// width, which the window's minimum size does not count: at the narrowest the
+// labels took height the lists below had been promised, and the status line
+// ended up over the layout table. Its text must fit in `lines` at the
+// narrowest width.
+static void fixLines(QLabel *label, int lines)
+{
+    label->setWordWrap(true);
+    label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    label->setMinimumHeight(lines * label->fontMetrics().lineSpacing());
+    QSizePolicy sp = label->sizePolicy();
+    sp.setHeightForWidth(false);
+    label->setSizePolicy(sp);
+}
+
+// The height of `rows` rows of a list or tree view, before it has any rows to
+// measure: a line of its font plus the few pixels of padding a row adds in
+// every style, and the frame, the header and a horizontal scroll bar -- which
+// a narrow window gives it, and which would otherwise take a row's height.
+static int rowsHeight(const QAbstractItemView *view, int rows, int header = 0)
+{
+    const int scrollbar = view->style()->pixelMetric(QStyle::PM_ScrollBarExtent, NULL, view);
+    return rows * (view->fontMetrics().height() + 6) + 2 * view->frameWidth() + header + scrollbar;
+}
+
 CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
                              unsigned long long devicesectors, unsigned long long sectorsize,
                              const QString &startDir, const QStringList &fileFilters)
@@ -51,7 +77,7 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
         tr("Add image files, tick the partitions to put on the device or in a new image "
            "file, and order them. Each image's partition table is read from its first "
            "sectors; nothing else is read until you write, or ask for a full scan."), this);
-    intro->setWordWrap(true);
+    fixLines(intro, 3);
     top->addWidget(intro);
 
     // Images and their partitions.
@@ -64,6 +90,10 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     myImages->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     myImages->header()->setStretchLastSection(false);
     myImages->setMinimumHeight(myImages->fontMetrics().height() * 10);
+    // Narrower, and its columns and the labels' wrapping stop making sense.
+    // Set here, not on the dialog: a minimum set on the window itself would
+    // replace the one its layout gives it, heights included.
+    myImages->setMinimumWidth(myImages->fontMetrics().averageCharWidth() * 80);
     imagesLayout->addWidget(myImages);
     QHBoxLayout *imageButtons = new QHBoxLayout();
     QPushButton *add = new QPushButton(tr("Add images..."), imagesBox);
@@ -84,8 +114,10 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     QGroupBox *deviceBox = new QGroupBox(tr("Layout"), this);
     QGridLayout *deviceLayout = new QGridLayout(deviceBox);
     myOrderList = new QListWidget(deviceBox);
-    // About six rows: the order of a handful of partitions, no more.
-    myOrderList->setMaximumHeight(myOrderList->fontMetrics().height() * 7);
+    // Two rows at least, however small the window; about six at most: the
+    // order of a handful of partitions, no more.
+    myOrderList->setMinimumHeight(rowsHeight(myOrderList, 2));
+    myOrderList->setMaximumHeight(rowsHeight(myOrderList, 6));
     deviceLayout->addWidget(new QLabel(tr("Partitions, in order:"), deviceBox), 0, 0);
     deviceLayout->addWidget(myOrderList, 1, 0, 2, 1);
     myUp = new QPushButton(tr("Up"), deviceBox);
@@ -109,10 +141,12 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     myPreview->setHeaderLabels({ tr("On the device"), tr("Start"), tr("Size"), tr("From") });
     myPreview->setRootIsDecorated(false);
     myPreview->header()->setSectionResizeMode(3, QHeaderView::Stretch);
-    myPreview->setMinimumHeight(myPreview->fontMetrics().height() * 9);
+    // Two rows at least; it grows with the window.
+    myPreview->setMinimumHeight(rowsHeight(myPreview, 2, myPreview->header()->sizeHint().height()));
     deviceLayout->addWidget(myPreview, 4, 0, 1, 2);
     myStatus = new QLabel(deviceBox);
-    myStatus->setWordWrap(true);
+    // Each of its lines fits on one line at the narrowest; three at most.
+    fixLines(myStatus, 3);
     deviceLayout->addWidget(myStatus, 5, 0, 1, 2);
     top->addWidget(deviceBox, 3);
 
@@ -683,16 +717,16 @@ void CombineDialog::replan()
     QString text;
     if (toFile())
     {
-        text = tr("%1 partition table, %2 partitions. The image will hold %3.")
+        text = tr("%1, %2 partitions: an image file of %3.")
                    .arg(table).arg(myPlan.placed.size()).arg(sizeText(myPlan.totalsectors));
     }
     else
     {
         const unsigned long long free = myDeviceSectors - myPlan.usedsectors
             - (myPlan.table == COMBINE_TABLE_GPT ? myPlan.backupregion.size() / mySectorSize : 0);
-        text = tr("%1 partition table, %2 partitions. %3 used of %4; %5 left unused.")
+        text = tr("%1, %2 partitions: %3 used, %4 free of %5.")
                    .arg(table).arg(myPlan.placed.size())
-                   .arg(sizeText(myPlan.usedsectors), sizeText(myDeviceSectors), sizeText(free));
+                   .arg(sizeText(myPlan.usedsectors), sizeText(free), sizeText(myDeviceSectors));
     }
     bool unchecked = false;
     for (const CombineChoice &c : myOrder)
@@ -701,12 +735,12 @@ void CombineDialog::replan()
     }
     if (unchecked)
     {
-        text += "\n" + tr("An image that does not record its size is only known to hold its "
-                          "partitions once it is written or scanned.");
+        // Each line short enough for one line at the dialog's narrowest.
+        text += "\n" + tr("Images of unrecorded size are checked only when scanned or written.");
     }
     if (!myPlan.duplicateGuids.isEmpty())
     {
-        text += "\n" + tr("Some partitions share a unique GUID; you will be asked about it.");
+        text += "\n" + tr("Some partitions share a GUID: you will be asked about it.");
     }
     myStatus->setText(text);
     myStatus->setStyleSheet(QString());
