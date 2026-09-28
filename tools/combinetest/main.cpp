@@ -39,6 +39,7 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QTreeWidget>
+#include <QHeaderView>
 #include <QString>
 #include <QUuid>
 #include <windows.h>
@@ -712,6 +713,24 @@ static void caseDialog()
           && images->topLevelItem(2)->child(0)->text(1).startsWith("FAT32"),
           "the FAT32 image is one partition");
     check(!dlg.planIsValid(), "nothing ticked: nothing to write");
+
+    // Both tables' headers work alike: every column movable, the first too,
+    // and every one but the last resizable by hand, the last filling the rest.
+    for (QTreeWidget *t : dlg.findChildren<QTreeWidget *>())
+    {
+        QHeaderView *h = t->header();
+        bool interactive = true;
+        for (int c = 0; c < h->count() - 1; ++c)
+        {
+            interactive = interactive && h->sectionResizeMode(c) == QHeaderView::Interactive;
+        }
+        const QByteArray what = ("the \"" + t->headerItem()->text(0)
+                                 + "\" table's columns can all be moved and resized").toLocal8Bit();
+        check(h->sectionsMovable() && h->isFirstSectionMovable() && interactive
+              && (h->stretchLastSection()
+                  || h->sectionResizeMode(h->count() - 1) == QHeaderView::Stretch),
+              what.constData());
+    }
 
     // Its tooltips wrapped as the main window's are: no line of one wider
     // than the budget unless it is a single word, and the long ones broken.

@@ -90,8 +90,11 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     myImages->setColumnCount(3);
     myImages->setHeaderLabels({ tr("Source / partition"), tr("Type"), tr("Size") });
     myImages->setRootIsDecorated(true);
-    myImages->header()->setSectionResizeMode(0, QHeaderView::Stretch);
-    myImages->header()->setStretchLastSection(false);
+    // As the layout table below: every column movable and resizable by hand,
+    // the last taking up the rest. A stretched first column could not be
+    // resized, and made resizing the others pull the wrong way; and a tree
+    // view pins its first column in place unless told not to.
+    myImages->header()->setFirstSectionMovable(true);
     myImages->setMinimumHeight(myImages->fontMetrics().height() * 10);
     // Narrower, and its columns and the labels' wrapping stop making sense.
     // Set here, not on the dialog: a minimum set on the window itself would
@@ -124,7 +127,8 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     myOrderList = new QListWidget(deviceBox);
     // Two rows at least, however small the window; about six at most: the
     // order of a handful of partitions, no more.
-    myOrderList->setMinimumHeight(rowsHeight(myOrderList, 2));
+    // 10 px over the estimate: on Windows a row is a little taller than it.
+    myOrderList->setMinimumHeight(rowsHeight(myOrderList, 2) + 10);
     myOrderList->setMaximumHeight(rowsHeight(myOrderList, 6));
     deviceLayout->addWidget(new QLabel(tr("Partitions, in order:"), deviceBox), 0, 0);
     deviceLayout->addWidget(myOrderList, 1, 0, 2, 1);
@@ -149,6 +153,7 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     myPreview->setHeaderLabels({ tr("On the device"), tr("Start"), tr("Size"), tr("From") });
     myPreview->setRootIsDecorated(false);
     myPreview->header()->setSectionResizeMode(3, QHeaderView::Stretch);
+    myPreview->header()->setFirstSectionMovable(true);
     // Two rows at least; it grows with the window.
     myPreview->setMinimumHeight(rowsHeight(myPreview, 2, myPreview->header()->sizeHint().height()));
     deviceLayout->addWidget(myPreview, 4, 0, 1, 2);
@@ -769,7 +774,8 @@ void CombineDialog::rebuildImages()
             myImages->setCurrentItem(top);
         }
     }
-    for (int c = 1; c < 3; ++c)
+    // As the layout table: sized to what they hold, the last stretching.
+    for (int c = 0; c < 2; ++c)
     {
         myImages->resizeColumnToContents(c);
     }
