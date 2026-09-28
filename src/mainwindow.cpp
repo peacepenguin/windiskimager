@@ -889,6 +889,44 @@ static bool lockSourceDisks(const QList<int> &disks,
     return true;
 }
 
+static QString formatDeviceSize(unsigned long long bytes);
+
+// The devices Combine images offers, worded as the device list words them.
+static QList<CombineTarget> combineTargets(bool showAll)
+{
+    QList<CombineTarget> targets;
+    for (const PhysicalDevice &dev : enumeratePhysicalDevices(showAll))
+    {
+        // MainWindow's context: the same translation as the device list.
+        QString label = MainWindow::tr("[Disk %1]").arg(dev.deviceNumber);
+        if (!dev.letters.isEmpty())
+        {
+            label += QString(" [%1]").arg(dev.letters);
+        }
+        targets.append(CombineTarget{(int)dev.deviceNumber,
+                                     QString("%1 %2 - %3").arg(label)
+                                         .arg(formatDeviceSize(dev.sizeBytes)).arg(dev.description),
+                                     dev.description, dev.sizeBytes});
+    }
+    return targets;
+}
+
+// Disk n's sector size, or 0 when it cannot be opened or read, which
+// getHandleOnDevice() and getNumberOfSectors() have then reported.
+static unsigned long long combineSectorSize(int n)
+{
+    HANDLE h = getHandleOnDevice(n, GENERIC_READ);
+    if (h == INVALID_HANDLE_VALUE)
+    {
+        return 0ull;
+    }
+    unsigned long long ss = 0ull;
+    bool reported = false;
+    const unsigned long long sectors = getNumberOfSectors(h, &ss, &reported);
+    CloseHandle(h);
+    return sectors ? ss : 0ull;
+}
+
 void MainWindow::on_bCombine_clicked()
 {
     // See on_bWrite_clicked(): reachable mid-run through processEvents().
@@ -896,38 +934,10 @@ void MainWindow::on_bCombine_clicked()
     {
         return;
     }
-    // With no device selected, only an image file can be written: the
-    // dialog offers nothing else.
-    const int deviceID = selectedDeviceID();
-    const QString targetText = (deviceID >= 0) ? cboxDevice->currentText() : QString();
-    // The images' tables are read in the device's sector size, so it is asked
-    // for first; the device is only opened to read its geometry. Image files
-    // have 512-byte sectors.
-    unsigned long long devicesectors = 0ull, devsectorsize = 512ull;
-    if (deviceID >= 0)
-    {
-        HANDLE h = getHandleOnDevice(deviceID, GENERIC_READ);
-        if (h == INVALID_HANDLE_VALUE)
-        {
-            return;
-        }
-        bool reported = false;
-        devicesectors = getNumberOfSectors(h, &devsectorsize, &reported);
-        CloseHandle(h);
-        if (!devicesectors)
-        {
-            if (!reported)
-            {
-                QMessageBox::critical(this, tr("Device Error"),
-                    tr("The device reports a size of zero. If it is a card reader, "
-                       "the card may have been removed."));
-            }
-            return;
-        }
-    }
-
-    CombineDialog dialog(this, targetText, deviceID, devicesectors, devsectorsize, myHomeDir,
-                         myFileTypeList);
+    // The device is chosen in the dialog, starting from the one selected
+    // here, if any. Every source is read in 512-byte sectors, as images have.
+    CombineDialog dialog(this, combineTargets, combineSectorSize, selectedDeviceID(),
+                         showAllDevicesCheckBox->isChecked(), 512ull, myHomeDir, myFileTypeList);
     if (dialog.exec() != QDialog::Accepted)
     {
         return;
@@ -941,10 +951,13 @@ void MainWindow::on_bCombine_clicked()
     }
     if (dialog.toFile())
     {
-        runCombineToFile(plan, paths, sourcedisks, devsectorsize, dialog.outputPath(),
+        runCombineToFile(plan, paths, sourcedisks, 512ull, dialog.outputPath(),
                          dialog.outputCompressed(), dialog.outputFormat(), dialog.verifyAfter());
         return;
     }
+    const int deviceID = dialog.targetDevice();
+    const QString targetText = dialog.targetText();
+    const unsigned long long devicesectors = dialog.targetSectors();
     // The dialog refuses the target as a source; asked again here, where the
     // device is known for certain.
     if (sourcedisks.contains(deviceID))
@@ -955,7 +968,8 @@ void MainWindow::on_bCombine_clicked()
     }
     for (const CombineRange &r : plan.ranges)
     {
-        if (ImageSource::deviceNumber(paths[r.image]) < 0 && fileIsOnSelectedDevice(paths[r.image]))
+        if (ImageSource::deviceNumber(paths[r.image]) < 0
+            && pathIsOnDisk(paths[r.image], (ULONG)deviceID))
         {
             QMessageBox::critical(this, tr("Write Error"),
                 tr("%1 is on the target device, and cannot be written to it.")
@@ -964,8 +978,6 @@ void MainWindow::on_bCombine_clicked()
         }
     }
 
-    // As on_bWrite_clicked(): what is confirmed is checked against what is
-    // opened, since the list can change under the dialogs.
     if (QMessageBox::warning(this, tr("Confirm overwrite"), tr("All files and data on this device will be deleted.\n"
                                                                "(Target Device: %1)\n"
                                                                "Are you sure you want to continue?").arg(targetText),
@@ -988,7 +1000,16 @@ void MainWindow::on_bCombine_clicked()
             return;
         }
     }
-    if (selectedDeviceID() != deviceID || cboxDevice->currentText() != targetText)
+    // The dialogs leave the event loop running, and Windows gives a newly
+    // inserted disk the number of one just removed: what was confirmed is
+    // checked against what is there now, as on_bWrite_clicked() does.
+    // runCombine() checks its size again once it has it open.
+    bool same = false;
+    for (const CombineTarget &t : combineTargets(true))
+    {
+        same = same || (t.number == deviceID && t.text == targetText);
+    }
+    if (!same)
     {
         QMessageBox::critical(this, tr("Write Error"),
             tr("The device list changed while you were confirming. Check the "

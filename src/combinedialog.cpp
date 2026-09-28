@@ -65,12 +65,13 @@ static int rowsHeight(const QAbstractItemView *view, int rows, int header = 0)
     return rows * (view->fontMetrics().height() + 6) + 2 * view->frameWidth() + header + scrollbar;
 }
 
-CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText, int targetDevice,
-                             unsigned long long devicesectors, unsigned long long sectorsize,
+CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
+                             CombineSectorSizeProbe sectorSizeOf, int preselect, bool showAll,
+                             unsigned long long sectorsize,
                              const QString &startDir, const QStringList &fileFilters)
-    : QDialog(parent), myDeviceText(deviceText), myTargetDevice(targetDevice),
-      myDeviceSectors(devicesectors),
-      mySectorSize(sectorsize), myStartDir(startDir), myFilters(fileFilters)
+    : QDialog(parent), myListDevices(listDevices), mySectorSizeOf(sectorSizeOf),
+      myPreselect(preselect), mySectorSize(sectorsize), myStartDir(startDir),
+      myFilters(fileFilters)
 {
     setWindowTitle(tr("Combine images"));
     QVBoxLayout *top = new QVBoxLayout(this);
@@ -160,9 +161,14 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText, int tar
     // Where it goes.
     QGroupBox *destBox = new QGroupBox(tr("Write to"), this);
     QGridLayout *destLayout = new QGridLayout(destBox);
-    myToDevice = new QRadioButton(deviceText.isEmpty() ? tr("The device (none is selected)")
-                                                       : tr("The device: %1").arg(deviceText),
-                                  destBox);
+    myToDevice = new QRadioButton(tr("A device:"), destBox);
+    myDeviceBox = new QComboBox(destBox);
+    myDeviceBox->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    myShowAll = new QCheckBox(tr("Show all devices"), destBox);
+    myShowAll->setToolTip(tr("Also list fixed disks. Internal PCIe card readers often present "
+                             "the card as a non-removable device, which is otherwise hidden. "
+                             "The disk Windows is running from is never listed."));
+    myShowAll->setChecked(showAll);
     myToFile = new QRadioButton(tr("An image file:"), destBox);
     myOutFile = new QLineEdit(destBox);
     myOutFile->setPlaceholderText(tr("combined.img"));
@@ -177,7 +183,9 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText, int tar
     // The main window's Compress during Read tooltip, for a write.
     myFormat->setToolTip(tr("The compressed format to write to: .img.zst is the fastest, "
                             ".img.xz the smallest, and .img.gz the most widely supported"));
-    destLayout->addWidget(myToDevice, 0, 0, 1, 4);
+    destLayout->addWidget(myToDevice, 0, 0);
+    destLayout->addWidget(myDeviceBox, 0, 1, 1, 2);
+    destLayout->addWidget(myShowAll, 0, 3);
     destLayout->addWidget(myToFile, 1, 0);
     destLayout->addWidget(myOutFile, 1, 1, 1, 2);
     destLayout->addWidget(myBrowse, 1, 3);
@@ -188,15 +196,9 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText, int tar
     destLayout->addLayout(compressRow, 2, 1, 1, 3);
     destLayout->setColumnStretch(2, 1);
     top->addWidget(destBox);
-    if (devicesectors == 0)
-    {
-        myToDevice->setEnabled(false);
-        myToFile->setChecked(true);
-    }
-    else
-    {
-        myToDevice->setChecked(true);
-    }
+    // A device when there is one to write to; refreshDevices() moves to the
+    // file when there is none.
+    myToDevice->setChecked(true);
 
     myVerify = new QCheckBox(tr("Verify after writing"), this);
     myVerify->setChecked(true);
@@ -226,6 +228,9 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText, int tar
     connect(myLead, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             [this]() { if (!myRebuilding) replan(); });
     connect(myToDevice, &QRadioButton::toggled, this, &CombineDialog::destinationChanged);
+    connect(myShowAll, &QCheckBox::toggled, this, &CombineDialog::refreshDevices);
+    connect(myDeviceBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            [this]() { if (!myRebuilding) deviceChanged(); });
     connect(myCompress, &QCheckBox::toggled, this, &CombineDialog::destinationChanged);
     connect(myBrowse, &QPushButton::clicked, this, &CombineDialog::browseOutput);
     connect(buttons, &QDialogButtonBox::accepted, this, &CombineDialog::confirm);
@@ -236,6 +241,7 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText, int tar
     myUp->setEnabled(false);
     myDown->setEnabled(false);
     rebuildLeadIn();
+    refreshDevices();
     destinationChanged();
     // As the main window's: once every tooltip is set.
     wrapLongToolTips(this);
@@ -264,6 +270,78 @@ QList<int> CombineDialog::sourceDisks() const
         }
     }
     return disks;
+}
+
+QString CombineDialog::targetText() const
+{
+    return myDeviceBox->currentText();
+}
+
+void CombineDialog::refreshDevices()
+{
+    const int previous = myDeviceBox->count() ? myDeviceBox->currentData().toInt() : myPreselect;
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    myTargets = myListDevices ? myListDevices(myShowAll->isChecked()) : QList<CombineTarget>();
+    QApplication::restoreOverrideCursor();
+    myRebuilding = true;
+    myDeviceBox->clear();
+    for (const CombineTarget &t : myTargets)
+    {
+        myDeviceBox->addItem(t.text, t.number);
+    }
+    const int at = myDeviceBox->findData(previous);
+    myDeviceBox->setCurrentIndex(at >= 0 ? at : 0);
+    myRebuilding = false;
+    // Nothing to write to: only an image file can be made.
+    const bool any = !myTargets.isEmpty();
+    myToDevice->setEnabled(any);
+    myDeviceBox->setEnabled(any && myToDevice->isChecked());
+    if (!any)
+    {
+        myToFile->setChecked(true);
+    }
+    deviceChanged();
+}
+
+void CombineDialog::deviceChanged()
+{
+    myTargetDevice = -1;
+    myDeviceSectors = 0;
+    myDeviceProblem.clear();
+    const int index = myDeviceBox->currentIndex();
+    if (index < 0 || index >= myTargets.size())
+    {
+        myDeviceProblem = tr("no device is chosen to write to");
+    }
+    else
+    {
+        const CombineTarget &t = myTargets[index];
+        myTargetDevice = t.number;
+        // Opening a disk can take a moment, and asks again of one that failed.
+        if (!mySectorSizes.contains(t.number) || mySectorSizes[t.number] == 0)
+        {
+            QApplication::setOverrideCursor(Qt::WaitCursor);
+            mySectorSizes[t.number] = mySectorSizeOf ? mySectorSizeOf(t.number) : 0;
+            QApplication::restoreOverrideCursor();
+        }
+        const unsigned long long ss = mySectorSizes[t.number];
+        if (ss == 0)
+        {
+            myDeviceProblem = tr("disk %1 could not be read").arg(t.number);
+        }
+        else if (ss != mySectorSize)
+        {
+            // Every source is read in mySectorSize-byte sectors; images have
+            // 512-byte ones.
+            myDeviceProblem = tr("disk %1 has %2-byte sectors, and the sources %3-byte ones")
+                                  .arg(t.number).arg(ss).arg(mySectorSize);
+        }
+        else
+        {
+            myDeviceSectors = t.bytes / ss;
+        }
+    }
+    replan();
 }
 
 QString CombineDialog::sourceName(int image) const
@@ -298,6 +376,7 @@ void CombineDialog::destinationChanged()
     const bool file = toFile();
     myOutFile->setEnabled(file);
     myBrowse->setEnabled(file);
+    myDeviceBox->setEnabled(!file && !myTargets.isEmpty());
     myCompress->setEnabled(file);
     myFormat->setEnabled(file && myCompress->isChecked());
     // The file is sized to the layout, the device is what it is: replanned.
@@ -437,31 +516,26 @@ void CombineDialog::addDisks()
     connect(buttons, &QDialogButtonBox::accepted, &picker, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, &picker, &QDialog::reject);
 
-    QList<PhysicalDevice> devices;
+    QList<CombineTarget> devices;
     auto fill = [&]() {
         QApplication::setOverrideCursor(Qt::WaitCursor);
-        devices = enumeratePhysicalDevices(all->isChecked());
+        devices = myListDevices ? myListDevices(all->isChecked()) : QList<CombineTarget>();
         QApplication::restoreOverrideCursor();
         list->clear();
-        for (const PhysicalDevice &d : devices)
+        for (const CombineTarget &d : devices)
         {
             bool have = false;
             for (const Source &s : mySources)
             {
-                have = have || s.disk == (int)d.deviceNumber;
+                have = have || s.disk == d.number;
             }
-            QString text = tr("Disk %1: %2, %3").arg(d.deviceNumber).arg(d.description)
-                               .arg(sizeText(d.sizeBytes / mySectorSize));
-            if (!d.letters.isEmpty())
-            {
-                text += tr(" (%1)").arg(d.letters);
-            }
-            if ((int)d.deviceNumber == myTargetDevice)
+            QString text = d.text;
+            if (d.number == myTargetDevice && !toFile())
             {
                 text += tr(" -- the device being written to");
             }
             QListWidgetItem *item = new QListWidgetItem(text, list);
-            item->setData(Qt::UserRole, (int)d.deviceNumber);
+            item->setData(Qt::UserRole, d.number);
             item->setFlags(have ? Qt::NoItemFlags : (Qt::ItemIsEnabled | Qt::ItemIsUserCheckable));
             item->setCheckState(Qt::Unchecked);
             if (have)
@@ -486,9 +560,9 @@ void CombineDialog::addDisks()
         }
         const int n = item->data(Qt::UserRole).toInt();
         QString label;
-        for (const PhysicalDevice &d : devices)
+        for (const CombineTarget &d : devices)
         {
-            if ((int)d.deviceNumber == n) label = d.description;
+            if (d.number == n) label = d.description;
         }
         addDisk(n, label);
     }
@@ -805,6 +879,12 @@ void CombineDialog::replan()
     }
     const int lead = myLead->currentData().toInt();
     QString why;
+    if (!toFile() && !myDeviceProblem.isEmpty())
+    {
+        myStatus->setText(tr("This cannot be written: %1.").arg(myDeviceProblem));
+        myStatus->setStyleSheet("color: #c00000;");
+        return;
+    }
     if (!toFile())
     {
         for (const CombineChoice &c : myOrder)

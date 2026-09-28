@@ -129,9 +129,11 @@ will go and how much space is left.
 - **Write to an image file** instead makes an `.img`, or with **Compress to**
   an `.img.gz`, `.img.xz`, `.img.bz2` or `.img.zst`, exactly as big as the
   layout, its backup GPT at the end; **Fix GPT after write** moves it when the
-  image is written to a larger device. No device need be selected for this.
-  Verify reads the file back, decompressing it, and compares it with the
-  combination.
+  image is written to a larger device. Verify reads the file back,
+  decompressing it, and compares it with the combination.
+- The device to write to is chosen in the window itself, under **Write to**,
+  from its own list with its own **Show all devices**; it starts on the one
+  selected in the main window, if any, so none need be selected beforehand.
 
 Whether the result boots depends on its bootloaders finding their partitions
 where they now are: something that looks for "partition 1" may find another.

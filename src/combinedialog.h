@@ -21,9 +21,24 @@
 #define COMBINEDIALOG_H
 
 #include <QDialog>
+#include <QMap>
 #include <QStringList>
+#include <functional>
 #include "combine.h"
 #include "imagesource.h"
+
+// A device the result can be written to, as the device list shows it.
+struct CombineTarget
+{
+    int number;                     // N in \\.\PhysicalDriveN
+    QString text;                   // as the main window's device list words it
+    QString description;            // vendor and product
+    unsigned long long bytes;
+};
+// The devices to offer, fixed disks included when showAll is set.
+typedef std::function<QList<CombineTarget>(bool showAll)> CombineDeviceLister;
+// Disk n's sector size, or 0 if it cannot be read (having said why).
+typedef std::function<unsigned long long(int n)> CombineSectorSizeProbe;
 
 class QCheckBox;
 class QComboBox;
@@ -43,17 +58,28 @@ class QTreeWidgetItem;
 // layout is planned (planCombine) and previewed as it changes, and the dialog
 // accepts only a plan that fits the device. Nothing is written here.
 //
-// The result can go to the device or to a new image file, raw or compressed
-// as a Read's can be; an image file is planned exactly as big as the layout.
-// With no device selected (devicesectors 0) only an image file is offered.
+// The result can go to a device, chosen here from its own list, or to a new
+// image file, raw or compressed as a Read's can be; an image file is planned
+// exactly as big as the layout. The main window supplies how devices are
+// listed and their sector size read, which need the device list code and
+// Administrator; the harness supplies stand-ins.
 class CombineDialog : public QDialog
 {
     Q_OBJECT
 public:
-    // targetDevice is the device written to, or -1: it cannot be a source too.
-    CombineDialog(QWidget *parent, const QString &deviceText, int targetDevice,
-                  unsigned long long devicesectors, unsigned long long sectorsize,
+    // preselect is the device to offer first (the main window's), or -1;
+    // showAll starts "Show all devices" as the main window has it. sectorsize
+    // is what every source is read in, and a device must have.
+    CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
+                  CombineSectorSizeProbe sectorSizeOf, int preselect, bool showAll,
+                  unsigned long long sectorsize,
                   const QString &startDir, const QStringList &fileFilters);
+
+    // The device chosen to write to (when !toFile()): its number, its name
+    // as listed, and its size in sectors.
+    int targetDevice() const { return myTargetDevice; }
+    QString targetText() const;
+    unsigned long long targetSectors() const { return myDeviceSectors; }
 
     // After exec() returns Accepted: the plan, the image files its ranges
     // index, and whether to verify after writing.
@@ -84,6 +110,8 @@ private slots:
     void itemChanged(QTreeWidgetItem *item, int column);
     void browseOutput();
     void destinationChanged();
+    void refreshDevices();
+    void deviceChanged();
     void confirm();
 
 private:
@@ -114,9 +142,15 @@ private:
     QString partitionText(int image, int partition) const;
     QString sizeText(unsigned long long sectors) const;
 
-    QString myDeviceText;
-    int myTargetDevice;
-    unsigned long long myDeviceSectors, mySectorSize;
+    CombineDeviceLister myListDevices;
+    CombineSectorSizeProbe mySectorSizeOf;
+    QList<CombineTarget> myTargets;
+    QMap<int, unsigned long long> mySectorSizes;    // probed once per device
+    int myPreselect;
+    int myTargetDevice = -1;
+    unsigned long long myDeviceSectors = 0;
+    QString myDeviceProblem;        // why the chosen device cannot be written, if it cannot
+    unsigned long long mySectorSize;
     QString myStartDir;
     QStringList myFilters;
 
@@ -136,6 +170,8 @@ private:
     QTreeWidget *myPreview;
     QLabel *myStatus;
     QRadioButton *myToDevice, *myToFile;
+    QComboBox *myDeviceBox;
+    QCheckBox *myShowAll;
     QLineEdit *myOutFile;
     QPushButton *myBrowse;
     QCheckBox *myCompress;

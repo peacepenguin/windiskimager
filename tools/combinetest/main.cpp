@@ -664,6 +664,17 @@ static bool writeFile(const char *name, const QByteArray &bytes)
     return ok;
 }
 
+// Stand-ins for the main window's device list and sector-size probe, which
+// need real disks and Administrator. Disk 95 has 4096-byte sectors.
+static CombineDeviceLister fakeDevices(const QList<CombineTarget> &devices)
+{
+    return [devices](bool) { return devices; };
+}
+static unsigned long long fakeSectorSize(int n)
+{
+    return (n == 95) ? 4096ull : SEC;
+}
+
 // The dialog, off screen, driven as a user would drive it: images added, each
 // partition ticked in the order wanted, a lead-in picked. What it plans must
 // be what planCombine() plans, and apply to a device that reads back right --
@@ -683,7 +694,8 @@ static void caseDialog()
           && writeFile("combinetest-f.img", f), "fixture files written");
 
     const unsigned long long device = 200000;
-    CombineDialog dlg(NULL, "test device", -1, device, SEC, ".", QStringList("*.*"));
+    CombineDialog dlg(NULL, fakeDevices({ {90, "test device", "test device", device * SEC} }),
+                      fakeSectorSize, 90, false, SEC, ".", QStringList("*.*"));
     dlg.addImageFiles({ "combinetest-a.img", "combinetest-b.img.gz", "combinetest-f.img" });
     QTreeWidget *images = NULL;
     for (QTreeWidget *t : dlg.findChildren<QTreeWidget *>())
@@ -949,8 +961,12 @@ static void caseDuplicatePrompt(bool tofile)
     writeFile("combinetest-dup1.img", a);
     writeFile("combinetest-dup2.img", a);
     DeleteFileA("combinetest-dupout.img");
-    CombineDialog dlg(NULL, tofile ? QString() : QString("test device"), -1, tofile ? 0 : 100000, SEC,
-                      ".", QStringList("*.*"));
+    // Writing to a file, with no device to offer at all.
+    CombineDialog dlg(NULL,
+                      fakeDevices(tofile ? QList<CombineTarget>()
+                                         : QList<CombineTarget>{ {91, "test device", "test device",
+                                                                  100000 * SEC} }),
+                      fakeSectorSize, 91, false, SEC, ".", QStringList("*.*"));
     dlg.addImageFiles({ "combinetest-dup1.img", "combinetest-dup2.img" });
     QTreeWidget *images = NULL;
     for (QTreeWidget *t : dlg.findChildren<QTreeWidget *>())
@@ -995,6 +1011,55 @@ static void caseDiskPaths()
           "a disk that cannot be opened is reported as that disk");
 }
 
+// The device is chosen in the dialog now: the main window's selection only
+// starts it off. Switching device replans for the new one's size; a device
+// the sources' sectors do not fit is refused; with no device at all, only an
+// image file is offered.
+static void caseDeviceChoice()
+{
+    printf("choosing the device in the dialog\n");
+    const QByteArray a = gptImage(9000, 34, {
+        {2048, 5000, LINUX, "E1E1E1E1-E1E1-E1E1-E1E1-E1E1E1E1E1E1", "root", 'a', 0} },
+        "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA");
+    writeFile("combinetest-dev.img", a);
+    const QList<CombineTarget> devices = {
+        {92, "[Disk 92] small", "small", 20000 * SEC},
+        {93, "[Disk 93] big", "big", 400000 * SEC},
+        {95, "[Disk 95] 4Kn", "4Kn", 400000 * SEC} };
+    CombineDialog dlg(NULL, fakeDevices(devices), fakeSectorSize, 93, false, SEC, ".",
+                      QStringList("*.*"));
+    dlg.addImageFiles({ "combinetest-dev.img" });
+    QTreeWidget *images = NULL;
+    for (QTreeWidget *t : dlg.findChildren<QTreeWidget *>())
+    {
+        if (t->headerItem()->text(0) == "Source / partition") images = t;
+    }
+    images->topLevelItem(0)->child(0)->setCheckState(0, Qt::Checked);
+    check(!dlg.toFile() && dlg.targetDevice() == 93 && dlg.targetSectors() == 400000
+          && dlg.planIsValid() && dlg.plan().totalsectors == 400000,
+          "it starts on the device the main window had, and plans for its size");
+    QComboBox *box = NULL;
+    for (QComboBox *c : dlg.findChildren<QComboBox *>())
+    {
+        if (c->findData(92) >= 0) box = c;
+    }
+    check(box && box->count() == 3, "every device offered is listed");
+    if (!box) return;
+    box->setCurrentIndex(box->findData(92));
+    check(dlg.targetDevice() == 92 && dlg.plan().totalsectors == 20000
+          && dlg.targetText() == "[Disk 92] small", "another is chosen, and planned for");
+    box->setCurrentIndex(box->findData(95));
+    check(!dlg.planIsValid(), "a device with 4096-byte sectors is refused");
+    box->setCurrentIndex(box->findData(93));
+    check(dlg.planIsValid(), "  and a usable one after it is not");
+
+    CombineDialog none(NULL, fakeDevices({}), fakeSectorSize, -1, false, SEC, ".",
+                       QStringList("*.*"));
+    QRadioButton *todevice = none.findChildren<QRadioButton *>().first();
+    check(none.toFile() && !todevice->isEnabled(), "with no device at all, only a file is offered");
+    DeleteFileA("combinetest-dev.img");
+}
+
 int main(int argc, char **argv)
 {
     // The dialog is created off screen: nothing is shown.
@@ -1012,6 +1077,7 @@ int main(int argc, char **argv)
     caseDuplicatePrompt(false);
     caseDuplicatePrompt(true);
     caseDiskPaths();
+    caseDeviceChoice();
     DeleteFileA(TESTFILE);
     printf("\n%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
