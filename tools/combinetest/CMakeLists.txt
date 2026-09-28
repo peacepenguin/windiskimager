@@ -29,6 +29,7 @@ add_executable(combinetest
     main.cpp
     ${APPSRC}/combine.cpp
     ${APPSRC}/combinedialog.cpp
+    ${APPSRC}/combinereader.cpp
     ${APPSRC}/imagesource.cpp
     ${APPSRC}/disk.cpp
     ${COMBINETEST_UI}

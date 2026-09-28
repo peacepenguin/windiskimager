@@ -137,6 +137,9 @@ struct CombinePlan
     unsigned long long backupfirst;
     // The first sector past the last partition.
     unsigned long long usedsectors;
+    // The whole device, or for an image file (devicesectors 0) the image:
+    // usedsectors, then the backup GPT if there is one.
+    unsigned long long totalsectors;
     QList<CombinePlaced> placed;
     // Unique partition GUIDs that two or more chosen GPT partitions share,
     // as text, each once. Empty after planning with newguids set.
@@ -158,6 +161,9 @@ struct CombinePlan
 //
 // newguids gives each chosen GPT partition whose unique GUID another chosen
 // one already has a new one; the first of them keeps its own.
+//
+// devicesectors 0 plans an image file instead of a device: exactly as big as
+// the layout, its backup GPT, if any, in its last sectors.
 //
 // Returns false, with *detail saying why, when the choices cannot be laid out
 // or do not fit devicesectors.

@@ -23,12 +23,15 @@
 #include <QDialog>
 #include <QStringList>
 #include "combine.h"
+#include "imagesource.h"
 
 class QCheckBox;
 class QComboBox;
 class QLabel;
+class QLineEdit;
 class QListWidget;
 class QPushButton;
+class QRadioButton;
 class QTreeWidget;
 class QTreeWidgetItem;
 
@@ -38,6 +41,10 @@ class QTreeWidgetItem;
 // which decompresses the whole image, is only ever done when asked for. The
 // layout is planned (planCombine) and previewed as it changes, and the dialog
 // accepts only a plan that fits the device. Nothing is written here.
+//
+// The result can go to the device or to a new image file, raw or compressed
+// as a Read's can be; an image file is planned exactly as big as the layout.
+// With no device selected (devicesectors 0) only an image file is offered.
 class CombineDialog : public QDialog
 {
     Q_OBJECT
@@ -49,6 +56,12 @@ public:
     // After exec() returns Accepted: the plan, the image files its ranges
     // index, and whether to verify after writing.
     const CombinePlan &plan() const { return myPlan; }
+    // Whether to write an image file rather than the device; and if so,
+    // which file, compressed or not, and how.
+    bool toFile() const;
+    QString outputPath() const { return myOutputPath; }
+    bool outputCompressed() const;
+    ImageSink::Format outputFormat() const;
     // Whether plan() is one that can be written.
     bool planIsValid() const { return myPlanOk; }
     // What "Add images..." does with the files it is given; the harness calls
@@ -64,6 +77,8 @@ private slots:
     void moveUp();
     void moveDown();
     void itemChanged(QTreeWidgetItem *item, int column);
+    void browseOutput();
+    void destinationChanged();
     void confirm();
 
 private:
@@ -109,6 +124,12 @@ private:
     QComboBox *myLead;
     QTreeWidget *myPreview;
     QLabel *myStatus;
+    QRadioButton *myToDevice, *myToFile;
+    QLineEdit *myOutFile;
+    QPushButton *myBrowse;
+    QCheckBox *myCompress;
+    QComboBox *myFormat;
+    QString myOutputPath;
     QCheckBox *myVerify;
     QPushButton *myWrite;
 };

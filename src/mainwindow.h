@@ -35,6 +35,7 @@
 #include <memory>
 #include "ui_mainwindow.h"
 #include "elapsedtimer.h"
+#include "imagesource.h"
 
 class ImageSource;
 class LockedVolumes;
@@ -125,6 +126,12 @@ private:
         void runCombine(int deviceID, const QString &targetText,
                         unsigned long long expectedsectors, const CombinePlan &plan,
                         const QStringList &paths, bool verify);
+        // "Combine images" to an image file: the combined image, produced in
+        // order (CombineReader), raw or compressed, then verified by reading
+        // the file back if asked.
+        void runCombineToFile(const CombinePlan &plan, const QStringList &paths,
+                              unsigned long long imagesectorsize, const QString &path,
+                              bool compressed, ImageSink::Format format, bool verify);
         // Copies (or with verify, compares) every range of the plan, image by
         // image. 0: done; 1: failed, reported; 2: cancelled.
         int transferCombined(const CombinePlan &plan, const QStringList &paths, bool verify,

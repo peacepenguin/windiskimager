@@ -47,9 +47,9 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     QVBoxLayout *top = new QVBoxLayout(this);
 
     QLabel *intro = new QLabel(
-        tr("Add image files, tick the partitions to put on %1, and order them. Each image's "
-           "partition table is read from its first sectors; nothing else is read until you "
-           "write, or ask for a full scan.").arg(deviceText), this);
+        tr("Add image files, tick the partitions to put on the device or in a new image "
+           "file, and order them. Each image's partition table is read from its first "
+           "sectors; nothing else is read until you write, or ask for a full scan."), this);
     intro->setWordWrap(true);
     top->addWidget(intro);
 
@@ -62,7 +62,7 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     myImages->setRootIsDecorated(true);
     myImages->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     myImages->header()->setStretchLastSection(false);
-    myImages->setMinimumHeight(myImages->fontMetrics().height() * 12);
+    myImages->setMinimumHeight(myImages->fontMetrics().height() * 10);
     imagesLayout->addWidget(myImages);
     QHBoxLayout *imageButtons = new QHBoxLayout();
     QPushButton *add = new QPushButton(tr("Add images..."), imagesBox);
@@ -80,7 +80,7 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     top->addWidget(imagesBox, 5);
 
     // The device: order, lead-in, preview.
-    QGroupBox *deviceBox = new QGroupBox(tr("On the device"), this);
+    QGroupBox *deviceBox = new QGroupBox(tr("Layout"), this);
     QGridLayout *deviceLayout = new QGridLayout(deviceBox);
     myOrderList = new QListWidget(deviceBox);
     // About six rows: the order of a handful of partitions, no more.
@@ -115,6 +115,44 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     deviceLayout->addWidget(myStatus, 5, 0, 1, 2);
     top->addWidget(deviceBox, 3);
 
+    // Where it goes.
+    QGroupBox *destBox = new QGroupBox(tr("Write to"), this);
+    QGridLayout *destLayout = new QGridLayout(destBox);
+    myToDevice = new QRadioButton(deviceText.isEmpty() ? tr("The device (none is selected)")
+                                                       : tr("The device: %1").arg(deviceText),
+                                  destBox);
+    myToFile = new QRadioButton(tr("An image file:"), destBox);
+    myOutFile = new QLineEdit(destBox);
+    myOutFile->setPlaceholderText(tr("combined.img"));
+    myBrowse = new QPushButton(tr("Browse..."), destBox);
+    myCompress = new QCheckBox(tr("Compress to"), destBox);
+    myFormat = new QComboBox(destBox);
+    // In ImageSink's order, as the main window's Compress during Read list.
+    myFormat->addItem(".img.gz", (int)ImageSink::FORMAT_GZIP);
+    myFormat->addItem(".img.xz", (int)ImageSink::FORMAT_XZ);
+    myFormat->addItem(".img.bz2", (int)ImageSink::FORMAT_BZIP2);
+    myFormat->addItem(".img.zst", (int)ImageSink::FORMAT_ZSTD);
+    destLayout->addWidget(myToDevice, 0, 0, 1, 4);
+    destLayout->addWidget(myToFile, 1, 0);
+    destLayout->addWidget(myOutFile, 1, 1, 1, 2);
+    destLayout->addWidget(myBrowse, 1, 3);
+    QHBoxLayout *compressRow = new QHBoxLayout();
+    compressRow->addWidget(myCompress);
+    compressRow->addWidget(myFormat);
+    compressRow->addStretch();
+    destLayout->addLayout(compressRow, 2, 1, 1, 3);
+    destLayout->setColumnStretch(2, 1);
+    top->addWidget(destBox);
+    if (devicesectors == 0)
+    {
+        myToDevice->setEnabled(false);
+        myToFile->setChecked(true);
+    }
+    else
+    {
+        myToDevice->setChecked(true);
+    }
+
     myVerify = new QCheckBox(tr("Verify after writing"), this);
     myVerify->setChecked(true);
     top->addWidget(myVerify);
@@ -140,6 +178,9 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     });
     connect(myLead, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             [this]() { if (!myRebuilding) replan(); });
+    connect(myToDevice, &QRadioButton::toggled, this, &CombineDialog::destinationChanged);
+    connect(myCompress, &QCheckBox::toggled, this, &CombineDialog::destinationChanged);
+    connect(myBrowse, &QPushButton::clicked, this, &CombineDialog::browseOutput);
     connect(buttons, &QDialogButtonBox::accepted, this, &CombineDialog::confirm);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
@@ -148,8 +189,8 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     myUp->setEnabled(false);
     myDown->setEnabled(false);
     rebuildLeadIn();
-    replan();
-    resize(780, 720);
+    destinationChanged();
+    resize(780, 820);
 }
 
 QStringList CombineDialog::imagePaths() const
@@ -165,6 +206,46 @@ QStringList CombineDialog::imagePaths() const
 bool CombineDialog::verifyAfter() const
 {
     return myVerify->isChecked();
+}
+
+bool CombineDialog::toFile() const
+{
+    return myToFile->isChecked();
+}
+
+bool CombineDialog::outputCompressed() const
+{
+    return myCompress->isChecked();
+}
+
+ImageSink::Format CombineDialog::outputFormat() const
+{
+    return (ImageSink::Format)myFormat->currentData().toInt();
+}
+
+void CombineDialog::destinationChanged()
+{
+    const bool file = toFile();
+    myOutFile->setEnabled(file);
+    myBrowse->setEnabled(file);
+    myCompress->setEnabled(file);
+    myFormat->setEnabled(file && myCompress->isChecked());
+    // The file is sized to the layout, the device is what it is: replanned.
+    replan();
+}
+
+void CombineDialog::browseOutput()
+{
+    const QString file = QFileDialog::getSaveFileName(
+        this, tr("Save the combined image as"),
+        myOutFile->text().isEmpty() ? myStartDir : myOutFile->text(),
+        tr("Disk Images (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)"), NULL,
+        // confirm() asks, once it knows the name with its extension.
+        QFileDialog::DontConfirmOverwrite);
+    if (!file.isEmpty())
+    {
+        myOutFile->setText(QDir::toNativeSeparators(file));
+    }
 }
 
 QString CombineDialog::sizeText(unsigned long long sectors) const
@@ -553,7 +634,8 @@ void CombineDialog::replan()
     }
     const int lead = myLead->currentData().toInt();
     QString why;
-    if (!planCombine(layouts, myOrder, lead, mySectorSize, myDeviceSectors,
+    // An image file has no size of its own: 0 plans it to fit the layout.
+    if (!planCombine(layouts, myOrder, lead, mySectorSize, toFile() ? 0ull : myDeviceSectors,
                      ALIGN_BYTES / mySectorSize, myNewGuids, &myPlan, &why))
     {
         myStatus->setText(tr("This cannot be written: %1.").arg(why));
@@ -592,11 +674,20 @@ void CombineDialog::replan()
         myPreview->resizeColumnToContents(c);
     }
 
-    const unsigned long long free = myDeviceSectors - myPlan.usedsectors
-        - (myPlan.table == COMBINE_TABLE_GPT ? myPlan.backupregion.size() / mySectorSize : 0);
-    QString text = tr("%1 partition table, %2 partitions. %3 used of %4; %5 left unused.")
-                       .arg(table).arg(myPlan.placed.size())
-                       .arg(sizeText(myPlan.usedsectors), sizeText(myDeviceSectors), sizeText(free));
+    QString text;
+    if (toFile())
+    {
+        text = tr("%1 partition table, %2 partitions. The image will hold %3.")
+                   .arg(table).arg(myPlan.placed.size()).arg(sizeText(myPlan.totalsectors));
+    }
+    else
+    {
+        const unsigned long long free = myDeviceSectors - myPlan.usedsectors
+            - (myPlan.table == COMBINE_TABLE_GPT ? myPlan.backupregion.size() / mySectorSize : 0);
+        text = tr("%1 partition table, %2 partitions. %3 used of %4; %5 left unused.")
+                   .arg(table).arg(myPlan.placed.size())
+                   .arg(sizeText(myPlan.usedsectors), sizeText(myDeviceSectors), sizeText(free));
+    }
     bool unchecked = false;
     for (const CombineChoice &c : myOrder)
     {
@@ -622,6 +713,41 @@ void CombineDialog::confirm()
     if (!myPlanOk)
     {
         return;
+    }
+    if (toFile())
+    {
+        // The name as a Read would make it: .img, or .img and the format's
+        // extension, appended to what was typed.
+        QString typed = myOutFile->text().trimmed();
+        if (typed.isEmpty())
+        {
+            QMessageBox::warning(this, tr("Combine images"), tr("Name the image file to write."));
+            return;
+        }
+        if (QFileInfo(typed).isRelative())
+        {
+            typed = QDir(myStartDir).filePath(typed);
+        }
+        const QString path = QDir::toNativeSeparators(QFileInfo(ImageSink::readTargetName(
+            typed, outputCompressed(), outputFormat())).absoluteFilePath());
+        for (const Source &s : mySources)
+        {
+            if (QFileInfo(s.path).absoluteFilePath().compare(QFileInfo(path).absoluteFilePath(),
+                                                             Qt::CaseInsensitive) == 0)
+            {
+                QMessageBox::warning(this, tr("Combine images"),
+                    tr("%1 is one of the images being combined; choose another name.").arg(path));
+                return;
+            }
+        }
+        if (QFileInfo::exists(path)
+            && QMessageBox::question(this, tr("Combine images"),
+                   tr("%1 already exists. Overwrite it?").arg(path),
+                   QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+        {
+            return;
+        }
+        myOutputPath = path;
     }
     if (!myPlan.duplicateGuids.isEmpty() && !myNewGuids)
     {

@@ -51,6 +51,7 @@
 #include "elapsedtimer.h"
 #include "combine.h"
 #include "combinedialog.h"
+#include "combinereader.h"
 
 MainWindow* MainWindow::instance = NULL;
 
@@ -543,9 +544,10 @@ void MainWindow::setReadWriteButtonState()
     bWrite->setEnabled(deviceSelected && fileSelected && fi.isReadable());
     bVerify->setEnabled(deviceSelected && fileSelected && fi.isReadable());
     // These need no image in the main window: one only looks at the device,
-    // the other chooses its images itself.
+    // the other chooses its images itself, and can write an image file
+    // without a device.
     bCheckGpt->setEnabled(deviceSelected);
-    bCombine->setEnabled(deviceSelected);
+    bCombine->setEnabled(true);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -904,16 +906,15 @@ void MainWindow::on_bCombine_clicked()
     {
         return;
     }
+    // With no device selected, only an image file can be written: the
+    // dialog offers nothing else.
     const int deviceID = selectedDeviceID();
-    if (deviceID < 0)
-    {
-        QMessageBox::critical(this, tr("Combine images"), tr("Please select a target device."));
-        return;
-    }
-    const QString targetText = cboxDevice->currentText();
+    const QString targetText = (deviceID >= 0) ? cboxDevice->currentText() : QString();
     // The images' tables are read in the device's sector size, so it is asked
-    // for first; the device is only opened to read its geometry.
-    unsigned long long devicesectors = 0ull, devsectorsize = 0ull;
+    // for first; the device is only opened to read its geometry. Image files
+    // have 512-byte sectors.
+    unsigned long long devicesectors = 0ull, devsectorsize = 512ull;
+    if (deviceID >= 0)
     {
         HANDLE h = getHandleOnDevice(deviceID, GENERIC_READ);
         if (h == INVALID_HANDLE_VALUE)
@@ -942,6 +943,12 @@ void MainWindow::on_bCombine_clicked()
     }
     const CombinePlan plan = dialog.plan();
     const QStringList paths = dialog.imagePaths();
+    if (dialog.toFile())
+    {
+        runCombineToFile(plan, paths, devsectorsize, dialog.outputPath(),
+                         dialog.outputCompressed(), dialog.outputFormat(), dialog.verifyAfter());
+        return;
+    }
     for (const CombineRange &r : plan.ranges)
     {
         if (fileIsOnSelectedDevice(paths[r.image]))
@@ -2872,4 +2879,222 @@ void MainWindow::on_bHashGen_clicked()
     }
     generateHash(leFile->text(), cboxHashType->currentData().toInt());
 
+}
+
+// "Combine images" to an image file. The image is produced front to back, since
+// a compressed file can only be written that way, and so is a raw one, which
+// keeps the two alike. A file that could not be finished is deleted: part of a
+// combined image is of no use to anyone.
+void MainWindow::runCombineToFile(const CombinePlan &plan, const QStringList &paths,
+                                  unsigned long long imagesectorsize, const QString &path,
+                                  bool compressed, ImageSink::Format format, bool verify)
+{
+    // Only the sector size this run works in; no device is involved.
+    sectorsize = imagesectorsize;
+    const unsigned long long total = plan.totalsectors;
+    // The raw size is what a raw file needs; for a compressed one it is the
+    // worst case, and running out of space half way is the failure to avoid.
+    if (!spaceAvailable(volumeDirectoryFor(path), total * sectorsize))
+    {
+        QMessageBox::critical(this, tr("Write Error"),
+                              tr("Disk is not large enough for the specified image."));
+        return;
+    }
+    status = STATUS_WRITING;
+    showProgress(true);
+    bCancel->setEnabled(true);
+    setReadWriteButtonState();
+
+    ImageSink sink;
+    SinkWriter writer(&sink, (size_t)(transferSectors() * sectorsize));
+    HANDLE out = INVALID_HANDLE_VALUE;
+    auto discard = [&](const QString &message) {
+        if (compressed)
+        {
+            writer.stop();
+            sink.abort();
+        }
+        else if (out != INVALID_HANDLE_VALUE)
+        {
+            CloseHandle(out);
+        }
+        DeleteFileW((LPCWSTR)path.utf16());
+        endRun(message);
+    };
+    if (compressed)
+    {
+        if (!sink.open(path, format))
+        {
+            QMessageBox::critical(this, tr("Write Error"), sink.errorString());
+            endRun(tr("Write failed."));
+            return;
+        }
+        writer.start();
+    }
+    else
+    {
+        out = getHandleOnFile((LPCWSTR)path.utf16(), GENERIC_WRITE);
+        if (out == INVALID_HANDLE_VALUE)
+        {
+            endRun(tr("Write failed."));
+            return;
+        }
+    }
+
+    unsigned long long lasti = 0ull;
+    int shift = beginProgress(total, &lasti);
+    statusbar->showMessage(tr("Writing..."));
+    const unsigned long long chunk = transferSectors();
+    std::vector<char> buf((size_t)(chunk * sectorsize));
+    unsigned long long done = 0ull;
+    {
+        CombineReader reader(plan, paths, sectorsize);
+        while (done < total)
+        {
+            unsigned long long got = 0ull;
+            if (!reader.read(buf.data(), qMin(chunk, total - done), &got) || got == 0ull)
+            {
+                QMessageBox::critical(this, tr("Write Error"),
+                    reader.errorString().isEmpty() ? tr("The combined image ended early.")
+                                                   : reader.errorString());
+                discard(tr("Write failed."));
+                return;
+            }
+            const bool written = compressed
+                ? writer.write(buf.data(), got * sectorsize)
+                : writeSectorDataToHandle(out, buf.data(), done, got, sectorsize);
+            if (!written)
+            {
+                if (compressed)
+                {
+                    QMessageBox::critical(this, tr("Write Error"), writer.errorString());
+                }
+                discard(tr("Write failed."));
+                return;
+            }
+            done += got;
+            showThroughput(done, total, &lasti);
+            progressbar->setValue((int)(done >> shift));
+            QCoreApplication::processEvents();
+            if (status != STATUS_WRITING)
+            {
+                discard(tr("Write cancelled."));
+                return;
+            }
+        }
+    }
+    if (compressed)
+    {
+        if (!writer.finish() || !sink.finish())
+        {
+            QMessageBox::critical(this, tr("Write Error"),
+                writer.failed() ? writer.errorString() : sink.errorString());
+            discard(tr("Write failed."));
+            return;
+        }
+    }
+    else
+    {
+        FlushFileBuffers(out);
+        CloseHandle(out);
+        out = INVALID_HANDLE_VALUE;
+    }
+    progressbar->setValue(progressbar->maximum());
+
+    if (verify)
+    {
+        // The file as written, decompressed if it is compressed, against a
+        // second pass of the combination.
+        status = STATUS_VERIFYING;
+        shift = beginProgress(total, &lasti);
+        statusbar->showMessage(tr("Verifying..."));
+        ImageSource written;
+        if (!written.open(path, sectorsize))
+        {
+            QMessageBox::critical(this, tr("Verify Error"), written.errorString());
+            endRun(tr("Verify failed."));
+            return;
+        }
+        CombineReader reader(plan, paths, sectorsize);
+        std::vector<char> back(buf.size());
+        done = 0ull;
+        while (done < total)
+        {
+            const unsigned long long want = qMin(chunk, total - done);
+            unsigned long long got = 0ull, gotback = 0ull;
+            if (!reader.read(buf.data(), want, &got)
+                || !written.readInto(back.data(), done, want, &gotback))
+            {
+                QMessageBox::critical(this, tr("Verify Error"),
+                    reader.errorString().isEmpty() ? written.errorString() : reader.errorString());
+                endRun(tr("Verify failed."));
+                return;
+            }
+            if (gotback != got || memcmp(buf.data(), back.data(), (size_t)(got * sectorsize)) != 0)
+            {
+                unsigned long long bad = 0ull;
+                while (bad < gotback && memcmp(buf.data() + bad * sectorsize,
+                                               back.data() + bad * sectorsize, (size_t)sectorsize) == 0)
+                {
+                    ++bad;
+                }
+                QMessageBox::critical(this, tr("Verify Failure"),
+                    tr("Sector %1 of %2 is not what was written.")
+                        .arg(done + bad).arg(QFileInfo(path).fileName()));
+                endRun(tr("Verify failed."));
+                return;
+            }
+            done += got;
+            showThroughput(done, total, &lasti);
+            progressbar->setValue((int)(done >> shift));
+            QCoreApplication::processEvents();
+            if (status != STATUS_VERIFYING)
+            {
+                endRun(tr("Verify cancelled."));
+                return;
+            }
+        }
+        // The stream must end where the image does, and its checks pass.
+        unsigned long long extra = 0ull;
+        char *tail = written.read(total, 1ull, &extra);
+        const bool clean = (tail != NULL && extra == 0ull);
+        delete[] tail;
+        if (!clean)
+        {
+            QMessageBox::critical(this, tr("Verify Failure"),
+                tr("%1 holds more than the combined image, or does not end cleanly.")
+                    .arg(QFileInfo(path).fileName()));
+            endRun(tr("Verify failed."));
+            return;
+        }
+        progressbar->setValue(progressbar->maximum());
+    }
+
+    QSet<int> images;
+    for (const CombinePlaced &p : plan.placed)
+    {
+        images.insert(p.image);
+    }
+    const QString table = (plan.table == COMBINE_TABLE_GPT) ? tr("GPT") : tr("MBR");
+    QString msg = (verify ? tr("Write and verify successful.") : tr("Write successful."))
+        + "\n\n" + tr("%1 holds a %2 partition table with %3 partitions from %4 images.")
+              .arg(QDir::toNativeSeparators(path), table).arg(plan.placed.size()).arg(images.size());
+    if (plan.table == COMBINE_TABLE_GPT)
+    {
+        msg += " " + tr("Its backup GPT ends the image; \"Fix GPT after write\" moves it to the "
+                        "end of a larger device when the image is written.");
+    }
+    QMessageBox::information(this, tr("Combine images"), msg);
+
+    const bool exiting = (status == STATUS_EXIT);
+    status = STATUS_IDLE;
+    showProgress(false);
+    elapsed_timer->stop();
+    statusbar->showMessage(verify ? tr("Verify Successful.") : tr("Write Successful."));
+    bCancel->setEnabled(false);
+    setReadWriteButtonState();
+    if (exiting)
+    {
+        close();
+    }
 }

@@ -14,6 +14,9 @@ Two chosen partitions sharing a unique GUID, as the same partition from two
   GUIDs for the later copies
 The backup GPT is written at the end of the device, so Windows has nothing to
   repair, and the device is verified afterwards unless told not to be
+The combination can be written to a new image file instead, raw or compressed
+  as a Read's can be, exactly as big as the layout. No device need be
+  selected for it
 
 Release 2.0.4
 =============

@@ -702,7 +702,12 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
     }
 
     // Does it fit? A GPT keeps its backup entry array and header at the end.
+    // For an image file there is no device: it is made exactly big enough.
     const unsigned long long reserved = (table == COMBINE_TABLE_GPT) ? entrysectors + 1 : 0;
+    if (devicesectors == 0)
+    {
+        devicesectors = cursor + reserved;
+    }
     if (devicesectors <= reserved || cursor > devicesectors - reserved)
     {
         return fail(QObject::tr("the partitions need %1 MB and the device has %2 MB")
@@ -744,6 +749,7 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
     out.table = table;
     out.headersectors = tableend;
     out.usedsectors = cursor;
+    out.totalsectors = devicesectors;
     out.placed = placed;
     out.duplicateGuids = newguids ? QStringList() : duplicates;
     out.ranges = ranges;

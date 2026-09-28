@@ -32,6 +32,7 @@
 #include <QByteArray>
 #include <QComboBox>
 #include <QListWidget>
+#include <QRadioButton>
 #include <QTreeWidget>
 #include <QString>
 #include <QUuid>
@@ -41,6 +42,8 @@
 #include <zlib.h>
 #include "combine.h"
 #include "combinedialog.h"
+#include "combinereader.h"
+#include "imagesource.h"
 #include "disk.h"
 #include "mainwindow.h"
 
@@ -738,6 +741,23 @@ static void caseDialog()
         dlg.grab().save(qEnvironmentVariable("COMBINETEST_SHOT"));
     }
 
+    // To an image file instead: planned to fit, not to the device.
+    QRadioButton *tofile = NULL;
+    for (QRadioButton *r : dlg.findChildren<QRadioButton *>())
+    {
+        if (r->text() == "An image file:") tofile = r;
+    }
+    check(tofile && !dlg.toFile(), "the device is the default destination");
+    if (tofile)
+    {
+        tofile->setChecked(true);
+        const CombinePlan &fp = dlg.plan();
+        check(dlg.toFile() && dlg.planIsValid() && fp.totalsectors == fp.usedsectors + 33,
+              "an image file is planned just big enough, backup GPT included");
+        dlg.findChildren<QRadioButton *>().first()->setChecked(true);
+        check(!dlg.toFile() && dlg.plan().totalsectors == device, "  and back to the device, its size");
+    }
+
     // Unticking one takes it out of the order.
     images->topLevelItem(2)->child(0)->setCheckState(0, Qt::Unchecked);
     check(order->count() == 3 && dlg.plan().placed.size() == 3, "unticked, it leaves the layout");
@@ -745,6 +765,97 @@ static void caseDialog()
     DeleteFileA("combinetest-a.img");
     DeleteFileA("combinetest-b.img.gz");
     DeleteFileA("combinetest-f.img");
+}
+
+// Planned for an image file: no device, so exactly as big as the layout,
+// and produced front to back by CombineReader, as a compressed file must be.
+// It must be byte for byte what applying the plan to a device gives -- read
+// in odd-sized pieces, from a gzip image whose partitions go on in reverse
+// order, which it can only do by starting that image again.
+static void caseImageFile()
+{
+    printf("to an image file\n");
+    const QByteArray a = gptImage(20000, 34, {
+        {2048, 6000, LINUX, "C1C1C1C1-C1C1-C1C1-C1C1-C1C1C1C1C1C1", "a-root", 'a', 0} },
+        "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA");
+    const QByteArray b = gptImage(20000, 34, {
+        {2048, 4095, ESP, "C2C2C2C2-C2C2-C2C2-C2C2-C2C2C2C2C2C2", "b-boot", 'b', 0},
+        {4096, 9000, LINUX, "C3C3C3C3-C3C3-C3C3-C3C3-C3C3C3C3C3C3", "b-root", 'c', 0} },
+        "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB");
+    check(writeFile("combinetest-a.img", a) && writeFile("combinetest-b.img.gz", gzipOf(b)),
+          "fixture files written");
+    QList<ImageLayout> ls(2);
+    layoutOf(a, &ls[0]);
+    layoutOf(b, &ls[1]);
+    CombinePlan plan;
+    QString why;
+    // B's root before B's boot: backwards through the gzip stream.
+    const bool ok = planCombine(ls, { {1, 1}, {0, 0}, {1, 0} }, -1, SEC, 0, ALIGN, false, &plan, &why);
+    check(ok, "planned with no device");
+    if (!ok) { printf("    (%s)\n", why.toLocal8Bit().constData()); return; }
+    const CombinePlaced &lastp = plan.placed.last();
+    check(plan.totalsectors == lastp.first + lastp.sectors + 33 && plan.usedsectors == lastp.first + lastp.sectors,
+          "the image is just the layout and its backup GPT");
+    const QByteArray expect = apply(plan, { a, b }, plan.totalsectors);
+    check(backupAtEnd(expect, plan.totalsectors), "  which ends the image");
+
+    QByteArray buf(7 * (int)SEC, 0);
+    unsigned long long n = 0;
+    {
+        // Scoped: it holds the images open, and the one below is rewritten.
+        CombineReader reader(plan, { "combinetest-a.img", "combinetest-b.img.gz" }, SEC);
+        check(reader.totalSectors() == plan.totalsectors, "the reader's length is the image's");
+        QByteArray got;
+        bool readok = true;
+        do
+        {
+            readok = reader.read(buf.data(), 7, &n);
+            got.append(buf.constData(), (int)(n * SEC));
+        } while (readok && n == 7);
+        check(readok, "read to the end without error");
+        if (!readok) printf("    (%s)\n", reader.errorString().toLocal8Bit().constData());
+        check(got == expect, "every byte is what the plan puts there");
+    }
+    {
+        // Into an .img.xz as the file output writes it, and read back as a
+        // Write or Verify would read it.
+        CombineReader reader(plan, { "combinetest-a.img", "combinetest-b.img.gz" }, SEC);
+        ImageSink sink;
+        bool ok2 = sink.open("combinetest-out.img.xz", ImageSink::FORMAT_XZ);
+        QByteArray chunk(64 * (int)SEC, 0);
+        do
+        {
+            ok2 = ok2 && reader.read(chunk.data(), 64, &n)
+                  && sink.write(chunk.constData(), n * SEC);
+        } while (ok2 && n == 64);
+        ok2 = ok2 && sink.finish();
+        check(ok2, "written to an .img.xz");
+        ImageSource back;
+        QByteArray all((int)(plan.totalsectors * SEC), 0);
+        unsigned long long gotback = 0, extra = 0;
+        check(back.open("combinetest-out.img.xz", SEC)
+              && back.readInto(all.data(), 0, plan.totalsectors, &gotback)
+              && gotback == plan.totalsectors && all == expect,
+              "  which decompresses to exactly the combined image");
+        char *tail = back.read(plan.totalsectors, 1, &extra);
+        check(tail != NULL && extra == 0, "  and ends where it does");
+        delete[] tail;
+    }
+    DeleteFileA("combinetest-out.img.xz");
+
+    // A gzip image cut short: the reader must say so, not pad it out.
+    const QByteArray gz = gzipOf(b);
+    // A fifth of the stream: short of b-root, which ends 45% of the way in.
+    check(writeFile("combinetest-b.img.gz", gz.left(gz.size() / 5)), "a truncated copy written");
+    CombineReader cut(plan, { "combinetest-a.img", "combinetest-b.img.gz" }, SEC);
+    bool cutok = true;
+    do
+    {
+        cutok = cut.read(buf.data(), 7, &n);
+    } while (cutok && n == 7);
+    check(!cutok && !cut.errorString().isEmpty(), "a truncated image is an error");
+    DeleteFileA("combinetest-a.img");
+    DeleteFileA("combinetest-b.img.gz");
 }
 
 int main(int argc, char **argv)
@@ -760,6 +871,7 @@ int main(int argc, char **argv)
     caseDuplicates();
     caseRefusals();
     caseDialog();
+    caseImageFile();
     DeleteFileA(TESTFILE);
     printf("\n%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

@@ -31,7 +31,8 @@ corrupting the GPT of images like ARM board images. See
   - **Skip unpartitioned space** leaves out the space outside the partitions.
   - **Choose partitions to read** leaves out whole partitions you pick.
 - **Combine images** puts partitions from several image files onto one device,
-  in an order you choose, under a new partition table.
+  or into a new image file, in an order you choose, under a new partition
+  table.
 - **Verify** a device against an image byte for byte, compressed images
   included. It also checks the partition table and can repair one that
   Windows has broken.
@@ -88,9 +89,10 @@ Both options work together with **Compress during Read**.
 
 ## Combining images
 
-**Combine images...** builds a device from the partitions of several image
-files. Add the images, tick the partitions you want, and put them in order;
-the preview shows where each will go and how much of the device is left.
+**Combine images...** builds a device, or a new image file, from the
+partitions of several image files. Add the images, tick the partitions you
+want, and put them in order; the preview shows where each will go and how
+much space is left.
 
 - Only each image's partition table is read when you add it: its first
   sectors, even for a compressed image. An image with no partition table -- a
@@ -117,6 +119,12 @@ the preview shows where each will go and how much of the device is left.
 - The backup GPT is written at the end of the device, so Windows has nothing
   to repair, and the new table is written last, after every partition.
   **Verify after writing**, on by default, then reads it all back.
+- **Write to an image file** instead makes an `.img`, or with **Compress to**
+  an `.img.gz`, `.img.xz`, `.img.bz2` or `.img.zst`, exactly as big as the
+  layout, its backup GPT at the end; **Fix GPT after write** moves it when the
+  image is written to a larger device. No device need be selected for this.
+  Verify reads the file back, decompressing it, and compares it with the
+  combination.
 
 Whether the result boots depends on its bootloaders finding their partitions
 where they now are: something that looks for "partition 1" may find another.

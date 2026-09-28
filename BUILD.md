@@ -353,9 +353,17 @@ naming what it belongs to, so one landing in the wrong place is caught.
 Layouts that cannot be written -- five partitions on an MBR, a type with no
 counterpart, too small a device -- must be refused.
 
+For an image file, `src/combinereader.cpp` produces the combined image front
+to back, as a compressed file must be written; it must give byte for byte what
+the plan applied to a device gives, from a gzip image whose partitions go on
+in reverse order -- which it can only do by starting that image again -- and
+into an `.img.xz` that decompresses to exactly that. A truncated input must be
+an error.
+
 It also drives `src/combinedialog.cpp` off screen, with a gzip image among its
 inputs, as a user would: adding images, ticking partitions in order, picking a
-lead-in. `COMBINETEST_SHOT=file.png` saves the dialog as drawn.
+lead-in, switching to an image file. `COMBINETEST_SHOT=file.png` saves the
+dialog as drawn.
 
 ## Testing shrink-on-read
 
