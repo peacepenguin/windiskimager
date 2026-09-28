@@ -35,8 +35,9 @@ class QRadioButton;
 class QTreeWidget;
 class QTreeWidgetItem;
 
-// "Combine images": the user adds image files, ticks the partitions of each to
-// put on the device, orders them, and may pick one image's lead-in. Each
+// "Combine images": the user adds sources -- image files, and disks -- ticks
+// the partitions of each to put on the device, orders them, and may pick one
+// source's lead-in. Each
 // image's partition table is read from its first sectors only; a full scan,
 // which decompresses the whole image, is only ever done when asked for. The
 // layout is planned (planCombine) and previewed as it changes, and the dialog
@@ -49,7 +50,8 @@ class CombineDialog : public QDialog
 {
     Q_OBJECT
 public:
-    CombineDialog(QWidget *parent, const QString &deviceText,
+    // targetDevice is the device written to, or -1: it cannot be a source too.
+    CombineDialog(QWidget *parent, const QString &deviceText, int targetDevice,
                   unsigned long long devicesectors, unsigned long long sectorsize,
                   const QString &startDir, const QStringList &fileFilters);
 
@@ -68,10 +70,13 @@ public:
     // it directly.
     void addImageFiles(const QStringList &paths);
     QStringList imagePaths() const;
+    // The disks among the sources the plan reads from, by number.
+    QList<int> sourceDisks() const;
     bool verifyAfter() const;
 
 private slots:
     void addImages();
+    void addDisks();
     void removeImage();
     void scanImage();
     void moveUp();
@@ -84,7 +89,9 @@ private slots:
 private:
     struct Source
     {
-        QString path;
+        QString path;               // a file, or ImageSource::devicePath() for a disk
+        int disk = -1;              // the disk's number, or -1 for a file
+        QString label;              // a disk's description, as the device list has it
         QString format;             // "gzip", "raw", ...
         unsigned long long sectors; // exact when sizeKnown, else an estimate or 0
         bool sizeKnown;
@@ -93,6 +100,8 @@ private:
     };
 
     bool loadImage(const QString &path, Source *src, QString *why);
+    // Adds disk `number` as a source; reports if it cannot be read.
+    void addDisk(int number, const QString &label);
     // Reads the whole image, to learn its exact size and that it decompresses.
     // False if cancelled or it fails (reported).
     bool fullScan(Source *src);
@@ -101,10 +110,12 @@ private:
     void rebuildLeadIn();
     void replan();
     int selectedImage() const;
+    QString sourceName(int image) const;
     QString partitionText(int image, int partition) const;
     QString sizeText(unsigned long long sectors) const;
 
     QString myDeviceText;
+    int myTargetDevice;
     unsigned long long myDeviceSectors, mySectorSize;
     QString myStartDir;
     QStringList myFilters;

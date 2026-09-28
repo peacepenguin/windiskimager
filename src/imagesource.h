@@ -46,7 +46,17 @@ public:
 
     // Detects the format and, where possible, the uncompressed size. Returns
     // false and sets errorString() on failure.
+    //
+    // A path of the form \\.\PhysicalDriveN (see devicePath()) opens that
+    // disk instead, read-only and raw, sized from its geometry; its sector
+    // size must be sectorsize. Reads past its end come back short, as a raw
+    // file's do.
     bool open(const QString &path, unsigned long long sectorsize);
+    // The path open() takes for physical disk n; and the disk a path names,
+    // or -1.
+    static QString devicePath(int n);
+    static int deviceNumber(const QString &path);
+    bool isDevice() const { return myDevice; }
     void close();
 
     bool isCompressed() const { return myFormat != FORMAT_RAW; }
@@ -101,6 +111,7 @@ private:
     unsigned long long myCompressedSize;
     unsigned long long myPos;          // next sector the stream will produce
     bool mySizeKnown;
+    bool myDevice = false;             // a physical disk, not a file
     bool myEof;
     bool myFinishing;                  // xz/bzip2/zstd: input ended, flushing the decoder
     QString myError;

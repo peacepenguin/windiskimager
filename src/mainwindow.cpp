@@ -42,6 +42,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <memory>
 #include <climits>
 
 #include "disk.h"
@@ -848,6 +849,46 @@ void MainWindow::on_bCheckGpt_clicked()
 // Defaults to SHA256, the hash publishers most often quote, but only when
 // the image changes: editingFinished fires on every focus loss, and resetting
 // each time would undo a hand-picked type.
+// Source disks are read with their volumes locked and dismounted, as a Read
+// locks its device: a filesystem left mounted could change what is copied
+// half way through. Mounted ones are named first, since whatever is using
+// them loses them for the run. False if the user would rather not.
+static bool confirmSourceDisks(QWidget *parent, const QList<int> &disks)
+{
+    QStringList mounted;
+    for (int d : disks)
+    {
+        const QString letters = driveLettersOnDevice((ULONG)d);
+        if (!letters.isEmpty())
+        {
+            mounted.append(QObject::tr("Disk %1 (%2)").arg(d).arg(letters));
+        }
+    }
+    return mounted.isEmpty()
+        || QMessageBox::warning(parent, QObject::tr("Source disks will be dismounted"),
+               QObject::tr("While they are read, the volumes on these source disks are locked "
+                           "and dismounted, so nothing changes them half way through:\n\n%1"
+                           "\n\nPrograms using them lose them until the run ends. Nothing "
+                           "on them is changed. Continue?").arg(mounted.join("\n")),
+               QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+}
+
+// Locks every volume on each source disk into *locks. False, having reported
+// it, if one cannot be locked; what was locked is released with *locks.
+static bool lockSourceDisks(const QList<int> &disks,
+                            std::vector<std::unique_ptr<LockedVolumes>> *locks)
+{
+    for (int d : disks)
+    {
+        locks->push_back(std::make_unique<LockedVolumes>());
+        if (!locks->back()->lockAll((DWORD)d))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 void MainWindow::on_bCombine_clicked()
 {
     // See on_bWrite_clicked(): reachable mid-run through processEvents().
@@ -885,22 +926,36 @@ void MainWindow::on_bCombine_clicked()
         }
     }
 
-    CombineDialog dialog(this, targetText, devicesectors, devsectorsize, myHomeDir, myFileTypeList);
+    CombineDialog dialog(this, targetText, deviceID, devicesectors, devsectorsize, myHomeDir,
+                         myFileTypeList);
     if (dialog.exec() != QDialog::Accepted)
     {
         return;
     }
     const CombinePlan plan = dialog.plan();
     const QStringList paths = dialog.imagePaths();
+    const QList<int> sourcedisks = dialog.sourceDisks();
+    if (!confirmSourceDisks(this, sourcedisks))
+    {
+        return;
+    }
     if (dialog.toFile())
     {
-        runCombineToFile(plan, paths, devsectorsize, dialog.outputPath(),
+        runCombineToFile(plan, paths, sourcedisks, devsectorsize, dialog.outputPath(),
                          dialog.outputCompressed(), dialog.outputFormat(), dialog.verifyAfter());
+        return;
+    }
+    // The dialog refuses the target as a source; asked again here, where the
+    // device is known for certain.
+    if (sourcedisks.contains(deviceID))
+    {
+        QMessageBox::critical(this, tr("Write Error"),
+            tr("The target device is also one of the sources."));
         return;
     }
     for (const CombineRange &r : plan.ranges)
     {
-        if (fileIsOnSelectedDevice(paths[r.image]))
+        if (ImageSource::deviceNumber(paths[r.image]) < 0 && fileIsOnSelectedDevice(paths[r.image]))
         {
             QMessageBox::critical(this, tr("Write Error"),
                 tr("%1 is on the target device, and cannot be written to it.")
@@ -940,7 +995,7 @@ void MainWindow::on_bCombine_clicked()
                "target device and try again."));
         return;
     }
-    runCombine(deviceID, targetText, devicesectors, plan, paths, dialog.verifyAfter());
+    runCombine(deviceID, targetText, devicesectors, plan, paths, sourcedisks, dialog.verifyAfter());
 }
 
 int MainWindow::transferCombined(const CombinePlan &plan, const QStringList &paths, bool verify,
@@ -1052,7 +1107,7 @@ int MainWindow::transferCombined(const CombinePlan &plan, const QStringList &pat
 
 void MainWindow::runCombine(int deviceID, const QString &targetText,
                             unsigned long long expectedsectors, const CombinePlan &plan,
-                            const QStringList &paths, bool verify)
+                            const QStringList &paths, const QList<int> &sourcedisks, bool verify)
 {
     (void)targetText;
     status = STATUS_WRITING;
@@ -1061,6 +1116,7 @@ void MainWindow::runCombine(int deviceID, const QString &targetText,
     setReadWriteButtonState();
 
     LockedVolumes locked;
+    std::vector<std::unique_ptr<LockedVolumes>> sourcelocks;
     // Every failure path below closes the disk before releasing the locks;
     // see acquireDeviceAndImage().
     auto stop = [&](const QString &message) {
@@ -1070,11 +1126,12 @@ void MainWindow::runCombine(int deviceID, const QString &targetText,
             hRawDisk = INVALID_HANDLE_VALUE;
         }
         locked.release();
+        sourcelocks.clear();
         endRun(message);
     };
     const QString partial = tr("The device has been partially written and no longer holds "
                                "a usable layout. Write it again before using it.");
-    if (!locked.lockAll(deviceID))
+    if (!locked.lockAll(deviceID) || !lockSourceDisks(sourcedisks, &sourcelocks))
     {
         stop(tr("Write failed."));
         return;
@@ -1186,6 +1243,7 @@ void MainWindow::runCombine(int deviceID, const QString &targetText,
     CloseHandle(hRawDisk);
     hRawDisk = INVALID_HANDLE_VALUE;
     locked.release();
+    sourcelocks.clear();
 
     QSet<int> images;
     for (const CombinePlaced &p : plan.placed)
@@ -2835,6 +2893,7 @@ void MainWindow::on_bHashGen_clicked()
 // keeps the two alike. A file that could not be finished is deleted: part of a
 // combined image is of no use to anyone.
 void MainWindow::runCombineToFile(const CombinePlan &plan, const QStringList &paths,
+                                  const QList<int> &sourcedisks,
                                   unsigned long long imagesectorsize, const QString &path,
                                   bool compressed, ImageSink::Format format, bool verify)
 {
@@ -2847,6 +2906,12 @@ void MainWindow::runCombineToFile(const CombinePlan &plan, const QStringList &pa
     {
         QMessageBox::critical(this, tr("Write Error"),
                               tr("Disk is not large enough for the specified image."));
+        return;
+    }
+    // For the whole run, verify included; released on every way out.
+    std::vector<std::unique_ptr<LockedVolumes>> sourcelocks;
+    if (!lockSourceDisks(sourcedisks, &sourcelocks))
+    {
         return;
     }
     status = STATUS_WRITING;

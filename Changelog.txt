@@ -17,6 +17,8 @@ The backup GPT is written at the end of the device, so Windows has nothing to
 The combination can be written to a new image file instead, raw or compressed
   as a Read's can be, exactly as big as the layout. No device need be
   selected for it
+Partitions can come from disks as well as image files. A source disk's
+  volumes are locked and dismounted while it is read, as for a Read
 
 Release 2.0.4
 =============

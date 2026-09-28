@@ -34,6 +34,10 @@
 #include <QListWidget>
 #include <QRadioButton>
 #include <QToolTip>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QTimer>
 #include <QTreeWidget>
 #include <QString>
 #include <QUuid>
@@ -679,12 +683,12 @@ static void caseDialog()
           && writeFile("combinetest-f.img", f), "fixture files written");
 
     const unsigned long long device = 200000;
-    CombineDialog dlg(NULL, "test device", device, SEC, ".", QStringList("*.*"));
+    CombineDialog dlg(NULL, "test device", -1, device, SEC, ".", QStringList("*.*"));
     dlg.addImageFiles({ "combinetest-a.img", "combinetest-b.img.gz", "combinetest-f.img" });
     QTreeWidget *images = NULL;
     for (QTreeWidget *t : dlg.findChildren<QTreeWidget *>())
     {
-        if (t->headerItem()->text(0) == "Image / partition") images = t;
+        if (t->headerItem()->text(0) == "Source / partition") images = t;
     }
     check(images && images->topLevelItemCount() == 3, "three images listed");
     if (!images || images->topLevelItemCount() != 3) return;
@@ -905,6 +909,92 @@ static void caseImageFile()
     DeleteFileA("combinetest-b.img.gz");
 }
 
+// Presses Write in the dialog, answering whatever message boxes come up with
+// the button named `answer` (or the first), and returns their titles in order.
+static QStringList pressWrite(CombineDialog &dlg, const QString &answer)
+{
+    QStringList seen;
+    QTimer timer;
+    timer.setInterval(20);
+    QObject::connect(&timer, &QTimer::timeout, [&]() {
+        QMessageBox *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+        if (!box || box == (QWidget *)&dlg) return;
+        seen.append(box->windowTitle());
+        for (QAbstractButton *b : box->buttons())
+        {
+            if (b->text() == answer) { b->click(); return; }
+        }
+        box->buttons().first()->click();
+    });
+    timer.start();
+    QPushButton *write = NULL;
+    for (QPushButton *b : dlg.findChildren<QPushButton *>())
+    {
+        if (b->text() == "Write...") write = b;
+    }
+    if (write) write->click();
+    timer.stop();
+    return seen;
+}
+
+// The same partition from two copies of one image, to a device and to an
+// image file: both must ask about the shared GUID, and "Generate new GUIDs"
+// must leave the accepted plan without it.
+static void caseDuplicatePrompt(bool tofile)
+{
+    printf("duplicate GUIDs, writing to %s\n", tofile ? "an image file" : "a device");
+    const QByteArray a = gptImage(9000, 34, {
+        {2048, 5000, LINUX, "D1D1D1D1-D1D1-D1D1-D1D1-D1D1D1D1D1D1", "root", 'a', 0} },
+        "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA");
+    writeFile("combinetest-dup1.img", a);
+    writeFile("combinetest-dup2.img", a);
+    DeleteFileA("combinetest-dupout.img");
+    CombineDialog dlg(NULL, tofile ? QString() : QString("test device"), -1, tofile ? 0 : 100000, SEC,
+                      ".", QStringList("*.*"));
+    dlg.addImageFiles({ "combinetest-dup1.img", "combinetest-dup2.img" });
+    QTreeWidget *images = NULL;
+    for (QTreeWidget *t : dlg.findChildren<QTreeWidget *>())
+    {
+        if (t->headerItem()->text(0) == "Source / partition") images = t;
+    }
+    images->topLevelItem(0)->child(0)->setCheckState(0, Qt::Checked);
+    images->topLevelItem(1)->child(0)->setCheckState(0, Qt::Checked);
+    if (tofile)
+    {
+        dlg.findChild<QLineEdit *>()->setText("combinetest-dupout.img");
+    }
+    check(dlg.toFile() == tofile && dlg.planIsValid() && dlg.plan().duplicateGuids.size() == 1,
+          "the shared GUID is found");
+    const QStringList seen = pressWrite(dlg, "Generate new GUIDs");
+    printf("    (message boxes: %s)\n", seen.join(", ").toLocal8Bit().constData());
+    check(seen.contains("Duplicate partition GUIDs"), "Write asks about it");
+    check(dlg.result() == QDialog::Accepted && dlg.plan().duplicateGuids.isEmpty(),
+          "  and after new GUIDs, the plan accepted has none");
+    DeleteFileA("combinetest-dup1.img");
+    DeleteFileA("combinetest-dup2.img");
+}
+
+// Disks as sources: the path the dialog gives one, and ImageSource taking such
+// a path as a disk, never as a file of that name. Reading a real disk needs
+// Administrator and a disk to spare, so only what fails cleanly without one
+// is tried here: a disk that is not there must say so, naming it.
+static void caseDiskPaths()
+{
+    printf("disks as sources\n");
+    check(ImageSource::devicePath(3) == "\\\\.\\PhysicalDrive3", "disk 3 is \\\\.\\PhysicalDrive3");
+    check(ImageSource::deviceNumber(ImageSource::devicePath(12)) == 12
+          && ImageSource::deviceNumber("\\\\.\\physicaldrive7") == 7,
+          "  and the number comes back from the path, in any case");
+    check(ImageSource::deviceNumber("C:\\images\\PhysicalDrive3.img") == -1
+          && ImageSource::deviceNumber("\\\\.\\PhysicalDriveX") == -1
+          && ImageSource::deviceNumber("combinetest.img") == -1,
+          "a file is not a disk, whatever its name");
+    ImageSource src;
+    check(!src.open(ImageSource::devicePath(999), SEC)
+          && src.errorString().contains("Disk 999") && !src.isDevice(),
+          "a disk that cannot be opened is reported as that disk");
+}
+
 int main(int argc, char **argv)
 {
     // The dialog is created off screen: nothing is shown.
@@ -919,6 +1009,9 @@ int main(int argc, char **argv)
     caseRefusals();
     caseDialog();
     caseImageFile();
+    caseDuplicatePrompt(false);
+    caseDuplicatePrompt(true);
+    caseDiskPaths();
     DeleteFileA(TESTFILE);
     printf("\n%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

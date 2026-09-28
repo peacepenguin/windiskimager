@@ -365,6 +365,12 @@ inputs, as a user would: adding images, ticking partitions in order, picking a
 lead-in, switching to an image file. `COMBINETEST_SHOT=file.png` saves the
 dialog as drawn.
 
+Disks as sources are read through `ImageSource`, which takes a
+`\\.\PhysicalDriveN` path as that disk. The harness checks the paths, and
+that a disk it cannot open fails as that disk rather than as a file of that
+name; it does not read a real disk, which needs Administrator and a disk to
+spare. Try one by hand: a card, combined into an image file.
+
 ## Testing shrink-on-read
 
 "Skip unpartitioned space" repacks a GPT or MBR device to remove the

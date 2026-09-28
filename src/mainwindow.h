@@ -125,11 +125,12 @@ private:
         // device to ejecting it.
         void runCombine(int deviceID, const QString &targetText,
                         unsigned long long expectedsectors, const CombinePlan &plan,
-                        const QStringList &paths, bool verify);
+                        const QStringList &paths, const QList<int> &sourcedisks, bool verify);
         // "Combine images" to an image file: the combined image, produced in
         // order (CombineReader), raw or compressed, then verified by reading
         // the file back if asked.
         void runCombineToFile(const CombinePlan &plan, const QStringList &paths,
+                              const QList<int> &sourcedisks,
                               unsigned long long imagesectorsize, const QString &path,
                               bool compressed, ImageSink::Format format, bool verify);
         // Copies (or with verify, compares) every range of the plan, image by

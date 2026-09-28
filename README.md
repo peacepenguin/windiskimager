@@ -30,9 +30,9 @@ corrupting the GPT of images like ARM board images. See
   `.img.gz` (the default), `.img.xz`, `.img.bz2` or `.img.zst`.
   - **Skip unpartitioned space** leaves out the space outside the partitions.
   - **Choose partitions to read** leaves out whole partitions you pick.
-- **Combine images** puts partitions from several image files onto one device,
-  or into a new image file, in an order you choose, under a new partition
-  table.
+- **Combine images** puts partitions from several image files and disks onto
+  one device, or into a new image file, in an order you choose, under a new
+  partition table.
 - **Verify** a device against an image byte for byte, compressed images
   included. It also checks the partition table and can repair one that
   Windows has broken.
@@ -90,11 +90,18 @@ Both options work together with **Compress during Read**.
 ## Combining images
 
 **Combine images...** builds a device, or a new image file, from the
-partitions of several image files. Add the images, tick the partitions you
-want, and put them in order; the preview shows where each will go and how
-much space is left.
+partitions of several sources: image files, and disks. Add the sources, tick
+the partitions you want, and put them in order; the preview shows where each
+will go and how much space is left.
 
-- Only each image's partition table is read when you add it: its first
+- **Add disks...** lists the disks to take partitions from, fixed ones
+  included (**Show all devices** starts ticked there); the disk Windows runs
+  from is never listed. While a run reads a disk, its volumes are locked and
+  dismounted, as for a Read, so nothing changes them half way through; you are
+  warned first if any are mounted. A disk cannot be both a source and the
+  device written to, and an image file cannot be written to a source disk.
+
+- Only each source's partition table is read when you add it: its first
   sectors, even for a compressed image. An image with no partition table -- a
   bare filesystem image -- is taken as one partition, the whole image; if the
   file does not record its size, you are offered a **Full scan**, which reads

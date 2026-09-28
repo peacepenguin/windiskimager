@@ -19,6 +19,8 @@
 
 #include "imagesource.h"
 
+#include <winioctl.h>
+
 #include <QObject>
 #include <QFileInfo>
 #include <cstring>
@@ -122,16 +124,77 @@ void ImageSource::close()
     myFinishing = false;
 }
 
+static const char DEVICE_PREFIX[] = "\\\\.\\PhysicalDrive";
+
+QString ImageSource::devicePath(int n)
+{
+    return QString::fromLatin1(DEVICE_PREFIX) + QString::number(n);
+}
+
+int ImageSource::deviceNumber(const QString &path)
+{
+    const QString prefix = QString::fromLatin1(DEVICE_PREFIX);
+    if (!path.startsWith(prefix, Qt::CaseInsensitive))
+    {
+        return -1;
+    }
+    bool ok = false;
+    const int n = path.mid(prefix.size()).toInt(&ok);
+    return (ok && n >= 0) ? n : -1;
+}
+
 bool ImageSource::open(const QString &path, unsigned long long sectorsize)
 {
     close();
     myError.clear();
+    myDevice = false;
     if (!sectorsize)
     {
         myError = QObject::tr("The device reports a sector size of zero.");
         return false;
     }
     mySectorSize = sectorsize;
+
+    if (deviceNumber(path) >= 0)
+    {
+        // A disk: read raw, never sniffed for a compressed format -- whatever
+        // its first bytes are, they are its sectors -- and read only in whole
+        // sectors, which is all a disk handle takes. Sharing writes too: the
+        // system has the disk open already.
+        myHandle = CreateFileW((LPCWSTR)path.utf16(), GENERIC_READ,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+        if (myHandle == INVALID_HANDLE_VALUE)
+        {
+            myError = QObject::tr("Disk %1 could not be opened (error %2).")
+                          .arg(deviceNumber(path)).arg(GetLastError());
+            return false;
+        }
+        DISK_GEOMETRY_EX geometry;
+        DWORD junk = 0;
+        if (!DeviceIoControl(myHandle, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, NULL, 0,
+                             &geometry, sizeof(geometry), &junk, NULL)
+            || geometry.Geometry.BytesPerSector == 0)
+        {
+            myError = QObject::tr("The size of disk %1 could not be read (error %2).")
+                          .arg(deviceNumber(path)).arg(GetLastError());
+            close();
+            return false;
+        }
+        if ((unsigned long long)geometry.Geometry.BytesPerSector != sectorsize)
+        {
+            myError = QObject::tr("Disk %1 has %2-byte sectors, not %3.")
+                          .arg(deviceNumber(path)).arg(geometry.Geometry.BytesPerSector)
+                          .arg(sectorsize);
+            close();
+            return false;
+        }
+        myFormat = FORMAT_RAW;
+        myDevice = true;
+        myCompressedSize = (unsigned long long)geometry.DiskSize.QuadPart;
+        mySectors = myCompressedSize / sectorsize;
+        mySizeKnown = true;
+        return true;
+    }
 
     myHandle = CreateFileW((LPCWSTR)path.utf16(), GENERIC_READ, FILE_SHARE_READ,
                            NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
@@ -1264,6 +1327,18 @@ bool ImageSource::readInto(char *data, unsigned long long startsector, unsigned 
     {
         DWORD bytesread = 0;
         LARGE_INTEGER li;
+        // A disk fails a read past its end rather than coming up short, as a
+        // file does; so it is asked only for what it has, and the rest zeroed.
+        if (myDevice && startsector + count > mySectors)
+        {
+            const unsigned long long have = (startsector < mySectors) ? mySectors - startsector : 0ull;
+            memset(data + have * mySectorSize, 0, (size_t)((count - have) * mySectorSize));
+            count = have;
+            if (count == 0ull)
+            {
+                return true;
+            }
+        }
         li.QuadPart = (LONGLONG)(startsector * mySectorSize);
         if (!SetFilePointerEx(myHandle, li, NULL, FILE_BEGIN) ||
             !ReadFile(myHandle, data, (DWORD)(mySectorSize * count), &bytesread, NULL))

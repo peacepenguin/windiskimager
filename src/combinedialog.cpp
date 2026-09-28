@@ -22,6 +22,7 @@
 #endif
 
 #include "combinedialog.h"
+#include "disk.h"
 #include "imagesource.h"
 #include "tooltips.h"
 
@@ -64,28 +65,29 @@ static int rowsHeight(const QAbstractItemView *view, int rows, int header = 0)
     return rows * (view->fontMetrics().height() + 6) + 2 * view->frameWidth() + header + scrollbar;
 }
 
-CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
+CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText, int targetDevice,
                              unsigned long long devicesectors, unsigned long long sectorsize,
                              const QString &startDir, const QStringList &fileFilters)
-    : QDialog(parent), myDeviceText(deviceText), myDeviceSectors(devicesectors),
+    : QDialog(parent), myDeviceText(deviceText), myTargetDevice(targetDevice),
+      myDeviceSectors(devicesectors),
       mySectorSize(sectorsize), myStartDir(startDir), myFilters(fileFilters)
 {
     setWindowTitle(tr("Combine images"));
     QVBoxLayout *top = new QVBoxLayout(this);
 
     QLabel *intro = new QLabel(
-        tr("Add image files, tick the partitions to put on the device or in a new image "
-           "file, and order them. Each image's partition table is read from its first "
+        tr("Add image files or disks, tick the partitions to put on the device or in a new "
+           "image file, and order them. Each source's partition table is read from its first "
            "sectors; nothing else is read until you write, or ask for a full scan."), this);
     fixLines(intro, 3);
     top->addWidget(intro);
 
     // Images and their partitions.
-    QGroupBox *imagesBox = new QGroupBox(tr("Images"), this);
+    QGroupBox *imagesBox = new QGroupBox(tr("Sources"), this);
     QVBoxLayout *imagesLayout = new QVBoxLayout(imagesBox);
     myImages = new QTreeWidget(imagesBox);
     myImages->setColumnCount(3);
-    myImages->setHeaderLabels({ tr("Image / partition"), tr("Type"), tr("Size") });
+    myImages->setHeaderLabels({ tr("Source / partition"), tr("Type"), tr("Size") });
     myImages->setRootIsDecorated(true);
     myImages->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     myImages->header()->setStretchLastSection(false);
@@ -97,6 +99,10 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     imagesLayout->addWidget(myImages);
     QHBoxLayout *imageButtons = new QHBoxLayout();
     QPushButton *add = new QPushButton(tr("Add images..."), imagesBox);
+    QPushButton *addDisk = new QPushButton(tr("Add disks..."), imagesBox);
+    addDisk->setToolTip(tr("Take partitions from disks as well: cards, USB drives, and "
+                           "other disks. The disk Windows runs from is never offered. While "
+                           "a disk is read, its volumes are locked and dismounted."));
     myRemove = new QPushButton(tr("Remove"), imagesBox);
     myScan = new QPushButton(tr("Full scan"), imagesBox);
     myScan->setToolTip(tr("Read and decompress the whole image, to learn its exact size and "
@@ -104,6 +110,7 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
                           "an image with no partition table whose size the file does not "
                           "record, or to check a compressed image before writing."));
     imageButtons->addWidget(add);
+    imageButtons->addWidget(addDisk);
     imageButtons->addWidget(myRemove);
     imageButtons->addWidget(myScan);
     imageButtons->addStretch();
@@ -200,6 +207,7 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     top->addWidget(buttons);
 
     connect(add, &QPushButton::clicked, this, &CombineDialog::addImages);
+    connect(addDisk, &QPushButton::clicked, this, &CombineDialog::addDisks);
     connect(myRemove, &QPushButton::clicked, this, &CombineDialog::removeImage);
     connect(myScan, &QPushButton::clicked, this, &CombineDialog::scanImage);
     connect(myUp, &QPushButton::clicked, this, &CombineDialog::moveUp);
@@ -208,7 +216,8 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     connect(myImages, &QTreeWidget::currentItemChanged, this, [this]() {
         const int i = selectedImage();
         myRemove->setEnabled(i >= 0);
-        myScan->setEnabled(i >= 0);
+        // A disk's size is known; there is nothing for a scan to find.
+        myScan->setEnabled(i >= 0 && mySources[i].disk < 0);
     });
     connect(myOrderList, &QListWidget::currentRowChanged, this, [this](int row) {
         myUp->setEnabled(row > 0);
@@ -241,6 +250,27 @@ QStringList CombineDialog::imagePaths() const
         paths.append(s.path);
     }
     return paths;
+}
+
+QList<int> CombineDialog::sourceDisks() const
+{
+    QList<int> disks;
+    for (const CombineRange &r : myPlan.ranges)
+    {
+        const int d = mySources[r.image].disk;
+        if (d >= 0 && !disks.contains(d))
+        {
+            disks.append(d);
+        }
+    }
+    return disks;
+}
+
+QString CombineDialog::sourceName(int image) const
+{
+    const Source &s = mySources[image];
+    return (s.disk >= 0) ? tr("Disk %1: %2").arg(s.disk).arg(s.label)
+                         : QFileInfo(s.path).fileName();
 }
 
 bool CombineDialog::verifyAfter() const
@@ -386,6 +416,106 @@ void CombineDialog::addImageFiles(const QStringList &files)
     replan();
 }
 
+// Lists the disks, for the user to tick the ones to add. "Show all devices" is
+// on by default here: a disk to take partitions from is as likely to be a
+// fixed one as a card. The disk Windows runs from is never listed.
+void CombineDialog::addDisks()
+{
+    QDialog picker(this);
+    picker.setWindowTitle(tr("Add disks"));
+    QVBoxLayout *layout = new QVBoxLayout(&picker);
+    layout->addWidget(new QLabel(tr("Tick the disks to take partitions from:"), &picker));
+    QListWidget *list = new QListWidget(&picker);
+    layout->addWidget(list);
+    QCheckBox *all = new QCheckBox(tr("Show all devices"), &picker);
+    all->setToolTip(tr("Also list fixed disks. The disk Windows is running from is never listed."));
+    all->setChecked(true);
+    layout->addWidget(all);
+    QDialogButtonBox *buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &picker);
+    layout->addWidget(buttons);
+    connect(buttons, &QDialogButtonBox::accepted, &picker, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &picker, &QDialog::reject);
+
+    QList<PhysicalDevice> devices;
+    auto fill = [&]() {
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+        devices = enumeratePhysicalDevices(all->isChecked());
+        QApplication::restoreOverrideCursor();
+        list->clear();
+        for (const PhysicalDevice &d : devices)
+        {
+            bool have = false;
+            for (const Source &s : mySources)
+            {
+                have = have || s.disk == (int)d.deviceNumber;
+            }
+            QString text = tr("Disk %1: %2, %3").arg(d.deviceNumber).arg(d.description)
+                               .arg(sizeText(d.sizeBytes / mySectorSize));
+            if (!d.letters.isEmpty())
+            {
+                text += tr(" (%1)").arg(d.letters);
+            }
+            if ((int)d.deviceNumber == myTargetDevice)
+            {
+                text += tr(" -- the device being written to");
+            }
+            QListWidgetItem *item = new QListWidgetItem(text, list);
+            item->setData(Qt::UserRole, (int)d.deviceNumber);
+            item->setFlags(have ? Qt::NoItemFlags : (Qt::ItemIsEnabled | Qt::ItemIsUserCheckable));
+            item->setCheckState(Qt::Unchecked);
+            if (have)
+            {
+                item->setToolTip(tr("Already a source."));
+            }
+        }
+    };
+    connect(all, &QCheckBox::toggled, &picker, fill);
+    fill();
+    picker.resize(520, 300);
+    if (picker.exec() != QDialog::Accepted)
+    {
+        return;
+    }
+    for (int i = 0; i < list->count(); ++i)
+    {
+        QListWidgetItem *item = list->item(i);
+        if (item->checkState() != Qt::Checked)
+        {
+            continue;
+        }
+        const int n = item->data(Qt::UserRole).toInt();
+        QString label;
+        for (const PhysicalDevice &d : devices)
+        {
+            if ((int)d.deviceNumber == n) label = d.description;
+        }
+        addDisk(n, label);
+    }
+    rebuildImages();
+    rebuildLeadIn();
+    replan();
+}
+
+void CombineDialog::addDisk(int number, const QString &label)
+{
+    Source src;
+    QString why;
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    const bool ok = loadImage(ImageSource::devicePath(number), &src, &why);
+    QApplication::restoreOverrideCursor();
+    if (!ok)
+    {
+        QMessageBox::warning(this, tr("Combine images"),
+            tr("Disk %1 cannot be used: %2.").arg(number).arg(why));
+        return;
+    }
+    src.disk = number;
+    src.label = label;
+    src.format = tr("disk");
+    mySources.append(src);
+}
+
 void CombineDialog::removeImage()
 {
     const int index = selectedImage();
@@ -508,7 +638,7 @@ QString CombineDialog::partitionText(int image, int partition) const
 {
     const Source &s = mySources[image];
     const CombinePartition &p = s.layout.partitions[partition];
-    const QString file = QFileInfo(s.path).fileName();
+    const QString file = sourceName(image);
     if (p.slot < 0)
     {
         return file;
@@ -526,8 +656,8 @@ void CombineDialog::rebuildImages()
     {
         const Source &s = mySources[i];
         QTreeWidgetItem *top = new QTreeWidgetItem(myImages);
-        top->setText(0, QFileInfo(s.path).fileName());
-        top->setToolTip(0, s.path);
+        top->setText(0, sourceName(i));
+        top->setToolTip(0, (s.disk >= 0) ? sourceName(i) : s.path);
         const QString table = (s.layout.table == COMBINE_TABLE_GPT) ? tr("GPT")
                             : (s.layout.table == COMBINE_TABLE_MBR) ? tr("MBR")
                                                                     : tr("no partition table");
@@ -570,8 +700,9 @@ void CombineDialog::rebuildImages()
         myImages->resizeColumnToContents(c);
     }
     myRebuilding = false;
-    myRemove->setEnabled(selectedImage() >= 0);
-    myScan->setEnabled(selectedImage() >= 0);
+    const int sel = selectedImage();
+    myRemove->setEnabled(sel >= 0);
+    myScan->setEnabled(sel >= 0 && mySources[sel].disk < 0);
 }
 
 void CombineDialog::rebuildLeadIn()
@@ -585,7 +716,7 @@ void CombineDialog::rebuildLeadIn()
         // An image with no table has no lead-in to give.
         if (mySources[i].layout.table != COMBINE_TABLE_NONE)
         {
-            myLead->addItem(QFileInfo(mySources[i].path).fileName(), i);
+            myLead->addItem(sourceName(i), i);
         }
     }
     myLead->setCurrentIndex(qMax(0, myLead->findData(current)));
@@ -674,6 +805,20 @@ void CombineDialog::replan()
     }
     const int lead = myLead->currentData().toInt();
     QString why;
+    if (!toFile())
+    {
+        for (const CombineChoice &c : myOrder)
+        {
+            if (mySources[c.image].disk >= 0 && mySources[c.image].disk == myTargetDevice)
+            {
+                myStatus->setText(tr("This cannot be written: %1 is the device being written "
+                                     "to. Write to an image file, or choose another device.")
+                                      .arg(sourceName(c.image)));
+                myStatus->setStyleSheet("color: #c00000;");
+                return;
+            }
+        }
+    }
     // An image file has no size of its own: 0 plans it to fit the layout.
     if (!planCombine(layouts, myOrder, lead, mySectorSize, toFile() ? 0ull : myDeviceSectors,
                      ALIGN_BYTES / mySectorSize, myNewGuids, &myPlan, &why))
@@ -698,7 +843,7 @@ void CombineDialog::replan()
         && myPlan.ranges.size() > myPlan.placed.size())
     {
         const CombineRange &r = myPlan.ranges.first();
-        row(tr("Lead-in"), r.dstfirst, r.length, QFileInfo(mySources[lead].path).fileName());
+        row(tr("Lead-in"), r.dstfirst, r.length, sourceName(lead));
     }
     for (const CombinePlaced &p : myPlan.placed)
     {
@@ -786,6 +931,17 @@ void CombineDialog::confirm()
                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
         {
             return;
+        }
+        for (int d : sourceDisks())
+        {
+            if (pathIsOnDisk(path, (ULONG)d))
+            {
+                QMessageBox::warning(this, tr("Combine images"),
+                    tr("%1 is on disk %2, which is one of the sources: its volumes are locked "
+                       "while it is read, so nothing can be written to them. Choose a place on "
+                       "another disk.").arg(path).arg(d));
+                return;
+            }
         }
         myOutputPath = path;
     }
