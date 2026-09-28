@@ -267,6 +267,19 @@ bool planMbrShrink(HANDLE hRawDisk, unsigned long long sectorsize,
                    PartitionShrinkPlan *plan, QString *detail,
                    const QList<int> *excludeSlots = NULL);
 
+// The CRC-32 GPT headers and entry arrays carry (the zlib/IEEE polynomial).
+DWORD gptCrc32(const unsigned char *data, size_t len);
+
+// Where the space kept after a partition table ends, when a table is rebuilt
+// and the partitions packed after it: all of it, up to the first partition at
+// firstpart, when there is 32 MiB or less of it after tableend; otherwise
+// 32 MiB, rounded up to alignsectors and never below floor (a GPT's
+// FirstUsableLBA). Every boot layout known to keep a bootloader there fits in
+// 16 MiB. Used by planGptShrink(), planMbrShrink() and planCombine().
+unsigned long long leadingKeepEnd(unsigned long long tableend, unsigned long long firstpart,
+                                  unsigned long long floor, unsigned long long sectorsize,
+                                  unsigned long long alignsectors);
+
 // One partition as offered for "choose partitions to read". slot matches
 // excludeSlots above; name is empty for MBR.
 struct PartitionInfo

@@ -30,6 +30,8 @@ corrupting the GPT of images like ARM board images. See
   `.img.gz` (the default), `.img.xz`, `.img.bz2` or `.img.zst`.
   - **Skip unpartitioned space** leaves out the space outside the partitions.
   - **Choose partitions to read** leaves out whole partitions you pick.
+- **Combine images** puts partitions from several image files onto one device,
+  in an order you choose, under a new partition table.
 - **Verify** a device against an image byte for byte, compressed images
   included. It also checks the partition table and can repair one that
   Windows has broken.
@@ -83,6 +85,41 @@ first partition moves the next one to where it started. If the partitions
 cannot be repacked, the read stops rather than including the ones you left out.
 
 Both options work together with **Compress during Read**.
+
+## Combining images
+
+**Combine images...** builds a device from the partitions of several image
+files. Add the images, tick the partitions you want, and put them in order;
+the preview shows where each will go and how much of the device is left.
+
+- Only each image's partition table is read when you add it: its first
+  sectors, even for a compressed image. An image with no partition table -- a
+  bare filesystem image -- is taken as one partition, the whole image; if the
+  file does not record its size, you are offered a **Full scan**, which reads
+  it to the end to find out. A full scan is otherwise only ever done when you
+  ask for it.
+- Partitions keep their size and contents, and are placed on 1 MiB
+  boundaries. GPT partitions keep their type, unique GUID, attributes and
+  name; MBR partitions their type and boot flag.
+- **Lead-in from** one of the images copies that image's boot code and the
+  space before its first partition, where a board's bootloader may be stored
+  (up to 32 MB, as for Skip unpartitioned space). The device then gets the
+  same kind of partition table as that image, and the first partition starts
+  where that image's did.
+- Without a lead-in, the device gets an MBR if every partition comes from an
+  MBR image or a table-less one and there are no more than four, and a GPT
+  otherwise. Partitions moving between the two have their type translated;
+  the few types with no counterpart (a GPT BIOS boot partition on an MBR, an
+  MBR extended partition on a GPT) are refused.
+- If two chosen partitions share a unique GUID -- the same partition from two
+  copies of one image -- you are warned and offered new GUIDs for the later
+  copies.
+- The backup GPT is written at the end of the device, so Windows has nothing
+  to repair, and the new table is written last, after every partition.
+  **Verify after writing**, on by default, then reads it all back.
+
+Whether the result boots depends on its bootloaders finding their partitions
+where they now are: something that looks for "partition 1" may find another.
 
 ## The Windows GPT problem
 

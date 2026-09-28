@@ -259,6 +259,22 @@
           </property>
          </widget>
           </item>
+          <item>
+         <widget class="QPushButton" name="bCombine">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>Combine images...</string>
+          </property>
+          <property name="toolTip">
+           <string>Put partitions from several image files onto the selected device, in an order you choose, under a new partition table.</string>
+          </property>
+         </widget>
+          </item>
          </layout>
         </item>
         <item>

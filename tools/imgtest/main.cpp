@@ -594,6 +594,55 @@ static void casePrefetch(const char *name, const QString &file, const QByteArray
     printf("\n");
 }
 
+// "Combine images" reads only the chosen partitions of each image: spans,
+// ascending, with gaps between that must be decompressed and dropped. Each
+// chunk must be the right sectors, the spans in order, and a span running past
+// the end of the image must end short there, as reading in order would.
+static void casePrefetchSpans(const char *name, const QString &file, const QByteArray &raw)
+{
+    printf("%s: read ahead of only some spans\n", name);
+    ImageSource src;
+    if (!src.open(file, SS))
+    {
+        check(false, "opened");
+        printf("\n");
+        return;
+    }
+    const unsigned long long n = sectorsOf(raw);
+    // A span at the start, one straddling several chunks, and one that runs
+    // 5 sectors past the end.
+    const std::vector<ImagePrefetcher::Span> spans = {
+        {0, 3}, {40, 45}, {n - 20, 25} };
+    ImagePrefetcher prefetch(&src, spans, 16, SS);
+    prefetch.start();
+    ImagePrefetcher::Chunk c;
+    bool right = true, error = false, shortend = false;
+    size_t sp = 0;
+    unsigned long long at = spans[0].start, got = 0;
+    while (prefetch.next(&c))
+    {
+        if (!c.ok) { error = true; prefetch.release(c.data); break; }
+        // Where this chunk should start: on in this span, or the next one's start.
+        if (at >= spans[sp].start + spans[sp].count && sp + 1 < spans.size())
+        {
+            at = spans[++sp].start;
+        }
+        right = right && c.start == at
+                && c.start + c.count <= spans[sp].start + spans[sp].count
+                && memcmp(c.data, raw.constData() + c.start * SS, (size_t)(c.got * SS)) == 0;
+        got += c.got;
+        at += c.count;
+        shortend = (c.got < c.count);
+        prefetch.release(c.data);
+    }
+    prefetch.stop();
+    check(!error, "no error");
+    check(right, "every chunk is the right sectors of its span, the spans in order");
+    check(shortend && got == 3 + 45 + 20, "the last span ends short, at the end of the image");
+    src.close();
+    printf("\n");
+}
+
 // Cancel: the caller stops after a few chunks with more queued and the worker
 // possibly waiting for a buffer. stop() must return, not deadlock.
 static void casePrefetchStop(const QString &file)
@@ -926,6 +975,10 @@ int main(int argc, char **argv)
     casePrefetch("gzip that stops in the middle", "imgtest-trunc.img.gz", raw, 8192, true);
     casePrefetch("xz of many blocks that stops in the middle", "imgtest-blocks-trunc.img.xz", raw, 100, true);
     casePrefetchStop("imgtest.img.zst");
+    casePrefetchSpans("raw", "imgtest.img", raw);
+    casePrefetchSpans("gzip", "imgtest.img.gz", raw);
+    casePrefetchSpans("xz, many blocks", "imgtest-blocks.img.xz", raw);
+    casePrefetchSpans("zstd", "imgtest.img.zst", raw);
 
     caseEndProbe("raw", "imgtest.img", raw, false);
     caseEndProbe("gzip", "imgtest.img.gz", raw, false);

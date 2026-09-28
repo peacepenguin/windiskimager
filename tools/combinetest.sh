@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Build and run the "Combine images" tests.
+#
+#   tools/combinetest.sh          # build (if needed) and run
+#   tools/combinetest.sh clean    # drop the build dir first
+#
+# Exits non-zero if any check fails, so it can gate a commit or a release.
+#
+# Sources in tools/combinetest/ (tests src/combine.cpp against disk.cpp's
+# readers); see harness_run in tools/build-env.sh.
+#
+# Copyright (C) 2026 peacepenguin, GPL-2.0-or-later.
+set -euo pipefail
+
+REPO=$(cd "$(dirname "$0")/.." && pwd)
+. "$REPO/tools/build-env.sh"
+
+harness_run "$REPO" combinetest "$@"

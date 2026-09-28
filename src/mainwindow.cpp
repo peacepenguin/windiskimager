@@ -49,6 +49,8 @@
 #include "imagesource.h"
 #include "transferpipe.h"
 #include "elapsedtimer.h"
+#include "combine.h"
+#include "combinedialog.h"
 
 MainWindow* MainWindow::instance = NULL;
 
@@ -526,6 +528,7 @@ void MainWindow::setReadWriteButtonState()
         bWrite->setEnabled(false);
         bVerify->setEnabled(false);
         bCheckGpt->setEnabled(false);
+        bCombine->setEnabled(false);
         // Hashing is synchronous: started from a transfer loop's
         // processEvents(), it would stall the transfer with the disk locked.
         bHashGen->setEnabled(false);
@@ -539,8 +542,10 @@ void MainWindow::setReadWriteButtonState()
     bRead->setEnabled(deviceSelected && fileSelected && (fi.exists() ? fi.isWritable() : true));
     bWrite->setEnabled(deviceSelected && fileSelected && fi.isReadable());
     bVerify->setEnabled(deviceSelected && fileSelected && fi.isReadable());
-    // This one needs no image: it only looks at the device.
+    // These need no image in the main window: one only looks at the device,
+    // the other chooses its images itself.
     bCheckGpt->setEnabled(deviceSelected);
+    bCombine->setEnabled(deviceSelected);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -892,6 +897,373 @@ void MainWindow::on_bCheckGpt_clicked()
 // Defaults to SHA256, the hash publishers most often quote, but only when
 // the image changes: editingFinished fires on every focus loss, and resetting
 // each time would undo a hand-picked type.
+void MainWindow::on_bCombine_clicked()
+{
+    // See on_bWrite_clicked(): reachable mid-run through processEvents().
+    if (status != STATUS_IDLE)
+    {
+        return;
+    }
+    const int deviceID = selectedDeviceID();
+    if (deviceID < 0)
+    {
+        QMessageBox::critical(this, tr("Combine images"), tr("Please select a target device."));
+        return;
+    }
+    const QString targetText = cboxDevice->currentText();
+    // The images' tables are read in the device's sector size, so it is asked
+    // for first; the device is only opened to read its geometry.
+    unsigned long long devicesectors = 0ull, devsectorsize = 0ull;
+    {
+        HANDLE h = getHandleOnDevice(deviceID, GENERIC_READ);
+        if (h == INVALID_HANDLE_VALUE)
+        {
+            return;
+        }
+        bool reported = false;
+        devicesectors = getNumberOfSectors(h, &devsectorsize, &reported);
+        CloseHandle(h);
+        if (!devicesectors)
+        {
+            if (!reported)
+            {
+                QMessageBox::critical(this, tr("Device Error"),
+                    tr("The device reports a size of zero. If it is a card reader, "
+                       "the card may have been removed."));
+            }
+            return;
+        }
+    }
+
+    CombineDialog dialog(this, targetText, devicesectors, devsectorsize, myHomeDir, myFileTypeList);
+    if (dialog.exec() != QDialog::Accepted)
+    {
+        return;
+    }
+    const CombinePlan plan = dialog.plan();
+    const QStringList paths = dialog.imagePaths();
+    for (const CombineRange &r : plan.ranges)
+    {
+        if (fileIsOnSelectedDevice(paths[r.image]))
+        {
+            QMessageBox::critical(this, tr("Write Error"),
+                tr("%1 is on the target device, and cannot be written to it.")
+                    .arg(QFileInfo(paths[r.image]).fileName()));
+            return;
+        }
+    }
+
+    // As on_bWrite_clicked(): what is confirmed is checked against what is
+    // opened, since the list can change under the dialogs.
+    if (QMessageBox::warning(this, tr("Confirm overwrite"), tr("All files and data on this device will be deleted.\n"
+                                                               "(Target Device: %1)\n"
+                                                               "Are you sure you want to continue?").arg(targetText),
+                             QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No)
+    {
+        return;
+    }
+    const QString targetletters = driveLettersOnDevice((ULONG)deviceID);
+    if (!targetletters.isEmpty())
+    {
+        if (QMessageBox::warning(this, tr("Device has mounted volumes"),
+                tr("%1 is mounted in Windows as %2.\n\n"
+                   "Everything on this device, on every one of its partitions, will be "
+                   "destroyed and cannot be recovered.\n\n"
+                   "Check that %2 is not a drive you meant to keep.\n\n"
+                   "Write to this device anyway?")
+                    .arg(targetText).arg(targetletters),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No)
+        {
+            return;
+        }
+    }
+    if (selectedDeviceID() != deviceID || cboxDevice->currentText() != targetText)
+    {
+        QMessageBox::critical(this, tr("Write Error"),
+            tr("The device list changed while you were confirming. Check the "
+               "target device and try again."));
+        return;
+    }
+    runCombine(deviceID, targetText, devicesectors, plan, paths, dialog.verifyAfter());
+}
+
+int MainWindow::transferCombined(const CombinePlan &plan, const QStringList &paths, bool verify,
+                                 unsigned long long total, int shift, unsigned long long *done,
+                                 unsigned long long *lastsector)
+{
+    const int running = verify ? STATUS_VERIFYING : STATUS_WRITING;
+    const QString title = verify ? tr("Verify Error") : tr("Write Error");
+    // Image by image, each read once, forwards: its ranges in the order they
+    // lie in it, wherever they go on the device.
+    QMap<int, QList<CombineRange>> byimage;
+    for (const CombineRange &r : plan.ranges)
+    {
+        byimage[r.image].append(r);
+    }
+    std::vector<char> devbuf;
+    for (auto it = byimage.begin(); it != byimage.end(); ++it)
+    {
+        QList<CombineRange> ranges = it.value();
+        std::sort(ranges.begin(), ranges.end(), [](const CombineRange &a, const CombineRange &b)
+        {
+            return a.srcfirst < b.srcfirst;
+        });
+        std::vector<ImagePrefetcher::Span> spans;
+        for (const CombineRange &r : ranges)
+        {
+            spans.push_back(ImagePrefetcher::Span{r.srcfirst, r.length});
+        }
+        const QString path = paths[it.key()];
+        const QString name = QFileInfo(path).fileName();
+        ImageSource image;
+        if (!image.open(path, sectorsize))
+        {
+            QMessageBox::critical(this, title, image.errorString());
+            return 1;
+        }
+        ImagePrefetcher prefetch(&image, spans, transferSectors(), sectorsize);
+        prefetch.start();
+        ImagePrefetcher::Chunk c;
+        int at = 0;
+        while (prefetch.next(&c))
+        {
+            if (status != running)
+            {
+                prefetch.release(c.data);
+                prefetch.stop();
+                return 2;
+            }
+            if (!c.ok)
+            {
+                prefetch.stop();
+                QMessageBox::critical(this, title, tr("%1: %2").arg(name, c.error));
+                return 1;
+            }
+            while (c.start >= ranges[at].srcfirst + ranges[at].length)
+            {
+                ++at;
+            }
+            const CombineRange &r = ranges[at];
+            if (c.got < c.count)
+            {
+                prefetch.stop();
+                QMessageBox::critical(this, title,
+                    tr("%1 ends at sector %2, before the partition it is to supply there "
+                       "does: the image is incomplete.").arg(name).arg(c.start + c.got));
+                return 1;
+            }
+            const unsigned long long dst = r.dstfirst + (c.start - r.srcfirst);
+            if (verify)
+            {
+                devbuf.resize((size_t)(c.count * sectorsize));
+                if (!readSectorsInto(hRawDisk, devbuf.data(), dst, c.count, sectorsize))
+                {
+                    prefetch.stop();
+                    return 1;
+                }
+                if (memcmp(devbuf.data(), c.data, (size_t)(c.count * sectorsize)) != 0)
+                {
+                    unsigned long long bad = 0;
+                    while (memcmp(devbuf.data() + bad * sectorsize, c.data + bad * sectorsize,
+                                  (size_t)sectorsize) == 0)
+                    {
+                        ++bad;
+                    }
+                    prefetch.stop();
+                    QMessageBox::critical(this, tr("Verify Failure"),
+                        tr("Sector %1 of the device does not match sector %2 of %3.")
+                            .arg(dst + bad).arg(c.start + bad).arg(name));
+                    return 1;
+                }
+            }
+            else if (!writeSectorDataToHandle(hRawDisk, c.data, dst, c.count, sectorsize))
+            {
+                // writeSectorDataToHandle has already said what went wrong.
+                prefetch.stop();
+                return 1;
+            }
+            prefetch.release(c.data);
+            *done += c.count;
+            showThroughput(*done, total, lastsector);
+            progressbar->setValue((int)(qMin(*done, total) >> shift));
+            QCoreApplication::processEvents();
+        }
+        prefetch.stop();
+        image.close();
+    }
+    return 0;
+}
+
+void MainWindow::runCombine(int deviceID, const QString &targetText,
+                            unsigned long long expectedsectors, const CombinePlan &plan,
+                            const QStringList &paths, bool verify)
+{
+    (void)targetText;
+    status = STATUS_WRITING;
+    showProgress(true);
+    bCancel->setEnabled(true);
+    setReadWriteButtonState();
+
+    LockedVolumes locked;
+    // Every failure path below closes the disk before releasing the locks;
+    // see acquireDeviceAndImage().
+    auto stop = [&](const QString &message) {
+        if (hRawDisk != INVALID_HANDLE_VALUE)
+        {
+            CloseHandle(hRawDisk);
+            hRawDisk = INVALID_HANDLE_VALUE;
+        }
+        locked.release();
+        endRun(message);
+    };
+    const QString partial = tr("The device has been partially written and no longer holds "
+                               "a usable layout. Write it again before using it.");
+    if (!locked.lockAll(deviceID))
+    {
+        stop(tr("Write failed."));
+        return;
+    }
+    hRawDisk = getHandleOnDevice(deviceID, GENERIC_READ | GENERIC_WRITE);
+    if (hRawDisk == INVALID_HANDLE_VALUE)
+    {
+        stop(tr("Write failed."));
+        return;
+    }
+    bool reported = false;
+    const unsigned long long devicesectors = getNumberOfSectors(hRawDisk, &sectorsize, &reported);
+    // The plan was made for this size: the backup GPT goes in its last sectors.
+    if (devicesectors != expectedsectors)
+    {
+        QMessageBox::critical(this, tr("Write Error"),
+            tr("The device list changed while you were confirming. Check the "
+               "target device and try again."));
+        stop(tr("Write failed."));
+        return;
+    }
+
+    statusbar->showMessage(tr("Clearing old partition tables..."));
+    QCoreApplication::processEvents();
+    if (!wipePartitionTables(hRawDisk, sectorsize, devicesectors))
+    {
+        QMessageBox::critical(this, tr("Write Error"),
+            tr("Could not clear the existing partition tables on the device.") + "\n\n" + partial);
+        stop(tr("Write failed."));
+        return;
+    }
+
+    unsigned long long total = 0ull;
+    for (const CombineRange &r : plan.ranges)
+    {
+        total += r.length;
+    }
+    unsigned long long lasti = 0ull, done = 0ull;
+    int shift = beginProgress(total, &lasti);
+    statusbar->showMessage(tr("Writing..."));
+    int result = transferCombined(plan, paths, false, total, shift, &done, &lasti);
+    // The tables last, backup first: until the primary is written, nothing
+    // points at a layout only partly on the device.
+    if (result == 0)
+    {
+        const unsigned long long backupsectors =
+            (unsigned long long)plan.backupregion.size() / sectorsize;
+        QByteArray header = plan.headerregion;
+        QByteArray backup = plan.backupregion;
+        if ((backupsectors && !writeSectorDataToHandle(hRawDisk, backup.data(), plan.backupfirst,
+                                                       backupsectors, sectorsize))
+            || !writeSectorDataToHandle(hRawDisk, header.data(), 0ull, plan.headersectors, sectorsize))
+        {
+            result = 1;
+        }
+    }
+    flushDevice(hRawDisk);
+    if (result != 0)
+    {
+        if (result == 1)
+        {
+            QMessageBox::warning(this, tr("Write Error"), partial);
+        }
+        stop(result == 2 ? tr("Write cancelled.") : tr("Write failed."));
+        return;
+    }
+    progressbar->setValue(progressbar->maximum());
+
+    if (verify)
+    {
+        status = STATUS_VERIFYING;
+        done = 0ull;
+        shift = beginProgress(total, &lasti);
+        statusbar->showMessage(tr("Verifying..."));
+        result = transferCombined(plan, paths, true, total, shift, &done, &lasti);
+        // And the tables, as written.
+        if (result == 0)
+        {
+            const unsigned long long backupsectors =
+                (unsigned long long)plan.backupregion.size() / sectorsize;
+            std::vector<char> buf((size_t)(plan.headersectors * sectorsize));
+            bool same = readSectorsInto(hRawDisk, buf.data(), 0ull, plan.headersectors, sectorsize)
+                        && memcmp(buf.data(), plan.headerregion.constData(), buf.size()) == 0;
+            if (same && backupsectors)
+            {
+                buf.resize((size_t)(backupsectors * sectorsize));
+                same = readSectorsInto(hRawDisk, buf.data(), plan.backupfirst, backupsectors, sectorsize)
+                       && memcmp(buf.data(), plan.backupregion.constData(), buf.size()) == 0;
+            }
+            if (!same)
+            {
+                QMessageBox::critical(this, tr("Verify Failure"),
+                    tr("The partition table on the device does not match what was written."));
+                result = 1;
+            }
+        }
+        if (result != 0)
+        {
+            stop(result == 2 ? tr("Verify cancelled.") : tr("Verify failed."));
+            return;
+        }
+        progressbar->setValue(progressbar->maximum());
+    }
+
+    // Offline before releasing the locks so nothing is remounted, then eject,
+    // as after a Write.
+    setDiskOffline(hRawDisk, true);
+    ejectDevice(hRawDisk);
+    CloseHandle(hRawDisk);
+    hRawDisk = INVALID_HANDLE_VALUE;
+    locked.release();
+
+    QSet<int> images;
+    for (const CombinePlaced &p : plan.placed)
+    {
+        images.insert(p.image);
+    }
+    const QString table = (plan.table == COMBINE_TABLE_GPT) ? tr("GPT") : tr("MBR");
+    QString msg = verify
+        ? tr("Write and verify successful.\n\nThe device holds a new %1 partition table with "
+             "%2 partitions from %3 images.").arg(table).arg(plan.placed.size()).arg(images.size())
+        : tr("Write successful.\n\nThe device holds a new %1 partition table with %2 "
+             "partitions from %3 images.").arg(table).arg(plan.placed.size()).arg(images.size());
+    if (plan.table == COMBINE_TABLE_GPT)
+    {
+        msg += " " + tr("Its backup is already at the end of the device, so Windows has "
+                        "nothing to repair.");
+    }
+    msg += "\n\n" + tr("Whether it boots depends on its bootloaders finding their partitions "
+                       "where they now are.");
+    QMessageBox::information(this, tr("Combine images"), msg);
+
+    const bool exiting = (status == STATUS_EXIT);
+    status = STATUS_IDLE;
+    showProgress(false);
+    elapsed_timer->stop();
+    statusbar->showMessage(verify ? tr("Verify Successful.") : tr("Write Successful."));
+    bCancel->setEnabled(false);
+    setReadWriteButtonState();
+    if (exiting)
+    {
+        close();
+    }
+}
+
 void MainWindow::defaultHashTypeForFile()
 {
     const QString file = leFile->text();

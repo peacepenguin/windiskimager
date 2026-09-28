@@ -50,6 +50,7 @@ public:
     void close();
 
     bool isCompressed() const { return myFormat != FORMAT_RAW; }
+    Format format() const { return myFormat; }
     // True when sizeInSectors() is exact: always for raw, for xz whenever its
     // index could be read, never for the others -- gzip's trailer records only
     // the last member's size, mod 4 GiB; bzip2 records none; zstd records each

@@ -1,3 +1,20 @@
+Release 2.1.0
+=============
+Combine images: put partitions from several image files onto one device, in
+  the order you choose, under a new partition table. Only each image's
+  partition table is read when it is added, compressed images included; an
+  image with no partition table is taken as one partition, and a full scan,
+  which reads an image to the end, is only ever done when asked for
+Partitions keep their contents, size, type and name, and are placed on 1 MiB
+  boundaries. One image can be chosen as the lead-in: its boot code and the
+  space before its first partition, where a board's bootloader may be kept,
+  are copied too, and the device gets its kind of partition table
+Two chosen partitions sharing a unique GUID, as the same partition from two
+  copies of one image do, are reported before writing, with the offer of new
+  GUIDs for the later copies
+The backup GPT is written at the end of the device, so Windows has nothing to
+  repair, and the device is verified afterwards unless told not to be
+
 Release 2.0.4
 =============
 A build for Windows on ARM: Snapdragon and other ARM64 PCs. It runs natively

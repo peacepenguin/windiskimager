@@ -208,7 +208,8 @@ waits for both and carries `WinDiskImager-vX-win-x64.zip` and
 
 ## Other tools
 
-- **`tools/gpttest.sh`**, **`tools/imgtest.sh`** (MSYS2): test harnesses, below.
+- **`tools/gpttest.sh`**, **`tools/imgtest.sh`**, **`tools/combinetest.sh`**
+  (MSYS2): test harnesses, below.
 - **`tools/lupdate.sh`**: refreshes `src/lang/*.ts`, with the host's Qt 6
   `lupdate` or else in the toolkit image; see
   [Updating the translations](#updating-the-translations).
@@ -330,6 +331,31 @@ everything compressed through the writer must read back.
 The fixtures are built by the harness itself with zlib, liblzma, libbz2 and
 libzstd, so nothing compressed is checked in and no compressor needs to be on
 the path.
+
+## Testing Combine images
+
+`src/combine.cpp` builds partition tables from pieces of other images, so its
+mistakes would write a device that looks fine and does not boot, or holds the
+wrong data.
+
+```
+tools/combinetest.sh
+```
+
+It builds GPT, MBR and table-less (FAT32, ext4) images in memory, reads their
+layouts, plans combinations of them -- reordered, with and without a lead-in,
+mixing MBR and GPT sources, the same image twice -- and applies each plan to a
+buffer standing in for the device. The result is read back through
+`disk.cpp`, not through `combine.cpp`'s own code: the partition listing,
+`gptPrimaryState()`, and `relocateBackupGPT()`, which must find the backup
+already at the end. Every sector of every partition and lead-in carries a tag
+naming what it belongs to, so one landing in the wrong place is caught.
+Layouts that cannot be written -- five partitions on an MBR, a type with no
+counterpart, too small a device -- must be refused.
+
+It also drives `src/combinedialog.cpp` off screen, with a gzip image among its
+inputs, as a user would: adding images, ticking partitions in order, picking a
+lead-in. `COMBINETEST_SHOT=file.png` saves the dialog as drawn.
 
 ## Testing shrink-on-read
 

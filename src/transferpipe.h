@@ -44,9 +44,21 @@ class ImageSink;
 // image->read() in order would get, and like such a loop it stops after a
 // short read or an error. While it runs, nothing else may use the image;
 // stop() (or destruction) ends that.
+//
+// Or, given spans, only those stretches of the image: each in chunks of
+// chunksectors, the spans in the order given, which must be ascending and
+// apart -- a compressed image cannot be read backwards. The gaps between
+// them are decompressed and dropped, not handed out.
 class ImagePrefetcher
 {
 public:
+    // A stretch to read: count sectors from start.
+    struct Span
+    {
+        unsigned long long start;
+        unsigned long long count;
+    };
+
     struct Chunk
     {
         unsigned long long start;   // first sector
@@ -58,6 +70,8 @@ public:
     };
 
     ImagePrefetcher(ImageSource *image, unsigned long long total,
+                    unsigned long long chunksectors, unsigned long long sectorsize);
+    ImagePrefetcher(ImageSource *image, const std::vector<Span> &spans,
                     unsigned long long chunksectors, unsigned long long sectorsize);
     ~ImagePrefetcher();
 
@@ -73,8 +87,11 @@ public:
 private:
     void run();
 
+    void allocate();
+
     ImageSource *myImage;
-    unsigned long long myTotal, myChunkSectors, mySectorSize;
+    std::vector<Span> mySpans;
+    unsigned long long myChunkSectors, mySectorSize;
     std::vector<char *> myBuffers;
     QQueue<char *> myFree;
     QQueue<Chunk> myReady;

@@ -39,6 +39,7 @@
 class ImageSource;
 class LockedVolumes;
 struct PartitionInfo;
+struct CombinePlan;
 
 class MainWindow : public QMainWindow, public Ui::MainWindow
 {
@@ -65,6 +66,7 @@ class MainWindow : public QMainWindow, public Ui::MainWindow
         void on_tbBrowse_clicked();
         void on_bCancel_clicked();
         void on_bCheckGpt_clicked();
+        void on_bCombine_clicked();
         void on_bWrite_clicked();
         void on_bRead_clicked();
         void on_bVerify_clicked();
@@ -117,6 +119,17 @@ private:
         bool choosePartitionsDialog(const QList<PartitionInfo> &partitions,
                                     unsigned long long sectorsize, int deviceID,
                                     QList<int> *excluded);
+        // "Combine images": writes plan to the device, from the images at
+        // paths, and verifies it if asked. Runs like a Write, from locking the
+        // device to ejecting it.
+        void runCombine(int deviceID, const QString &targetText,
+                        unsigned long long expectedsectors, const CombinePlan &plan,
+                        const QStringList &paths, bool verify);
+        // Copies (or with verify, compares) every range of the plan, image by
+        // image. 0: done; 1: failed, reported; 2: cancelled.
+        int transferCombined(const CombinePlan &plan, const QStringList &paths, bool verify,
+                             unsigned long long total, int shift, unsigned long long *done,
+                             unsigned long long *lastsector);
 
         HANDLE hFile;
         HANDLE hRawDisk;

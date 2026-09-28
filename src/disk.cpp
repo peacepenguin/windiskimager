@@ -859,7 +859,7 @@ bool ejectDevice(HANDLE handle)
 #define GPT_ENT_FIRSTLBA      32
 #define GPT_ENT_LASTLBA       40
 
-static DWORD gptCrc32(const unsigned char *data, size_t len)
+DWORD gptCrc32(const unsigned char *data, size_t len)
 {
     static DWORD table[256];
     static bool built = false;
@@ -1323,7 +1323,7 @@ static const unsigned long long LEADING_RESERVE_BYTES = 32ull * 1024ull * 1024ul
 // LEADING_RESERVE_BYTES are kept -- rounded up to alignsectors, and never
 // below floor (a GPT's FirstUsableLBA, which reserves space of its own) -- and
 // the rest is dropped. Never past the first partition's own start.
-static unsigned long long leadingKeepEnd(unsigned long long tableend, unsigned long long firstpart,
+unsigned long long leadingKeepEnd(unsigned long long tableend, unsigned long long firstpart,
                                          unsigned long long floor, unsigned long long sectorsize,
                                          unsigned long long alignsectors)
 {

@@ -5,7 +5,9 @@ src/images/*.ico
 test-images/
 build-gpttest/
 build-imgtest/
+build-combinetest/
 gpttest.img
+combinetest.img
 __pycache__/
 build-x64/
 build-arm64/

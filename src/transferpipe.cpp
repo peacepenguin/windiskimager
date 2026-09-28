@@ -28,8 +28,22 @@ static const int PIPE_BUFFERS = 4;
 
 ImagePrefetcher::ImagePrefetcher(ImageSource *image, unsigned long long total,
                                  unsigned long long chunksectors, unsigned long long sectorsize)
-    : myImage(image), myTotal(total), myChunkSectors(chunksectors ? chunksectors : 1ull),
+    : myImage(image), mySpans(1, Span{0ull, total}),
+      myChunkSectors(chunksectors ? chunksectors : 1ull),
       mySectorSize(sectorsize), myDone(false), myStopping(false), myThread(NULL)
+{
+    allocate();
+}
+
+ImagePrefetcher::ImagePrefetcher(ImageSource *image, const std::vector<Span> &spans,
+                                 unsigned long long chunksectors, unsigned long long sectorsize)
+    : myImage(image), mySpans(spans), myChunkSectors(chunksectors ? chunksectors : 1ull),
+      mySectorSize(sectorsize), myDone(false), myStopping(false), myThread(NULL)
+{
+    allocate();
+}
+
+void ImagePrefetcher::allocate()
 {
     for (int i = 0; i < PIPE_BUFFERS; ++i)
     {
@@ -56,40 +70,47 @@ void ImagePrefetcher::start()
 
 void ImagePrefetcher::run()
 {
-    for (unsigned long long i = 0ull; i < myTotal; i += myChunkSectors)
+    bool ended = false;
+    for (size_t sp = 0; sp < mySpans.size() && !ended; ++sp)
     {
-        char *buf = NULL;
+        const unsigned long long spanend = mySpans[sp].start + mySpans[sp].count;
+        for (unsigned long long i = mySpans[sp].start; i < spanend; i += myChunkSectors)
         {
-            QMutexLocker lock(&myMutex);
-            while (myFree.isEmpty() && !myStopping)
+            char *buf = NULL;
             {
-                myChanged.wait(&myMutex);
+                QMutexLocker lock(&myMutex);
+                while (myFree.isEmpty() && !myStopping)
+                {
+                    myChanged.wait(&myMutex);
+                }
+                if (myStopping)
+                {
+                    ended = true;
+                    break;
+                }
+                buf = myFree.dequeue();
             }
-            if (myStopping)
+            Chunk chunk;
+            chunk.start = i;
+            chunk.count = (spanend - i >= myChunkSectors) ? myChunkSectors : (spanend - i);
+            chunk.got = 0ull;
+            chunk.data = buf;
+            chunk.ok = myImage->readInto(buf, i, chunk.count, &chunk.got);
+            if (!chunk.ok)
             {
+                chunk.error = myImage->errorString();
+            }
+            {
+                QMutexLocker lock(&myMutex);
+                myReady.enqueue(chunk);
+                myChanged.wakeAll();
+            }
+            // Where a loop of image->read() calls would stop too.
+            if (!chunk.ok || chunk.got < chunk.count)
+            {
+                ended = true;
                 break;
             }
-            buf = myFree.dequeue();
-        }
-        Chunk chunk;
-        chunk.start = i;
-        chunk.count = (myTotal - i >= myChunkSectors) ? myChunkSectors : (myTotal - i);
-        chunk.got = 0ull;
-        chunk.data = buf;
-        chunk.ok = myImage->readInto(buf, i, chunk.count, &chunk.got);
-        if (!chunk.ok)
-        {
-            chunk.error = myImage->errorString();
-        }
-        {
-            QMutexLocker lock(&myMutex);
-            myReady.enqueue(chunk);
-            myChanged.wakeAll();
-        }
-        // Where a loop of image->read() calls would stop too.
-        if (!chunk.ok || chunk.got < chunk.count)
-        {
-            break;
         }
     }
     QMutexLocker lock(&myMutex);
