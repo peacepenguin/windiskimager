@@ -373,7 +373,7 @@ spare. Try one by hand: a card, combined into an image file.
 
 ## Testing shrink-on-read
 
-"Skip unpartitioned space" repacks a GPT or MBR device to remove the
+"Skip unpartitioned space on Read" repacks a GPT or MBR device to remove the
 unpartitioned gaps between partitions and after the last one, and any of the
 gap before the first partition past 32 MiB after the table, instead of reading
 the device byte for byte. It has no

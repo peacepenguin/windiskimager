@@ -945,7 +945,7 @@ void MainWindow::on_bCombine_clicked()
     }
 }
 
-// "Choose partitions...": a Read that leaves partitions out, which is what
+// "Choose Partitions to Read": a Read that leaves partitions out, which is what
 // Custom Partitioning does with the device as its one source and the image
 // file as where it goes -- so it opens that, set up for it.
 void MainWindow::on_bChoosePartitions_clicked()

@@ -28,8 +28,8 @@ corrupting the GPT of images like ARM board images. See
   as they stream, so no expanded copy is ever written to disk.
 - **Read** a device to an `.img`, or with **Compress during Read** to an
   `.img.gz` (the default), `.img.xz`, `.img.bz2` or `.img.zst`.
-  - **Skip unpartitioned space** leaves out the space outside the partitions.
-  - **Choose partitions...** leaves out whole partitions you pick, through
+  - **Skip unpartitioned space on Read** leaves out the space outside the partitions.
+  - **Choose Partitions to Read** leaves out whole partitions you pick, through
     Custom Partitioning.
 - **Custom Partitioning** puts partitions from several image files and disks onto
   one device, or into a new image file, in an order you choose, under a new
@@ -63,7 +63,7 @@ includes volumes mounted as folders or with no drive letter.
 
 By default, Read copies the whole device, sector by sector.
 
-**Skip unpartitioned space** reads the device's MBR or GPT and packs the partitions
+**Skip unpartitioned space on Read** reads the device's MBR or GPT and packs the partitions
 back to back, removing the unpartitioned space between and after them.
 Most bootloaders live in a partition, but some board images store theirs in
 the unused space before the first partition, and nothing in the partition
@@ -79,7 +79,7 @@ For GPT, the backup table is rebuilt at the new end of the image. A device with
 no partition table, or nothing to remove, is read in full, and so is a GPT
 device whose GPT cannot be repacked: its MBR is never repacked in its place.
 
-**Choose partitions...** opens Custom Partitioning (below) set up for a
+**Choose Partitions to Read** opens Custom Partitioning (below) set up for a
 Read: the device as the source, every partition ticked, as its own lead-in,
 and the image file named in the main window, compressed as **Compress during
 Read** says, as where it goes. Untick what to leave out, and Write; **Verify
@@ -89,7 +89,7 @@ have one; anything left out is removed from the image and from its partition
 table, and the unpartitioned space goes too. Leaving out the first partition
 moves the next one to where it started.
 
-**Skip unpartitioned space** works together with **Compress during Read**.
+**Skip unpartitioned space on Read** works together with **Compress during Read**.
 
 ## Custom partitioning
 
@@ -116,7 +116,7 @@ will go and how much space is left.
   name; MBR partitions their type and boot flag.
 - **Lead-in from** one of the images copies that image's boot code and the
   space before its first partition, where a board's bootloader may be stored
-  (up to 32 MB, as for Skip unpartitioned space). The device then gets the
+  (up to 32 MB, as for Skip unpartitioned space on Read). The device then gets the
   same kind of partition table as that image, and the first partition starts
   where that image's did.
 - Without a lead-in, the device gets an MBR if every partition comes from an

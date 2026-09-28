@@ -244,36 +244,33 @@
        </widget>
           </item>
           <item>
-         <widget class="QPushButton" name="bCheckGpt">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Check Device GPT</string>
-          </property>
-          <property name="toolTip">
-           <string>Check the currently selected device for GPT corruption and offer to repair it.</string>
-          </property>
-         </widget>
+           <widget class="QPushButton" name="bChoosePartitions">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Choose Partitions to Read</string>
+            </property>
+            <property name="toolTip">
+             <string>Read only some of the Device's partitions: opens Custom Partitioning with the Device as the source, every partition ticked, and the Image File as where it goes. Untick what to leave out.</string>
+            </property>
+           </widget>
           </item>
           <item>
-         <widget class="QPushButton" name="bCombine">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Custom Partitioning...</string>
-          </property>
-          <property name="toolTip">
-           <string>Put partitions from image files and disks onto a device, or into a new image file, in an order you choose, under a new partition table.</string>
-          </property>
-         </widget>
+           <spacer name="deviceOptionsColMiscSpacer">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+           </spacer>
           </item>
          </layout>
         </item>
@@ -288,7 +285,7 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>Skip unpartitioned space</string>
+         <string>Skip unpartitioned space on Read</string>
         </property>
         <property name="toolTip">
          <string>Reads the MBR or GPT of the Device and leaves out the unpartitioned space between and after its partitions. Up to 32 MB of the space before the first partition, where a bootloader might be stored in unused space, is read as it is; only space beyond that is left out. The backup GPT is moved to the new end of the image.</string>
@@ -350,22 +347,6 @@
         </item>
        </widget>
           </item>
-          <item>
-       <widget class="QPushButton" name="bChoosePartitions">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="text">
-         <string>Choose partitions...</string>
-        </property>
-        <property name="toolTip">
-         <string>Read only some of the Device's partitions: opens Custom Partitioning with the Device as the source, every partition ticked, and the Image File as where it goes. Untick what to leave out.</string>
-        </property>
-       </widget>
-          </item>
          </layout>
         </item>
        </layout>
@@ -376,7 +357,7 @@
     <item>
      <widget class="QGroupBox" name="hashGroup">
       <property name="title">
-       <string>Image File Hash</string>
+       <string>Tools</string>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout">
        <property name="spacing">
@@ -395,10 +376,69 @@
         <number>2</number>
        </property>
        <item>
+        <layout class="QHBoxLayout" name="toolButtonsRow">
+         <property name="spacing">
+          <number>6</number>
+         </property>
+         <item>
+          <widget class="QPushButton" name="bCheckGpt">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="text">
+            <string>Check Device GPT</string>
+           </property>
+           <property name="toolTip">
+            <string>Check the currently selected device for GPT corruption and offer to repair it.</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="bCombine">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="text">
+            <string>Custom Partitioning...</string>
+           </property>
+           <property name="toolTip">
+            <string>Put partitions from image files and disks onto a device, or into a new image file, in an order you choose, under a new partition table.</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="toolButtonsSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>0</width>
+             <height>0</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
         <layout class="QHBoxLayout" name="horizontalLayout">
          <property name="spacing">
           <number>3</number>
          </property>
+         <item>
+          <widget class="QLabel" name="hashTypeLabel">
+           <property name="text">
+            <string>Image File Hash</string>
+           </property>
+          </widget>
+         </item>
          <item>
           <widget class="QComboBox" name="cboxHashType">
            <property name="sizePolicy">

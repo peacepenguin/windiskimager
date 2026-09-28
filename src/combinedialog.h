@@ -96,7 +96,7 @@ public:
     // it directly.
     void addImageFiles(const QStringList &paths);
     // Set up for a Read with some partitions left out -- the main window's
-    // "Choose partitions...": disk `disk` as the source, every partition of
+    // "Choose Partitions to Read": disk `disk` as the source, every partition of
     // it ticked, and as its own lead-in; written to the image file `path`,
     // compressed as given. False, having said why, if the disk cannot be read.
     bool presetRead(int disk, const QString &path, bool compressed, ImageSink::Format format);
