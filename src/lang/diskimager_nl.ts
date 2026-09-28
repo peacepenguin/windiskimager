@@ -2,6 +2,373 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="nl_NL">
 <context>
+    <name>CombineDialog</name>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>Aangepaste partitionering</translation>
+    </message>
+    <message>
+        <source>Add image files or disks, tick the partitions to put on the device or in a new image file, and order them. Each source&apos;s partition table is read from its first sectors; nothing else is read until you write, or ask for a full scan.</source>
+        <translation>Voeg imagebestanden of schijven toe, vink de partities aan die op het apparaat of in een nieuw imagebestand moeten komen, en zet ze op volgorde. De partitietabel van elke bron wordt uit de eerste sectoren gelezen; verder wordt niets gelezen totdat u schrijft of om een volledige scan vraagt.</translation>
+    </message>
+    <message>
+        <source>Sources</source>
+        <translation>Bronnen</translation>
+    </message>
+    <message>
+        <source>Source / partition</source>
+        <translation>Bron / partitie</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>Type</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Grootte</translation>
+    </message>
+    <message>
+        <source>Add images...</source>
+        <translation>Images toevoegen...</translation>
+    </message>
+    <message>
+        <source>Add disks...</source>
+        <translation>Schijven toevoegen...</translation>
+    </message>
+    <message>
+        <source>Take partitions from disks as well: cards, USB drives, and other disks. The disk Windows runs from is never offered. While a disk is read, its volumes are locked and dismounted.</source>
+        <translation>Neem ook partities van schijven: geheugenkaarten, USB-sticks en andere schijven. De schijf waarvan Windows draait, wordt nooit aangeboden. Terwijl een schijf wordt gelezen, zijn de volumes erop vergrendeld en ontkoppeld.</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Verwijderen</translation>
+    </message>
+    <message>
+        <source>Full scan</source>
+        <translation>Volledige scan</translation>
+    </message>
+    <message>
+        <source>Read and decompress the whole image, to learn its exact size and check that it holds every partition to its end. Only needed for an image with no partition table whose size the file does not record, or to check a compressed image before writing.</source>
+        <translation>Leest en decomprimeert de hele image om de exacte grootte te bepalen en te controleren dat elke partitie tot het einde erin zit. Alleen nodig voor een image zonder partitietabel waarvan het bestand de grootte niet vastlegt, of om een gecomprimeerde image vóór het schrijven te controleren.</translation>
+    </message>
+    <message>
+        <source>Layout</source>
+        <translation>Indeling</translation>
+    </message>
+    <message>
+        <source>Partitions, in order:</source>
+        <translation>Partities, op volgorde:</translation>
+    </message>
+    <message>
+        <source>Up</source>
+        <translation>Omhoog</translation>
+    </message>
+    <message>
+        <source>Down</source>
+        <translation>Omlaag</translation>
+    </message>
+    <message>
+        <source>Lead-in from:</source>
+        <translation>Aanloop van:</translation>
+    </message>
+    <message>
+        <source>Copy this image&apos;s boot code, and the space between its partition table and its first partition (up to 32 MiB), where a bootloader may be stored. The device then gets the same kind of partition table as this image, and the first partition starts where this image&apos;s did.</source>
+        <translation>Kopieert de opstartcode van deze image en de ruimte tussen de partitietabel en de eerste partitie (tot 32 MiB), waar een bootloader kan staan. Het apparaat krijgt dan hetzelfde soort partitietabel als deze image, en de eerste partitie begint waar die in deze image begon.</translation>
+    </message>
+    <message>
+        <source>On the device</source>
+        <translation>Op het apparaat</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>Begin</translation>
+    </message>
+    <message>
+        <source>From</source>
+        <translation>Van</translation>
+    </message>
+    <message>
+        <source>Write to</source>
+        <translation>Schrijven naar</translation>
+    </message>
+    <message>
+        <source>A device:</source>
+        <translation>Een apparaat:</translation>
+    </message>
+    <message>
+        <source>Show all devices</source>
+        <translation>Alle apparaten tonen</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
+        <translation>Toont ook vaste schijven. Interne PCIe-kaartlezers presenteren de kaart vaak als een niet-verwisselbaar apparaat, dat anders verborgen blijft. De schijf waarvan Windows draait, wordt nooit getoond.</translation>
+    </message>
+    <message>
+        <source>An image file:</source>
+        <translation>Een imagebestand:</translation>
+    </message>
+    <message>
+        <source>combined.img</source>
+        <translation>combined.img</translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation>Bladeren...</translation>
+    </message>
+    <message>
+        <source>Compress to</source>
+        <translation>Comprimeren naar</translation>
+    </message>
+    <message>
+        <source>The compressed format to write to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>Het gecomprimeerde formaat om naar te schrijven: .img.zst is het snelst, .img.xz het kleinst en .img.gz het breedst ondersteund</translation>
+    </message>
+    <message>
+        <source>Verify after writing</source>
+        <translation>Controleren na schrijven</translation>
+    </message>
+    <message>
+        <source>Write...</source>
+        <translation>Schrijven...</translation>
+    </message>
+    <message>
+        <source>no device is chosen to write to</source>
+        <translation>er is geen apparaat gekozen om naar te schrijven</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read</source>
+        <translation>schijf %1 kon niet worden gelezen</translation>
+    </message>
+    <message>
+        <source>disk %1 has %2-byte sectors, and the sources %3-byte ones</source>
+        <translation>schijf %1 heeft sectoren van %2 bytes, en de bronnen van %3 bytes</translation>
+    </message>
+    <message>
+        <source>Disk %1: %2</source>
+        <translation>Schijf %1: %2</translation>
+    </message>
+    <message>
+        <source>Save the combined image as</source>
+        <translation>Gecombineerde image opslaan als</translation>
+    </message>
+    <message>
+        <source>Disk Images (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</source>
+        <translation>Schijf-images (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>%1 KB</source>
+        <translation>%1 KB</translation>
+    </message>
+    <message>
+        <source>the image ends inside its own partition table</source>
+        <translation>de image eindigt binnen de eigen partitietabel</translation>
+    </message>
+    <message>
+        <source>the partition table could not be read</source>
+        <translation>de partitietabel kon niet worden gelezen</translation>
+    </message>
+    <message>
+        <source>Add images</source>
+        <translation>Images toevoegen</translation>
+    </message>
+    <message>
+        <source>%1 cannot be used: %2.</source>
+        <translation>%1 kan niet worden gebruikt: %2.</translation>
+    </message>
+    <message>
+        <source>%1 has no partition table, so it is taken as one partition: the whole image. The file does not record how big that is, so it has to be read to the end to find out.
+
+Scan it now?</source>
+        <translation>%1 heeft geen partitietabel en wordt daarom als één partitie behandeld: de hele image. Het bestand legt niet vast hoe groot die is, dus moet het tot het einde worden gelezen om dat te bepalen.
+
+Nu scannen?</translation>
+    </message>
+    <message>
+        <source>Add disks</source>
+        <translation>Schijven toevoegen</translation>
+    </message>
+    <message>
+        <source>Tick the disks to take partitions from:</source>
+        <translation>Vink de schijven aan waarvan partities worden genomen:</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. The disk Windows is running from is never listed.</source>
+        <translation>Toont ook vaste schijven. De schijf waarvan Windows draait, wordt nooit getoond.</translation>
+    </message>
+    <message>
+        <source> -- the device being written to</source>
+        <translation> -- het apparaat waarnaar wordt geschreven</translation>
+    </message>
+    <message>
+        <source>Already a source.</source>
+        <translation>Al een bron.</translation>
+    </message>
+    <message>
+        <source>Disk %1 cannot be used: %2.</source>
+        <translation>Schijf %1 kan niet worden gebruikt: %2.</translation>
+    </message>
+    <message>
+        <source>disk</source>
+        <translation>schijf</translation>
+    </message>
+    <message>
+        <source>Scanning %1...</source>
+        <translation>%1 scannen...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annuleren</translation>
+    </message>
+    <message>
+        <source>%1 could not be read to the end: %2</source>
+        <translation>%1 kon niet tot het einde worden gelezen: %2</translation>
+    </message>
+    <message>
+        <source>Scanning %1: %2 read...</source>
+        <translation>%1 scannen: %2 gelezen...</translation>
+    </message>
+    <message>
+        <source>%1 ends at %2, before its partition %3 does: the image is incomplete, and that partition cannot be copied whole.</source>
+        <translation>%1 eindigt bij %2, voordat de partitie %3 eindigt: de image is onvolledig en die partitie kan niet volledig worden gekopieerd.</translation>
+    </message>
+    <message>
+        <source>whole image</source>
+        <translation>hele image</translation>
+    </message>
+    <message>
+        <source>Partition %1</source>
+        <translation>Partitie %1</translation>
+    </message>
+    <message>
+        <source>Partition %1: %2</source>
+        <translation>Partitie %1: %2</translation>
+    </message>
+    <message>
+        <source>%1, %2</source>
+        <translation>%1, %2</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>no partition table</source>
+        <translation>geen partitietabel</translation>
+    </message>
+    <message>
+        <source>size not recorded</source>
+        <translation>grootte niet vastgelegd</translation>
+    </message>
+    <message>
+        <source>%1, scanned</source>
+        <translation>%1, gescand</translation>
+    </message>
+    <message>
+        <source>unknown: scan the image</source>
+        <translation>onbekend: scan de image</translation>
+    </message>
+    <message>
+        <source>None: a new, empty table</source>
+        <translation>Geen: een nieuwe, lege tabel</translation>
+    </message>
+    <message>
+        <source>Tick the partitions to put on the device.</source>
+        <translation>Vink de partities aan die op het apparaat moeten komen.</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1.</source>
+        <translation>Dit kan niet worden geschreven: %1.</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1 is the device being written to. Write to an image file, or choose another device.</source>
+        <translation>Dit kan niet worden geschreven: %1 is het apparaat waarnaar wordt geschreven. Schrijf naar een imagebestand of kies een ander apparaat.</translation>
+    </message>
+    <message>
+        <source>Partition table (%1)</source>
+        <translation>Partitietabel (%1)</translation>
+    </message>
+    <message>
+        <source>Lead-in</source>
+        <translation>Aanloop</translation>
+    </message>
+    <message>
+        <source>Backup GPT</source>
+        <translation>Reserve-GPT</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: an image file of %3.</source>
+        <translation>%1, %2 partities: een imagebestand van %3.</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
+        <translation>%1, %2 partities: %3 gebruikt, %4 vrij van %5.</translation>
+    </message>
+    <message>
+        <source>Images of unrecorded size are checked only when scanned or written.</source>
+        <translation>Images waarvan de grootte niet is vastgelegd, worden pas gecontroleerd bij scannen of schrijven.</translation>
+    </message>
+    <message>
+        <source>Some partitions share a GUID: you will be asked about it.</source>
+        <translation>Sommige partities delen een GUID: u krijgt daar een vraag over.</translation>
+    </message>
+    <message>
+        <source>Name the image file to write.</source>
+        <translation>Geef het te schrijven imagebestand een naam.</translation>
+    </message>
+    <message>
+        <source>%1 is one of the images being combined; choose another name.</source>
+        <translation>%1 is een van de images die worden gecombineerd; kies een andere naam.</translation>
+    </message>
+    <message>
+        <source>%1 already exists. Overwrite it?</source>
+        <translation>%1 bestaat al. Overschrijven?</translation>
+    </message>
+    <message>
+        <source>%1 is on disk %2, which is one of the sources: its volumes are locked while it is read, so nothing can be written to them. Choose a place on another disk.</source>
+        <translation>%1 staat op schijf %2, die een van de bronnen is: de volumes erop zijn vergrendeld terwijl die wordt gelezen, dus er kan niets naar worden geschreven. Kies een locatie op een andere schijf.</translation>
+    </message>
+    <message>
+        <source>Duplicate partition GUIDs</source>
+        <translation>Dubbele partitie-GUID&apos;s</translation>
+    </message>
+    <message>
+        <source>These unique partition GUIDs belong to more than one of the chosen partitions:
+
+%1
+
+The copies are usually the same partition taken from two copies of one image. With duplicate GUIDs a system that finds its partitions by PARTUUID -- in fstab or on the kernel command line -- may use the wrong one.
+
+New GUIDs can be generated for the later copies; the first keeps its own. Anything that names a regenerated partition by its old PARTUUID will then no longer find it.</source>
+        <translation>Deze unieke partitie-GUID&apos;s horen bij meer dan één van de gekozen partities:
+
+%1
+
+Meestal is het dezelfde partitie, genomen uit twee kopieën van één image. Met dubbele GUID&apos;s kan een systeem dat zijn partities via PARTUUID vindt -- in fstab of op de kernelopdrachtregel -- de verkeerde gebruiken.
+
+Voor de latere kopieën kunnen nieuwe GUID&apos;s worden gegenereerd; de eerste behoudt de eigen GUID. Alles wat een opnieuw gegenereerde partitie bij de oude PARTUUID noemt, vindt die daarna niet meer.</translation>
+    </message>
+    <message>
+        <source>Generate new GUIDs</source>
+        <translation>Nieuwe GUID&apos;s genereren</translation>
+    </message>
+    <message>
+        <source>Keep them</source>
+        <translation>Behouden</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
         <source>Win32 Disk Imager</source>
@@ -49,7 +416,7 @@
     </message>
     <message>
         <source>Choose partitions to read</source>
-        <translation>Te lezen partities kiezen</translation>
+        <translation type="vanished">Te lezen partities kiezen</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
@@ -65,7 +432,7 @@
     </message>
     <message>
         <source>Check GPT</source>
-        <translation>GPT controleren</translation>
+        <translation type="vanished">GPT controleren</translation>
     </message>
     <message>
         <source>Win Disk Imager</source>
@@ -77,7 +444,7 @@
     </message>
     <message>
         <source>Skip unpartitioned space</source>
-        <translation>Niet-gepartitioneerde ruimte overslaan</translation>
+        <translation type="vanished">Niet-gepartitioneerde ruimte overslaan</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
@@ -105,7 +472,35 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
-        <translation>Toont voor het lezen de partities van het apparaat en laat kiezen welke worden opgenomen. Alles wat wordt weggelaten, wordt uit de image verwijderd, net als niet-gepartitioneerde ruimte -- niet-gepartitioneerde ruimte wordt daarbij altijd ook overgeslagen, ongeacht of &quot;Niet-gepartitioneerde ruimte overslaan&quot; is aangevinkt.</translation>
+        <translation type="vanished">Toont voor het lezen de partities van het apparaat en laat kiezen welke worden opgenomen. Alles wat wordt weggelaten, wordt uit de image verwijderd, net als niet-gepartitioneerde ruimte -- niet-gepartitioneerde ruimte wordt daarbij altijd ook overgeslagen, ongeacht of &quot;Niet-gepartitioneerde ruimte overslaan&quot; is aangevinkt.</translation>
+    </message>
+    <message>
+        <source>Choose Partitions to Read</source>
+        <translation>Te lezen partities kiezen</translation>
+    </message>
+    <message>
+        <source>Read only some of the Device&apos;s partitions: opens Custom Partitioning with the Device as the source, every partition ticked, and the Image File as where it goes. Untick what to leave out.</source>
+        <translation>Slechts enkele partities van het apparaat lezen: opent Aangepaste partitionering met het apparaat als bron, alle partities aangevinkt en het imagebestand als bestemming. Vink uit wat moet worden weggelaten.</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space on Read</source>
+        <translation>Niet-gepartitioneerde ruimte overslaan bij lezen</translation>
+    </message>
+    <message>
+        <source>Tools</source>
+        <translation>Hulpmiddelen</translation>
+    </message>
+    <message>
+        <source>Check Device GPT</source>
+        <translation>GPT van apparaat controleren</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning...</source>
+        <translation>Aangepaste partitionering...</translation>
+    </message>
+    <message>
+        <source>Put partitions from image files and disks onto a device, or into a new image file, in an order you choose, under a new partition table.</source>
+        <translation>Partities uit imagebestanden en van schijven op een apparaat of in een nieuw imagebestand zetten, in een volgorde naar keuze, onder een nieuwe partitietabel.</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -655,7 +1050,7 @@ Toch doorgaan?</translation>
     </message>
     <message>
         <source>Select partitions to include in the Image.</source>
-        <translation>Selecteer de partities die in de image moeten worden opgenomen.</translation>
+        <translation type="vanished">Selecteer de partities die in de image moeten worden opgenomen.</translation>
     </message>
     <message>
         <source>The device could not be read at sector %1.</source>
@@ -804,12 +1199,76 @@ De partitietabel nu herstellen?</translation>
         <translation>De partitietabel kon niet worden gelezen, of is op een andere manier beschadigd dan deze functie herstelt.</translation>
     </message>
     <message>
+        <source>The target device is also one of the sources.</source>
+        <translation>Het doelapparaat is ook een van de bronnen.</translation>
+    </message>
+    <message>
+        <source>%1 is on the target device, and cannot be written to it.</source>
+        <translation>%1 staat op het doelapparaat en kan er niet naar worden geschreven.</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>De apparatenlijst is gewijzigd tijdens het bevestigen. Controleer het doelapparaat en probeer het opnieuw.</translation>
     </message>
     <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1 eindigt bij sector %2, voordat de partitie die het daar moet leveren eindigt: de image is onvolledig.</translation>
+    </message>
+    <message>
+        <source>Sector %1 of the device does not match sector %2 of %3.</source>
+        <translation>Sector %1 van het apparaat komt niet overeen met sector %2 van %3.</translation>
+    </message>
+    <message>
+        <source>The device has been partially written and no longer holds a usable layout. Write it again before using it.</source>
+        <translation>Het apparaat is gedeeltelijk beschreven en bevat geen bruikbare indeling meer. Schrijf het opnieuw voordat u het gebruikt.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Bezig met schrijven…</translation>
+    </message>
+    <message>
+        <source>The partition table on the device does not match what was written.</source>
+        <translation>De partitietabel op het apparaat komt niet overeen met wat is geschreven.</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>Schrijven en controleren geslaagd.
+
+Het apparaat bevat een nieuwe %1-partitietabel met %2 partities uit %3 images.</translation>
+    </message>
+    <message>
+        <source>Write successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>Schrijven geslaagd.
+
+Het apparaat bevat een nieuwe %1-partitietabel met %2 partities uit %3 images.</translation>
+    </message>
+    <message>
+        <source>Its backup is already at the end of the device, so Windows has nothing to repair.</source>
+        <translation>De reservekopie staat al aan het einde van het apparaat, dus Windows hoeft niets te herstellen.</translation>
+    </message>
+    <message>
+        <source>Whether it boots depends on its bootloaders finding their partitions where they now are.</source>
+        <translation>Of het opstart, hangt ervan af of de bootloaders hun partities vinden op de plek waar ze nu staan.</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>Aangepaste partitionering</translation>
     </message>
     <message>
         <source>The image is larger than the device, so the end of it was not written and the device does not hold a complete image.
@@ -892,8 +1351,32 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
 Verwijder het apparaat NU en plaats het hier niet opnieuw. Steek het meteen in de doelhardware.</translation>
     </message>
     <message>
+        <source>The combined image ended early.</source>
+        <translation>De gecombineerde image eindigde te vroeg.</translation>
+    </message>
+    <message>
+        <source>Sector %1 of %2 is not what was written.</source>
+        <translation>Sector %1 van %2 is niet wat er is geschreven.</translation>
+    </message>
+    <message>
+        <source>%1 holds more than the combined image, or does not end cleanly.</source>
+        <translation>%1 bevat meer dan de gecombineerde image, of eindigt niet netjes.</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.</source>
+        <translation>Schrijven en controleren geslaagd.</translation>
+    </message>
+    <message>
+        <source>%1 holds a %2 partition table with %3 partitions from %4 images.</source>
+        <translation>%1 bevat een %2-partitietabel met %3 partities uit %4 images.</translation>
+    </message>
+    <message>
+        <source>Its backup GPT ends the image; &quot;Fix GPT after write&quot; moves it to the end of a larger device when the image is written.</source>
+        <translation>De reserve-GPT staat aan het einde van de image; &quot;GPT herstellen na schrijven&quot; verplaatst die naar het einde van een groter apparaat wanneer de image wordt geschreven.</translation>
+    </message>
+    <message>
         <source>Choose Partitions</source>
-        <translation>Partities kiezen</translation>
+        <translation type="vanished">Partities kiezen</translation>
     </message>
     <message>
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
@@ -917,15 +1400,15 @@ Sommige opstartbare images, zoals die voor single-board computers, bewaren bootl
     </message>
     <message>
         <source>Partition %1 -- %2</source>
-        <translation>Partitie %1 -- %2</translation>
+        <translation type="vanished">Partitie %1 -- %2</translation>
     </message>
     <message>
         <source>Partition %1 -- %2 -- %3</source>
-        <translation>Partitie %1 -- %2 -- %3</translation>
+        <translation type="vanished">Partitie %1 -- %2 -- %3</translation>
     </message>
     <message>
         <source>At least one partition must stay checked.</source>
-        <translation>Er moet minstens één partitie aangevinkt blijven.</translation>
+        <translation type="vanished">Er moet minstens één partitie aangevinkt blijven.</translation>
     </message>
     <message>
         <source>Read Error</source>
@@ -949,11 +1432,11 @@ Sommige opstartbare images, zoals die voor single-board computers, bewaren bootl
     </message>
     <message>
         <source>No partition table was found on the device, so there is nothing to choose from. The whole device will be read.</source>
-        <translation>Er is geen partitietabel op het apparaat gevonden, dus er is niets om te kiezen. Het hele apparaat wordt gelezen.</translation>
+        <translation type="vanished">Er is geen partitietabel op het apparaat gevonden, dus er is niets om te kiezen. Het hele apparaat wordt gelezen.</translation>
     </message>
     <message>
         <source>Read canceled.</source>
-        <translation>Lezen geannuleerd.</translation>
+        <translation type="vanished">Lezen geannuleerd.</translation>
     </message>
     <message>
         <source>Disk is not large enough for the specified image.</source>
@@ -1218,8 +1701,120 @@ Fout %2</translation>
         <translation>de controlesom van de primaire GPT-header is ongeldig</translation>
     </message>
     <message>
+        <source>%1, no partition table</source>
+        <translation>%1, geen partitietabel</translation>
+    </message>
+    <message>
+        <source>unrecognized filesystem, no partition table</source>
+        <translation>onbekend bestandssysteem, geen partitietabel</translation>
+    </message>
+    <message>
+        <source>the GPT header size is out of range</source>
+        <translation>de grootte van de GPT-header valt buiten het geldige bereik</translation>
+    </message>
+    <message>
+        <source>the GPT header checksum is invalid</source>
+        <translation>de controlesom van de GPT-header is ongeldig</translation>
+    </message>
+    <message>
         <source>the GPT partition entry array is not where the header says</source>
         <translation>de GPT-partitietabel staat niet waar de header aangeeft</translation>
+    </message>
+    <message>
+        <source>FirstUsableLBA lies inside the partition table</source>
+        <translation>FirstUsableLBA ligt binnen de partitietabel</translation>
+    </message>
+    <message>
+        <source>partition %1 runs past the end of the image</source>
+        <translation>partitie %1 loopt voorbij het einde van de image</translation>
+    </message>
+    <message>
+        <source>partition %1 describes an impossible range</source>
+        <translation>partitie %1 beschrijft een onmogelijk bereik</translation>
+    </message>
+    <message>
+        <source>the GPT holds no partitions</source>
+        <translation>de GPT bevat geen partities</translation>
+    </message>
+    <message>
+        <source>two partitions overlap</source>
+        <translation>twee partities overlappen</translation>
+    </message>
+    <message>
+        <source>extended, with its logical partitions (0x%1)</source>
+        <translation>uitgebreid, met de logische partities (0x%1)</translation>
+    </message>
+    <message>
+        <source>type 0x%1</source>
+        <translation>type 0x%1</translation>
+    </message>
+    <message>
+        <source>the MBR holds no partitions</source>
+        <translation>de MBR bevat geen partities</translation>
+    </message>
+    <message>
+        <source>the MBR has more than one extended partition</source>
+        <translation>de MBR heeft meer dan één uitgebreide partitie</translation>
+    </message>
+    <message>
+        <source>the image is smaller than one sector</source>
+        <translation>de image is kleiner dan één sector</translation>
+    </message>
+    <message>
+        <source>the image has a protective MBR but no GPT header</source>
+        <translation>de image heeft een beschermende MBR maar geen GPT-header</translation>
+    </message>
+    <message>
+        <source>an extended MBR partition cannot go on a GPT: choose the logical partitions&apos; image as the lead-in, or leave it out</source>
+        <translation>een uitgebreide MBR-partitie kan niet op een GPT: kies de image van de logische partities als aanloop, of laat die weg</translation>
+    </message>
+    <message>
+        <source>MBR partition type 0x%1 has no GPT equivalent this program knows</source>
+        <translation>MBR-partitietype 0x%1 heeft geen GPT-equivalent dat dit programma kent</translation>
+    </message>
+    <message>
+        <source>GPT partition type %1 has no MBR equivalent</source>
+        <translation>GPT-partitietype %1 heeft geen MBR-equivalent</translation>
+    </message>
+    <message>
+        <source>no partitions are chosen</source>
+        <translation>er zijn geen partities gekozen</translation>
+    </message>
+    <message>
+        <source>a chosen partition does not exist</source>
+        <translation>een gekozen partitie bestaat niet</translation>
+    </message>
+    <message>
+        <source>a partition is chosen twice</source>
+        <translation>een partitie is twee keer gekozen</translation>
+    </message>
+    <message>
+        <source>the size of an image with no partition table is not known: scan it first</source>
+        <translation>de grootte van een image zonder partitietabel is niet bekend: scan die eerst</translation>
+    </message>
+    <message>
+        <source>the lead-in image has no partition table</source>
+        <translation>de aanloop-image heeft geen partitietabel</translation>
+    </message>
+    <message>
+        <source>an MBR holds at most four partitions, and %1 are chosen</source>
+        <translation>een MBR bevat hoogstens vier partities, en er zijn er %1 gekozen</translation>
+    </message>
+    <message>
+        <source>an MBR can hold only one extended partition</source>
+        <translation>een MBR kan maar één uitgebreide partitie bevatten</translation>
+    </message>
+    <message>
+        <source>the GPT has room for %1 partitions, and %2 are chosen</source>
+        <translation>de GPT heeft ruimte voor %1 partities, en er zijn er %2 gekozen</translation>
+    </message>
+    <message>
+        <source>the layout no longer fits a 32-bit MBR entry</source>
+        <translation>de indeling past niet meer in een 32-bits MBR-item</translation>
+    </message>
+    <message>
+        <source>the partitions need %1 MB and the device has %2 MB</source>
+        <translation>de partities hebben %1 MB nodig en het apparaat heeft %2 MB</translation>
     </message>
     <message>
         <source>the GPT entry array does not fit on the device</source>
@@ -1304,6 +1899,18 @@ Fout %2</translation>
     <message>
         <source>The device reports a sector size of zero.</source>
         <translation>Het apparaat meldt een sectorgrootte van nul.</translation>
+    </message>
+    <message>
+        <source>Disk %1 could not be opened (error %2).</source>
+        <translation>Schijf %1 kon niet worden geopend (fout %2).</translation>
+    </message>
+    <message>
+        <source>The size of disk %1 could not be read (error %2).</source>
+        <translation>De grootte van schijf %1 kon niet worden gelezen (fout %2).</translation>
+    </message>
+    <message>
+        <source>Disk %1 has %2-byte sectors, not %3.</source>
+        <translation>Schijf %1 heeft sectoren van %2 bytes, niet %3.</translation>
     </message>
     <message>
         <source>The image file could not be opened (error %1).</source>
@@ -1416,6 +2023,34 @@ Fout %2</translation>
     <message>
         <source>The image file could not be flushed (error %1).</source>
         <translation>Het imagebestand kon niet worden doorgespoeld (fout %1).</translation>
+    </message>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1 eindigt bij sector %2, voordat de partitie die het daar moet leveren eindigt: de image is onvolledig.</translation>
+    </message>
+    <message>
+        <source>Disk %1 (%2)</source>
+        <translation>Schijf %1 (%2)</translation>
+    </message>
+    <message>
+        <source>Source disks will be dismounted</source>
+        <translation>Bronschijven worden ontkoppeld</translation>
+    </message>
+    <message>
+        <source>While they are read, the volumes on these source disks are locked and dismounted, so nothing changes them half way through:
+
+%1
+
+Programs using them lose them until the run ends. Nothing on them is changed. Continue?</source>
+        <translation>Terwijl ze worden gelezen, zijn de volumes op deze bronschijven vergrendeld en ontkoppeld, zodat niets ze halverwege verandert:
+
+%1
+
+Programma&apos;s die ze gebruiken, verliezen ze tot het einde van de bewerking. Er wordt niets op ze gewijzigd. Doorgaan?</translation>
     </message>
 </context>
 </TS>

@@ -2,6 +2,373 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ko">
 <context>
+    <name>CombineDialog</name>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>사용자 지정 파티션 구성</translation>
+    </message>
+    <message>
+        <source>Add image files or disks, tick the partitions to put on the device or in a new image file, and order them. Each source&apos;s partition table is read from its first sectors; nothing else is read until you write, or ask for a full scan.</source>
+        <translation>이미지 파일이나 디스크를 추가하고, 장치 또는 새 이미지 파일에 넣을 파티션을 선택한 뒤 순서를 정하십시오. 각 원본의 파티션 테이블은 첫 섹터들에서 읽습니다. 쓰기를 하거나 전체 검사를 요청하기 전에는 그 밖의 내용을 읽지 않습니다.</translation>
+    </message>
+    <message>
+        <source>Sources</source>
+        <translation>원본</translation>
+    </message>
+    <message>
+        <source>Source / partition</source>
+        <translation>원본 / 파티션</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>유형</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>크기</translation>
+    </message>
+    <message>
+        <source>Add images...</source>
+        <translation>이미지 추가...</translation>
+    </message>
+    <message>
+        <source>Add disks...</source>
+        <translation>디스크 추가...</translation>
+    </message>
+    <message>
+        <source>Take partitions from disks as well: cards, USB drives, and other disks. The disk Windows runs from is never offered. While a disk is read, its volumes are locked and dismounted.</source>
+        <translation>디스크에서도 파티션을 가져옵니다: 카드, USB 드라이브 및 기타 디스크. Windows가 실행 중인 디스크는 표시되지 않습니다. 디스크를 읽는 동안에는 해당 볼륨이 잠기고 마운트 해제됩니다.</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>제거</translation>
+    </message>
+    <message>
+        <source>Full scan</source>
+        <translation>전체 검사</translation>
+    </message>
+    <message>
+        <source>Read and decompress the whole image, to learn its exact size and check that it holds every partition to its end. Only needed for an image with no partition table whose size the file does not record, or to check a compressed image before writing.</source>
+        <translation>이미지 전체를 읽고 압축을 해제하여 정확한 크기를 알아내고, 모든 파티션이 끝까지 들어 있는지 확인합니다. 파일에 크기가 기록되지 않은, 파티션 테이블이 없는 이미지이거나, 쓰기 전에 압축된 이미지를 확인하려는 경우에만 필요합니다.</translation>
+    </message>
+    <message>
+        <source>Layout</source>
+        <translation>레이아웃</translation>
+    </message>
+    <message>
+        <source>Partitions, in order:</source>
+        <translation>파티션 (순서대로):</translation>
+    </message>
+    <message>
+        <source>Up</source>
+        <translation>위로</translation>
+    </message>
+    <message>
+        <source>Down</source>
+        <translation>아래로</translation>
+    </message>
+    <message>
+        <source>Lead-in from:</source>
+        <translation>선행 영역 원본:</translation>
+    </message>
+    <message>
+        <source>Copy this image&apos;s boot code, and the space between its partition table and its first partition (up to 32 MiB), where a bootloader may be stored. The device then gets the same kind of partition table as this image, and the first partition starts where this image&apos;s did.</source>
+        <translation>이 이미지의 부트 코드와, 파티션 테이블과 첫 파티션 사이의 공간(최대 32 MiB)을 복사합니다. 이 공간에는 부트로더가 저장되어 있을 수 있습니다. 그러면 장치는 이 이미지와 같은 종류의 파티션 테이블을 가지며, 첫 파티션은 이 이미지와 같은 위치에서 시작합니다.</translation>
+    </message>
+    <message>
+        <source>On the device</source>
+        <translation>장치에 배치</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>시작</translation>
+    </message>
+    <message>
+        <source>From</source>
+        <translation>원본</translation>
+    </message>
+    <message>
+        <source>Write to</source>
+        <translation>쓸 대상</translation>
+    </message>
+    <message>
+        <source>A device:</source>
+        <translation>장치:</translation>
+    </message>
+    <message>
+        <source>Show all devices</source>
+        <translation>모든 장치 표시</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
+        <translation>고정 디스크도 함께 표시합니다. 내장 PCIe 카드 리더는 카드를 분리 불가능한 장치로 표시하는 경우가 많아, 그렇지 않으면 목록에 나타나지 않습니다. Windows가 실행 중인 디스크는 절대 표시되지 않습니다.</translation>
+    </message>
+    <message>
+        <source>An image file:</source>
+        <translation>이미지 파일:</translation>
+    </message>
+    <message>
+        <source>combined.img</source>
+        <translation>combined.img</translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation>찾아보기...</translation>
+    </message>
+    <message>
+        <source>Compress to</source>
+        <translation>압축 형식</translation>
+    </message>
+    <message>
+        <source>The compressed format to write to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>쓸 때의 압축 형식: .img.zst가 가장 빠르고, .img.xz가 가장 작으며, .img.gz가 가장 널리 지원됩니다</translation>
+    </message>
+    <message>
+        <source>Verify after writing</source>
+        <translation>쓰기 후 검증</translation>
+    </message>
+    <message>
+        <source>Write...</source>
+        <translation>쓰기...</translation>
+    </message>
+    <message>
+        <source>no device is chosen to write to</source>
+        <translation>쓸 장치가 선택되지 않았습니다</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read</source>
+        <translation>디스크 %1을(를) 읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>disk %1 has %2-byte sectors, and the sources %3-byte ones</source>
+        <translation>디스크 %1의 섹터는 %2바이트이고, 원본의 섹터는 %3바이트입니다</translation>
+    </message>
+    <message>
+        <source>Disk %1: %2</source>
+        <translation>디스크 %1: %2</translation>
+    </message>
+    <message>
+        <source>Save the combined image as</source>
+        <translation>결합된 이미지 저장</translation>
+    </message>
+    <message>
+        <source>Disk Images (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</source>
+        <translation>디스크 이미지 (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>%1 KB</source>
+        <translation>%1 KB</translation>
+    </message>
+    <message>
+        <source>the image ends inside its own partition table</source>
+        <translation>이미지가 자체 파티션 테이블 중간에서 끝납니다</translation>
+    </message>
+    <message>
+        <source>the partition table could not be read</source>
+        <translation>파티션 테이블을 읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>Add images</source>
+        <translation>이미지 추가</translation>
+    </message>
+    <message>
+        <source>%1 cannot be used: %2.</source>
+        <translation>%1은(는) 사용할 수 없습니다: %2.</translation>
+    </message>
+    <message>
+        <source>%1 has no partition table, so it is taken as one partition: the whole image. The file does not record how big that is, so it has to be read to the end to find out.
+
+Scan it now?</source>
+        <translation>%1에는 파티션 테이블이 없으므로 이미지 전체를 하나의 파티션으로 취급합니다. 파일에 그 크기가 기록되어 있지 않으므로 끝까지 읽어서 알아내야 합니다.
+
+지금 검사할까요?</translation>
+    </message>
+    <message>
+        <source>Add disks</source>
+        <translation>디스크 추가</translation>
+    </message>
+    <message>
+        <source>Tick the disks to take partitions from:</source>
+        <translation>파티션을 가져올 디스크를 선택하십시오:</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. The disk Windows is running from is never listed.</source>
+        <translation>고정 디스크도 표시합니다. Windows가 실행 중인 디스크는 표시되지 않습니다.</translation>
+    </message>
+    <message>
+        <source> -- the device being written to</source>
+        <translation> -- 쓰기 대상 장치</translation>
+    </message>
+    <message>
+        <source>Already a source.</source>
+        <translation>이미 원본입니다.</translation>
+    </message>
+    <message>
+        <source>Disk %1 cannot be used: %2.</source>
+        <translation>디스크 %1은(는) 사용할 수 없습니다: %2.</translation>
+    </message>
+    <message>
+        <source>disk</source>
+        <translation>디스크</translation>
+    </message>
+    <message>
+        <source>Scanning %1...</source>
+        <translation>%1 검사 중...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+    <message>
+        <source>%1 could not be read to the end: %2</source>
+        <translation>%1을(를) 끝까지 읽을 수 없습니다: %2</translation>
+    </message>
+    <message>
+        <source>Scanning %1: %2 read...</source>
+        <translation>%1 검사 중: %2 읽음...</translation>
+    </message>
+    <message>
+        <source>%1 ends at %2, before its partition %3 does: the image is incomplete, and that partition cannot be copied whole.</source>
+        <translation>%1은(는) 파티션 %3이(가) 끝나기 전인 %2에서 끝납니다: 이미지가 불완전하여 해당 파티션을 통째로 복사할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>whole image</source>
+        <translation>이미지 전체</translation>
+    </message>
+    <message>
+        <source>Partition %1</source>
+        <translation>파티션 %1</translation>
+    </message>
+    <message>
+        <source>Partition %1: %2</source>
+        <translation>파티션 %1: %2</translation>
+    </message>
+    <message>
+        <source>%1, %2</source>
+        <translation>%1, %2</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>no partition table</source>
+        <translation>파티션 테이블 없음</translation>
+    </message>
+    <message>
+        <source>size not recorded</source>
+        <translation>크기 기록 안 됨</translation>
+    </message>
+    <message>
+        <source>%1, scanned</source>
+        <translation>%1, 검사함</translation>
+    </message>
+    <message>
+        <source>unknown: scan the image</source>
+        <translation>알 수 없음: 이미지를 검사하십시오</translation>
+    </message>
+    <message>
+        <source>None: a new, empty table</source>
+        <translation>없음: 비어 있는 새 테이블</translation>
+    </message>
+    <message>
+        <source>Tick the partitions to put on the device.</source>
+        <translation>장치에 넣을 파티션을 선택하십시오.</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1.</source>
+        <translation>쓸 수 없습니다: %1.</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1 is the device being written to. Write to an image file, or choose another device.</source>
+        <translation>쓸 수 없습니다: %1은(는) 쓰기 대상 장치입니다. 이미지 파일에 쓰거나 다른 장치를 선택하십시오.</translation>
+    </message>
+    <message>
+        <source>Partition table (%1)</source>
+        <translation>파티션 테이블 (%1)</translation>
+    </message>
+    <message>
+        <source>Lead-in</source>
+        <translation>선행 영역</translation>
+    </message>
+    <message>
+        <source>Backup GPT</source>
+        <translation>백업 GPT</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: an image file of %3.</source>
+        <translation>%1, 파티션 %2개: %3 크기의 이미지 파일.</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
+        <translation>%1, 파티션 %2개: %5 중 %3 사용, %4 여유.</translation>
+    </message>
+    <message>
+        <source>Images of unrecorded size are checked only when scanned or written.</source>
+        <translation>크기가 기록되지 않은 이미지는 검사하거나 쓸 때에만 확인됩니다.</translation>
+    </message>
+    <message>
+        <source>Some partitions share a GUID: you will be asked about it.</source>
+        <translation>일부 파티션이 같은 GUID를 공유합니다: 이에 대해 확인 메시지가 표시됩니다.</translation>
+    </message>
+    <message>
+        <source>Name the image file to write.</source>
+        <translation>쓸 이미지 파일의 이름을 지정하십시오.</translation>
+    </message>
+    <message>
+        <source>%1 is one of the images being combined; choose another name.</source>
+        <translation>%1은(는) 결합되는 이미지 중 하나입니다. 다른 이름을 선택하십시오.</translation>
+    </message>
+    <message>
+        <source>%1 already exists. Overwrite it?</source>
+        <translation>%1이(가) 이미 있습니다. 덮어쓸까요?</translation>
+    </message>
+    <message>
+        <source>%1 is on disk %2, which is one of the sources: its volumes are locked while it is read, so nothing can be written to them. Choose a place on another disk.</source>
+        <translation>%1은(는) 원본 중 하나인 디스크 %2에 있습니다. 읽는 동안 해당 볼륨이 잠기므로 아무것도 쓸 수 없습니다. 다른 디스크의 위치를 선택하십시오.</translation>
+    </message>
+    <message>
+        <source>Duplicate partition GUIDs</source>
+        <translation>중복된 파티션 GUID</translation>
+    </message>
+    <message>
+        <source>These unique partition GUIDs belong to more than one of the chosen partitions:
+
+%1
+
+The copies are usually the same partition taken from two copies of one image. With duplicate GUIDs a system that finds its partitions by PARTUUID -- in fstab or on the kernel command line -- may use the wrong one.
+
+New GUIDs can be generated for the later copies; the first keeps its own. Anything that names a regenerated partition by its old PARTUUID will then no longer find it.</source>
+        <translation>다음 고유 파티션 GUID가 선택한 파티션 중 둘 이상에 속합니다:
+
+%1
+
+이는 대개 한 이미지의 두 사본에서 같은 파티션을 가져온 경우입니다. GUID가 중복되면 fstab이나 커널 명령줄에서 PARTUUID로 파티션을 찾는 시스템이 잘못된 파티션을 사용할 수 있습니다.
+
+나중 사본에 대해 새 GUID를 생성할 수 있으며, 첫 번째 사본은 자신의 GUID를 유지합니다. 그러면 다시 생성된 파티션을 이전 PARTUUID로 지정하는 항목은 더 이상 그 파티션을 찾지 못합니다.</translation>
+    </message>
+    <message>
+        <source>Generate new GUIDs</source>
+        <translation>새 GUID 생성</translation>
+    </message>
+    <message>
+        <source>Keep them</source>
+        <translation>그대로 유지</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
         <source>Win32 Disk Imager</source>
@@ -49,7 +416,7 @@
     </message>
     <message>
         <source>Choose partitions to read</source>
-        <translation>읽을 파티션 선택</translation>
+        <translation type="vanished">읽을 파티션 선택</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
@@ -65,7 +432,7 @@
     </message>
     <message>
         <source>Check GPT</source>
-        <translation>GPT 확인</translation>
+        <translation type="vanished">GPT 확인</translation>
     </message>
     <message>
         <source>Win Disk Imager</source>
@@ -77,7 +444,7 @@
     </message>
     <message>
         <source>Skip unpartitioned space</source>
-        <translation>파티션되지 않은 공간 건너뛰기</translation>
+        <translation type="vanished">파티션되지 않은 공간 건너뛰기</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
@@ -105,7 +472,35 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
-        <translation>읽기 전에 장치의 파티션을 나열하고 포함할 항목을 선택합니다. 제외된 항목은 파티션되지 않은 공간과 마찬가지로 이미지에서 제거됩니다 -- &quot;파티션되지 않은 공간 건너뛰기&quot;가 선택되어 있는지 여부와 관계없이 파티션되지 않은 공간도 항상 건너뜁니다.</translation>
+        <translation type="vanished">읽기 전에 장치의 파티션을 나열하고 포함할 항목을 선택합니다. 제외된 항목은 파티션되지 않은 공간과 마찬가지로 이미지에서 제거됩니다 -- &quot;파티션되지 않은 공간 건너뛰기&quot;가 선택되어 있는지 여부와 관계없이 파티션되지 않은 공간도 항상 건너뜁니다.</translation>
+    </message>
+    <message>
+        <source>Choose Partitions to Read</source>
+        <translation>읽을 파티션 선택</translation>
+    </message>
+    <message>
+        <source>Read only some of the Device&apos;s partitions: opens Custom Partitioning with the Device as the source, every partition ticked, and the Image File as where it goes. Untick what to leave out.</source>
+        <translation>장치의 일부 파티션만 읽습니다: 장치를 원본으로, 모든 파티션을 선택한 상태로, 이미지 파일을 저장 위치로 하여 사용자 지정 파티션 구성을 엽니다. 제외할 항목은 선택을 해제하십시오.</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space on Read</source>
+        <translation>읽기 시 파티션되지 않은 공간 건너뛰기</translation>
+    </message>
+    <message>
+        <source>Tools</source>
+        <translation>도구</translation>
+    </message>
+    <message>
+        <source>Check Device GPT</source>
+        <translation>장치 GPT 확인</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning...</source>
+        <translation>사용자 지정 파티션 구성...</translation>
+    </message>
+    <message>
+        <source>Put partitions from image files and disks onto a device, or into a new image file, in an order you choose, under a new partition table.</source>
+        <translation>이미지 파일과 디스크의 파티션을 원하는 순서대로 새 파티션 테이블 아래에 배치하여 장치 또는 새 이미지 파일에 넣습니다.</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -655,7 +1050,7 @@ Continue Anyway?</source>
     </message>
     <message>
         <source>Select partitions to include in the Image.</source>
-        <translation>이미지에 포함할 파티션을 선택하세요.</translation>
+        <translation type="vanished">이미지에 포함할 파티션을 선택하세요.</translation>
     </message>
     <message>
         <source>The device could not be read at sector %1.</source>
@@ -804,12 +1199,76 @@ Repair the partition table now?</source>
         <translation>파티션 테이블을 읽을 수 없거나, 이 기능이 복구할 수 있는 것과는 다른 방식으로 손상되었습니다.</translation>
     </message>
     <message>
+        <source>The target device is also one of the sources.</source>
+        <translation>대상 장치가 원본 중 하나이기도 합니다.</translation>
+    </message>
+    <message>
+        <source>%1 is on the target device, and cannot be written to it.</source>
+        <translation>%1은(는) 대상 장치에 있으므로 그 장치에 쓸 수 없습니다.</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>확인하는 동안 장치 목록이 바뀌었습니다. 대상 장치를 확인하고 다시 시도하세요.</translation>
     </message>
     <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1은(는) 그곳에 공급할 파티션이 끝나기 전인 섹터 %2에서 끝납니다: 이미지가 불완전합니다.</translation>
+    </message>
+    <message>
+        <source>Sector %1 of the device does not match sector %2 of %3.</source>
+        <translation>장치의 섹터 %1이(가) %3의 섹터 %2와(과) 일치하지 않습니다.</translation>
+    </message>
+    <message>
+        <source>The device has been partially written and no longer holds a usable layout. Write it again before using it.</source>
+        <translation>장치가 일부만 쓰여서 더 이상 사용할 수 있는 레이아웃이 아닙니다. 사용하기 전에 다시 쓰십시오.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>쓰는 중…</translation>
+    </message>
+    <message>
+        <source>The partition table on the device does not match what was written.</source>
+        <translation>장치의 파티션 테이블이 쓴 내용과 일치하지 않습니다.</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>쓰기 및 검증에 성공했습니다.
+
+장치에 이미지 %3개에서 가져온 파티션 %2개로 이루어진 새 %1 파티션 테이블이 있습니다.</translation>
+    </message>
+    <message>
+        <source>Write successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>쓰기에 성공했습니다.
+
+장치에 이미지 %3개에서 가져온 파티션 %2개로 이루어진 새 %1 파티션 테이블이 있습니다.</translation>
+    </message>
+    <message>
+        <source>Its backup is already at the end of the device, so Windows has nothing to repair.</source>
+        <translation>백업이 이미 장치 끝에 있으므로 Windows가 복구할 것이 없습니다.</translation>
+    </message>
+    <message>
+        <source>Whether it boots depends on its bootloaders finding their partitions where they now are.</source>
+        <translation>부팅 여부는 부트로더가 현재 위치에서 파티션을 찾을 수 있는지에 달려 있습니다.</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>사용자 지정 파티션 구성</translation>
     </message>
     <message>
         <source>The image is larger than the device, so the end of it was not written and the device does not hold a complete image.
@@ -892,8 +1351,32 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
 지금 장치를 제거하고 이 컴퓨터에 다시 꽂지 마십시오. 대상 하드웨어에 바로 꽂으십시오.</translation>
     </message>
     <message>
+        <source>The combined image ended early.</source>
+        <translation>결합된 이미지가 일찍 끝났습니다.</translation>
+    </message>
+    <message>
+        <source>Sector %1 of %2 is not what was written.</source>
+        <translation>%2의 섹터 %1이(가) 쓴 내용과 다릅니다.</translation>
+    </message>
+    <message>
+        <source>%1 holds more than the combined image, or does not end cleanly.</source>
+        <translation>%1에 결합된 이미지보다 많은 내용이 있거나, 깔끔하게 끝나지 않습니다.</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.</source>
+        <translation>쓰기 및 검증에 성공했습니다.</translation>
+    </message>
+    <message>
+        <source>%1 holds a %2 partition table with %3 partitions from %4 images.</source>
+        <translation>%1에는 이미지 %4개에서 가져온 파티션 %3개로 이루어진 %2 파티션 테이블이 있습니다.</translation>
+    </message>
+    <message>
+        <source>Its backup GPT ends the image; &quot;Fix GPT after write&quot; moves it to the end of a larger device when the image is written.</source>
+        <translation>백업 GPT가 이미지의 끝에 있습니다. 이미지를 쓸 때 &quot;쓰기 후 GPT 수정&quot;이 이를 더 큰 장치의 끝으로 옮깁니다.</translation>
+    </message>
+    <message>
         <source>Choose Partitions</source>
-        <translation>파티션 선택</translation>
+        <translation type="vanished">파티션 선택</translation>
     </message>
     <message>
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
@@ -917,15 +1400,15 @@ Some bootable images, such as those for single-board computers, keep bootloader 
     </message>
     <message>
         <source>Partition %1 -- %2</source>
-        <translation>파티션 %1 -- %2</translation>
+        <translation type="vanished">파티션 %1 -- %2</translation>
     </message>
     <message>
         <source>Partition %1 -- %2 -- %3</source>
-        <translation>파티션 %1 -- %2 -- %3</translation>
+        <translation type="vanished">파티션 %1 -- %2 -- %3</translation>
     </message>
     <message>
         <source>At least one partition must stay checked.</source>
-        <translation>적어도 하나의 파티션은 선택된 상태로 유지해야 합니다.</translation>
+        <translation type="vanished">적어도 하나의 파티션은 선택된 상태로 유지해야 합니다.</translation>
     </message>
     <message>
         <source>Read Error</source>
@@ -949,11 +1432,11 @@ Some bootable images, such as those for single-board computers, keep bootloader 
     </message>
     <message>
         <source>No partition table was found on the device, so there is nothing to choose from. The whole device will be read.</source>
-        <translation>장치에서 파티션 테이블을 찾을 수 없어 선택할 항목이 없습니다. 전체 장치를 읽습니다.</translation>
+        <translation type="vanished">장치에서 파티션 테이블을 찾을 수 없어 선택할 항목이 없습니다. 전체 장치를 읽습니다.</translation>
     </message>
     <message>
         <source>Read canceled.</source>
-        <translation>읽기가 취소되었습니다.</translation>
+        <translation type="vanished">읽기가 취소되었습니다.</translation>
     </message>
     <message>
         <source>Disk is not large enough for the specified image.</source>
@@ -1215,8 +1698,120 @@ Error %2</source>
         <translation>주 GPT 헤더의 체크섬이 올바르지 않습니다</translation>
     </message>
     <message>
+        <source>%1, no partition table</source>
+        <translation>%1, 파티션 테이블 없음</translation>
+    </message>
+    <message>
+        <source>unrecognized filesystem, no partition table</source>
+        <translation>인식할 수 없는 파일 시스템, 파티션 테이블 없음</translation>
+    </message>
+    <message>
+        <source>the GPT header size is out of range</source>
+        <translation>GPT 헤더의 크기가 범위를 벗어났습니다</translation>
+    </message>
+    <message>
+        <source>the GPT header checksum is invalid</source>
+        <translation>GPT 헤더의 체크섬이 올바르지 않습니다</translation>
+    </message>
+    <message>
         <source>the GPT partition entry array is not where the header says</source>
         <translation>GPT 파티션 항목 배열이 헤더가 가리키는 위치에 없습니다</translation>
+    </message>
+    <message>
+        <source>FirstUsableLBA lies inside the partition table</source>
+        <translation>FirstUsableLBA가 파티션 테이블 안에 있습니다</translation>
+    </message>
+    <message>
+        <source>partition %1 runs past the end of the image</source>
+        <translation>파티션 %1이(가) 이미지 끝을 넘어갑니다</translation>
+    </message>
+    <message>
+        <source>partition %1 describes an impossible range</source>
+        <translation>파티션 %1이(가) 불가능한 범위를 나타냅니다</translation>
+    </message>
+    <message>
+        <source>the GPT holds no partitions</source>
+        <translation>GPT에 파티션이 없습니다</translation>
+    </message>
+    <message>
+        <source>two partitions overlap</source>
+        <translation>두 파티션이 겹칩니다</translation>
+    </message>
+    <message>
+        <source>extended, with its logical partitions (0x%1)</source>
+        <translation>확장, 논리 파티션 포함 (0x%1)</translation>
+    </message>
+    <message>
+        <source>type 0x%1</source>
+        <translation>유형 0x%1</translation>
+    </message>
+    <message>
+        <source>the MBR holds no partitions</source>
+        <translation>MBR에 파티션이 없습니다</translation>
+    </message>
+    <message>
+        <source>the MBR has more than one extended partition</source>
+        <translation>MBR에 확장 파티션이 둘 이상 있습니다</translation>
+    </message>
+    <message>
+        <source>the image is smaller than one sector</source>
+        <translation>이미지가 한 섹터보다 작습니다</translation>
+    </message>
+    <message>
+        <source>the image has a protective MBR but no GPT header</source>
+        <translation>이미지에 보호 MBR은 있지만 GPT 헤더가 없습니다</translation>
+    </message>
+    <message>
+        <source>an extended MBR partition cannot go on a GPT: choose the logical partitions&apos; image as the lead-in, or leave it out</source>
+        <translation>확장 MBR 파티션은 GPT에 넣을 수 없습니다: 논리 파티션의 이미지를 선행 영역 원본으로 선택하거나 제외하십시오</translation>
+    </message>
+    <message>
+        <source>MBR partition type 0x%1 has no GPT equivalent this program knows</source>
+        <translation>MBR 파티션 유형 0x%1에 해당하는 GPT 유형을 이 프로그램은 알지 못합니다</translation>
+    </message>
+    <message>
+        <source>GPT partition type %1 has no MBR equivalent</source>
+        <translation>GPT 파티션 유형 %1에 해당하는 MBR 유형이 없습니다</translation>
+    </message>
+    <message>
+        <source>no partitions are chosen</source>
+        <translation>선택된 파티션이 없습니다</translation>
+    </message>
+    <message>
+        <source>a chosen partition does not exist</source>
+        <translation>선택한 파티션이 존재하지 않습니다</translation>
+    </message>
+    <message>
+        <source>a partition is chosen twice</source>
+        <translation>파티션이 두 번 선택되었습니다</translation>
+    </message>
+    <message>
+        <source>the size of an image with no partition table is not known: scan it first</source>
+        <translation>파티션 테이블이 없는 이미지의 크기를 알 수 없습니다: 먼저 검사하십시오</translation>
+    </message>
+    <message>
+        <source>the lead-in image has no partition table</source>
+        <translation>선행 영역 이미지에 파티션 테이블이 없습니다</translation>
+    </message>
+    <message>
+        <source>an MBR holds at most four partitions, and %1 are chosen</source>
+        <translation>MBR에는 파티션을 최대 4개까지 넣을 수 있는데 %1개가 선택되었습니다</translation>
+    </message>
+    <message>
+        <source>an MBR can hold only one extended partition</source>
+        <translation>MBR에는 확장 파티션을 하나만 넣을 수 있습니다</translation>
+    </message>
+    <message>
+        <source>the GPT has room for %1 partitions, and %2 are chosen</source>
+        <translation>GPT에는 파티션 %1개를 넣을 공간이 있는데 %2개가 선택되었습니다</translation>
+    </message>
+    <message>
+        <source>the layout no longer fits a 32-bit MBR entry</source>
+        <translation>레이아웃이 더 이상 32비트 MBR 항목에 맞지 않습니다</translation>
+    </message>
+    <message>
+        <source>the partitions need %1 MB and the device has %2 MB</source>
+        <translation>파티션에 %1 MB가 필요한데 장치는 %2 MB입니다</translation>
     </message>
     <message>
         <source>the GPT entry array does not fit on the device</source>
@@ -1301,6 +1896,18 @@ Error %2</source>
     <message>
         <source>The device reports a sector size of zero.</source>
         <translation>장치가 섹터 크기를 0으로 보고합니다.</translation>
+    </message>
+    <message>
+        <source>Disk %1 could not be opened (error %2).</source>
+        <translation>디스크 %1을(를) 열 수 없습니다 (오류 %2).</translation>
+    </message>
+    <message>
+        <source>The size of disk %1 could not be read (error %2).</source>
+        <translation>디스크 %1의 크기를 읽을 수 없습니다 (오류 %2).</translation>
+    </message>
+    <message>
+        <source>Disk %1 has %2-byte sectors, not %3.</source>
+        <translation>디스크 %1의 섹터는 %3바이트가 아니라 %2바이트입니다.</translation>
     </message>
     <message>
         <source>The image file could not be opened (error %1).</source>
@@ -1413,6 +2020,34 @@ Error %2</source>
     <message>
         <source>The image file could not be flushed (error %1).</source>
         <translation>이미지 파일을 플러시할 수 없습니다 (오류 %1).</translation>
+    </message>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1은(는) 그곳에 공급할 파티션이 끝나기 전인 섹터 %2에서 끝납니다: 이미지가 불완전합니다.</translation>
+    </message>
+    <message>
+        <source>Disk %1 (%2)</source>
+        <translation>디스크 %1 (%2)</translation>
+    </message>
+    <message>
+        <source>Source disks will be dismounted</source>
+        <translation>원본 디스크의 마운트가 해제됩니다</translation>
+    </message>
+    <message>
+        <source>While they are read, the volumes on these source disks are locked and dismounted, so nothing changes them half way through:
+
+%1
+
+Programs using them lose them until the run ends. Nothing on them is changed. Continue?</source>
+        <translation>읽는 도중에 변경되지 않도록, 읽는 동안 이 원본 디스크의 볼륨이 잠기고 마운트 해제됩니다:
+
+%1
+
+이를 사용하는 프로그램은 작업이 끝날 때까지 볼륨에 접근할 수 없습니다. 디스크의 내용은 변경되지 않습니다. 계속할까요?</translation>
     </message>
 </context>
 </TS>

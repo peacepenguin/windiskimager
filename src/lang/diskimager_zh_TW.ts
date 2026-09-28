@@ -2,6 +2,373 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="zh_TW">
 <context>
+    <name>CombineDialog</name>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>自訂分割</translation>
+    </message>
+    <message>
+        <source>Add image files or disks, tick the partitions to put on the device or in a new image file, and order them. Each source&apos;s partition table is read from its first sectors; nothing else is read until you write, or ask for a full scan.</source>
+        <translation>加入映像檔或磁碟，勾選要放到裝置上或新映像檔中的分割區，並排列順序。每個來源的分割表會從其開頭的磁區讀取；在您寫入或要求完整掃描之前，不會讀取其他任何內容。</translation>
+    </message>
+    <message>
+        <source>Sources</source>
+        <translation>來源</translation>
+    </message>
+    <message>
+        <source>Source / partition</source>
+        <translation>來源 / 分割區</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>類型</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>大小</translation>
+    </message>
+    <message>
+        <source>Add images...</source>
+        <translation>加入映像檔...</translation>
+    </message>
+    <message>
+        <source>Add disks...</source>
+        <translation>加入磁碟...</translation>
+    </message>
+    <message>
+        <source>Take partitions from disks as well: cards, USB drives, and other disks. The disk Windows runs from is never offered. While a disk is read, its volumes are locked and dismounted.</source>
+        <translation>也從磁碟中取用分割區：記憶卡、USB 隨身碟及其他磁碟。執行 Windows 的磁碟永遠不會列入選項。讀取某個磁碟時，其上的磁碟區會被鎖定並卸載。</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>移除</translation>
+    </message>
+    <message>
+        <source>Full scan</source>
+        <translation>完整掃描</translation>
+    </message>
+    <message>
+        <source>Read and decompress the whole image, to learn its exact size and check that it holds every partition to its end. Only needed for an image with no partition table whose size the file does not record, or to check a compressed image before writing.</source>
+        <translation>讀取並解壓縮整個映像檔，以得知其確切大小，並檢查它是否完整包含每個分割區直到其結尾。僅在映像檔沒有分割表且檔案未記錄其大小時，或要在寫入前檢查壓縮映像檔時才需要。</translation>
+    </message>
+    <message>
+        <source>Layout</source>
+        <translation>配置</translation>
+    </message>
+    <message>
+        <source>Partitions, in order:</source>
+        <translation>分割區（依順序）：</translation>
+    </message>
+    <message>
+        <source>Up</source>
+        <translation>上移</translation>
+    </message>
+    <message>
+        <source>Down</source>
+        <translation>下移</translation>
+    </message>
+    <message>
+        <source>Lead-in from:</source>
+        <translation>前導區來源：</translation>
+    </message>
+    <message>
+        <source>Copy this image&apos;s boot code, and the space between its partition table and its first partition (up to 32 MiB), where a bootloader may be stored. The device then gets the same kind of partition table as this image, and the first partition starts where this image&apos;s did.</source>
+        <translation>複製此映像檔的開機程式碼，以及其分割表與第一個分割區之間的空間（最多 32 MiB），開機載入程式可能存放在那裡。裝置隨後會取得與此映像檔相同類型的分割表，且第一個分割區的起始位置與此映像檔中相同。</translation>
+    </message>
+    <message>
+        <source>On the device</source>
+        <translation>在裝置上</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>起始</translation>
+    </message>
+    <message>
+        <source>From</source>
+        <translation>取自</translation>
+    </message>
+    <message>
+        <source>Write to</source>
+        <translation>寫入到</translation>
+    </message>
+    <message>
+        <source>A device:</source>
+        <translation>裝置：</translation>
+    </message>
+    <message>
+        <source>Show all devices</source>
+        <translation>顯示所有裝置</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
+        <translation>同時列出固定式磁碟。內建 PCIe 讀卡機常將記憶卡顯示為不可卸除式裝置，否則便會被隱藏。執行 Windows 的磁碟永遠不會被列出。</translation>
+    </message>
+    <message>
+        <source>An image file:</source>
+        <translation>映像檔：</translation>
+    </message>
+    <message>
+        <source>combined.img</source>
+        <translation>combined.img</translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation>瀏覽...</translation>
+    </message>
+    <message>
+        <source>Compress to</source>
+        <translation>壓縮為</translation>
+    </message>
+    <message>
+        <source>The compressed format to write to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>寫入時的壓縮格式：.img.zst 最快，.img.xz 最小，.img.gz 相容性最廣</translation>
+    </message>
+    <message>
+        <source>Verify after writing</source>
+        <translation>寫入後驗證</translation>
+    </message>
+    <message>
+        <source>Write...</source>
+        <translation>寫入...</translation>
+    </message>
+    <message>
+        <source>no device is chosen to write to</source>
+        <translation>未選擇要寫入的裝置</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read</source>
+        <translation>無法讀取磁碟 %1</translation>
+    </message>
+    <message>
+        <source>disk %1 has %2-byte sectors, and the sources %3-byte ones</source>
+        <translation>磁碟 %1 的磁區為 %2 位元組，而各來源的磁區為 %3 位元組</translation>
+    </message>
+    <message>
+        <source>Disk %1: %2</source>
+        <translation>磁碟 %1：%2</translation>
+    </message>
+    <message>
+        <source>Save the combined image as</source>
+        <translation>將合併後的映像檔另存為</translation>
+    </message>
+    <message>
+        <source>Disk Images (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</source>
+        <translation>磁碟映像檔 (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>%1 KB</source>
+        <translation>%1 KB</translation>
+    </message>
+    <message>
+        <source>the image ends inside its own partition table</source>
+        <translation>映像檔在其自身的分割表內就結束了</translation>
+    </message>
+    <message>
+        <source>the partition table could not be read</source>
+        <translation>無法讀取分割表</translation>
+    </message>
+    <message>
+        <source>Add images</source>
+        <translation>加入映像檔</translation>
+    </message>
+    <message>
+        <source>%1 cannot be used: %2.</source>
+        <translation>%1 無法使用：%2。</translation>
+    </message>
+    <message>
+        <source>%1 has no partition table, so it is taken as one partition: the whole image. The file does not record how big that is, so it has to be read to the end to find out.
+
+Scan it now?</source>
+        <translation>%1 沒有分割表，因此將其視為一個分割區：整個映像檔。檔案未記錄其大小，因此必須讀到結尾才能得知。
+
+要立即掃描嗎？</translation>
+    </message>
+    <message>
+        <source>Add disks</source>
+        <translation>加入磁碟</translation>
+    </message>
+    <message>
+        <source>Tick the disks to take partitions from:</source>
+        <translation>勾選要從中取用分割區的磁碟：</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. The disk Windows is running from is never listed.</source>
+        <translation>同時列出固定式磁碟。執行 Windows 的磁碟永遠不會被列出。</translation>
+    </message>
+    <message>
+        <source> -- the device being written to</source>
+        <translation> -- 正在寫入的裝置</translation>
+    </message>
+    <message>
+        <source>Already a source.</source>
+        <translation>已是來源。</translation>
+    </message>
+    <message>
+        <source>Disk %1 cannot be used: %2.</source>
+        <translation>磁碟 %1 無法使用：%2。</translation>
+    </message>
+    <message>
+        <source>disk</source>
+        <translation>磁碟</translation>
+    </message>
+    <message>
+        <source>Scanning %1...</source>
+        <translation>正在掃描 %1…</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>%1 could not be read to the end: %2</source>
+        <translation>無法將 %1 讀到結尾：%2</translation>
+    </message>
+    <message>
+        <source>Scanning %1: %2 read...</source>
+        <translation>正在掃描 %1：已讀取 %2…</translation>
+    </message>
+    <message>
+        <source>%1 ends at %2, before its partition %3 does: the image is incomplete, and that partition cannot be copied whole.</source>
+        <translation>%1 在 %2 處結束，早於其分割區 %3 的結束位置：映像檔不完整，無法完整複製該分割區。</translation>
+    </message>
+    <message>
+        <source>whole image</source>
+        <translation>整個映像檔</translation>
+    </message>
+    <message>
+        <source>Partition %1</source>
+        <translation>分割區 %1</translation>
+    </message>
+    <message>
+        <source>Partition %1: %2</source>
+        <translation>分割區 %1：%2</translation>
+    </message>
+    <message>
+        <source>%1, %2</source>
+        <translation>%1，%2</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>no partition table</source>
+        <translation>無分割表</translation>
+    </message>
+    <message>
+        <source>size not recorded</source>
+        <translation>未記錄大小</translation>
+    </message>
+    <message>
+        <source>%1, scanned</source>
+        <translation>%1，已掃描</translation>
+    </message>
+    <message>
+        <source>unknown: scan the image</source>
+        <translation>不明：請掃描映像檔</translation>
+    </message>
+    <message>
+        <source>None: a new, empty table</source>
+        <translation>無：新的空白分割表</translation>
+    </message>
+    <message>
+        <source>Tick the partitions to put on the device.</source>
+        <translation>勾選要放到裝置上的分割區。</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1.</source>
+        <translation>無法寫入：%1。</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1 is the device being written to. Write to an image file, or choose another device.</source>
+        <translation>無法寫入：%1 正是要寫入的裝置。請寫入映像檔，或選擇其他裝置。</translation>
+    </message>
+    <message>
+        <source>Partition table (%1)</source>
+        <translation>分割表 (%1)</translation>
+    </message>
+    <message>
+        <source>Lead-in</source>
+        <translation>前導區</translation>
+    </message>
+    <message>
+        <source>Backup GPT</source>
+        <translation>備份 GPT</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: an image file of %3.</source>
+        <translation>%1，%2 個分割區：映像檔大小為 %3。</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
+        <translation>%1，%2 個分割區：已使用 %3，%5 中尚餘 %4。</translation>
+    </message>
+    <message>
+        <source>Images of unrecorded size are checked only when scanned or written.</source>
+        <translation>大小未記錄的映像檔僅在掃描或寫入時才會檢查。</translation>
+    </message>
+    <message>
+        <source>Some partitions share a GUID: you will be asked about it.</source>
+        <translation>部分分割區的 GUID 相同：稍後會詢問您如何處理。</translation>
+    </message>
+    <message>
+        <source>Name the image file to write.</source>
+        <translation>請為要寫入的映像檔命名。</translation>
+    </message>
+    <message>
+        <source>%1 is one of the images being combined; choose another name.</source>
+        <translation>%1 是正在合併的映像檔之一；請選擇其他名稱。</translation>
+    </message>
+    <message>
+        <source>%1 already exists. Overwrite it?</source>
+        <translation>%1 已存在。要覆寫嗎？</translation>
+    </message>
+    <message>
+        <source>%1 is on disk %2, which is one of the sources: its volumes are locked while it is read, so nothing can be written to them. Choose a place on another disk.</source>
+        <translation>%1 位於磁碟 %2 上，而該磁碟是來源之一：讀取時其上的磁碟區會被鎖定，無法寫入任何內容。請選擇其他磁碟上的位置。</translation>
+    </message>
+    <message>
+        <source>Duplicate partition GUIDs</source>
+        <translation>重複的分割區 GUID</translation>
+    </message>
+    <message>
+        <source>These unique partition GUIDs belong to more than one of the chosen partitions:
+
+%1
+
+The copies are usually the same partition taken from two copies of one image. With duplicate GUIDs a system that finds its partitions by PARTUUID -- in fstab or on the kernel command line -- may use the wrong one.
+
+New GUIDs can be generated for the later copies; the first keeps its own. Anything that names a regenerated partition by its old PARTUUID will then no longer find it.</source>
+        <translation>以下唯一分割區 GUID 屬於所選分割區中的多個分割區：
+
+%1
+
+這些副本通常是從同一映像檔的兩個副本中取出的同一分割區。若 GUID 重複，透過 PARTUUID 尋找分割區的系統（在 fstab 或核心命令列中）可能會使用錯誤的分割區。
+
+可以為後面的副本產生新的 GUID；第一個保留其原有 GUID。之後，凡是以舊 PARTUUID 指稱重新產生之分割區的項目都將找不到它。</translation>
+    </message>
+    <message>
+        <source>Generate new GUIDs</source>
+        <translation>產生新的 GUID</translation>
+    </message>
+    <message>
+        <source>Keep them</source>
+        <translation>保留原樣</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
         <source>Win32 Disk Imager</source>
@@ -49,7 +416,7 @@
     </message>
     <message>
         <source>Choose partitions to read</source>
-        <translation>選擇要讀取的磁碟分割</translation>
+        <translation type="vanished">選擇要讀取的磁碟分割</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
@@ -65,7 +432,7 @@
     </message>
     <message>
         <source>Check GPT</source>
-        <translation>檢查 GPT</translation>
+        <translation type="vanished">檢查 GPT</translation>
     </message>
     <message>
         <source>Win Disk Imager</source>
@@ -77,7 +444,7 @@
     </message>
     <message>
         <source>Skip unpartitioned space</source>
-        <translation>略過未分割空間</translation>
+        <translation type="vanished">略過未分割空間</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
@@ -105,7 +472,35 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
-        <translation>讀取前先列出裝置的磁碟分割，供您選擇要納入哪些。未納入的部分會從映像檔中移除，與未分割空間相同 -- 無論是否同時勾選「略過未分割空間」，都一律會一併略過未分割空間。</translation>
+        <translation type="vanished">讀取前先列出裝置的磁碟分割，供您選擇要納入哪些。未納入的部分會從映像檔中移除，與未分割空間相同 -- 無論是否同時勾選「略過未分割空間」，都一律會一併略過未分割空間。</translation>
+    </message>
+    <message>
+        <source>Choose Partitions to Read</source>
+        <translation>選擇要讀取的分割區</translation>
+    </message>
+    <message>
+        <source>Read only some of the Device&apos;s partitions: opens Custom Partitioning with the Device as the source, every partition ticked, and the Image File as where it goes. Untick what to leave out.</source>
+        <translation>僅讀取裝置的部分分割區：開啟「自訂分割」，以裝置為來源、勾選所有分割區，並以映像檔為目的地。取消勾選要略過的分割區。</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space on Read</source>
+        <translation>讀取時略過未分割空間</translation>
+    </message>
+    <message>
+        <source>Tools</source>
+        <translation>工具</translation>
+    </message>
+    <message>
+        <source>Check Device GPT</source>
+        <translation>檢查裝置 GPT</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning...</source>
+        <translation>自訂分割...</translation>
+    </message>
+    <message>
+        <source>Put partitions from image files and disks onto a device, or into a new image file, in an order you choose, under a new partition table.</source>
+        <translation>將映像檔和磁碟中的分割區依您選擇的順序放到裝置上或新映像檔中，並使用新的分割表。</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -655,7 +1050,7 @@ Continue Anyway?</source>
     </message>
     <message>
         <source>Select partitions to include in the Image.</source>
-        <translation>選擇要納入映像檔的磁碟分割。</translation>
+        <translation type="vanished">選擇要納入映像檔的磁碟分割。</translation>
     </message>
     <message>
         <source>The device could not be read at sector %1.</source>
@@ -804,12 +1199,76 @@ Repair the partition table now?</source>
         <translation>無法讀取分割表，或其損壞方式不屬於這項功能所能修復的類型。</translation>
     </message>
     <message>
+        <source>The target device is also one of the sources.</source>
+        <translation>目標裝置也是來源之一。</translation>
+    </message>
+    <message>
+        <source>%1 is on the target device, and cannot be written to it.</source>
+        <translation>%1 位於目標裝置上，無法寫入該裝置。</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>確認期間裝置清單已變更。請檢查目標裝置後再試一次。</translation>
     </message>
     <message>
+        <source>%1: %2</source>
+        <translation>%1：%2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1 在磁區 %2 處結束，早於它要在該處提供的分割區的結束位置：映像檔不完整。</translation>
+    </message>
+    <message>
+        <source>Sector %1 of the device does not match sector %2 of %3.</source>
+        <translation>裝置的磁區 %1 與 %3 的磁區 %2 不相符。</translation>
+    </message>
+    <message>
+        <source>The device has been partially written and no longer holds a usable layout. Write it again before using it.</source>
+        <translation>裝置僅被部分寫入，不再包含可用的配置。請在使用前重新寫入。</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>正在寫入…</translation>
+    </message>
+    <message>
+        <source>The partition table on the device does not match what was written.</source>
+        <translation>裝置上的分割表與寫入的內容不相符。</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>寫入並驗證成功。
+
+裝置現有一個新的 %1 分割表，包含來自 %3 個映像檔的 %2 個分割區。</translation>
+    </message>
+    <message>
+        <source>Write successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>寫入成功。
+
+裝置現有一個新的 %1 分割表，包含來自 %3 個映像檔的 %2 個分割區。</translation>
+    </message>
+    <message>
+        <source>Its backup is already at the end of the device, so Windows has nothing to repair.</source>
+        <translation>其備份已位於裝置結尾，因此 Windows 沒有需要修復的項目。</translation>
+    </message>
+    <message>
+        <source>Whether it boots depends on its bootloaders finding their partitions where they now are.</source>
+        <translation>能否開機取決於其開機載入程式能否在分割區目前所在的位置找到它們。</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>自訂分割</translation>
     </message>
     <message>
         <source>The image is larger than the device, so the end of it was not written and the device does not hold a complete image.
@@ -892,8 +1351,32 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
 請立即移除裝置，不要再插入本機。直接插入目標硬體。</translation>
     </message>
     <message>
+        <source>The combined image ended early.</source>
+        <translation>合併後的映像檔提前結束。</translation>
+    </message>
+    <message>
+        <source>Sector %1 of %2 is not what was written.</source>
+        <translation>%2 的磁區 %1 與寫入的內容不相符。</translation>
+    </message>
+    <message>
+        <source>%1 holds more than the combined image, or does not end cleanly.</source>
+        <translation>%1 包含的內容多於合併後的映像檔，或未能正常結束。</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.</source>
+        <translation>寫入並驗證成功。</translation>
+    </message>
+    <message>
+        <source>%1 holds a %2 partition table with %3 partitions from %4 images.</source>
+        <translation>%1 包含一個 %2 分割表，其中有來自 %4 個映像檔的 %3 個分割區。</translation>
+    </message>
+    <message>
+        <source>Its backup GPT ends the image; &quot;Fix GPT after write&quot; moves it to the end of a larger device when the image is written.</source>
+        <translation>其備份 GPT 位於映像檔結尾；寫入映像檔時，「寫入後修正 GPT」會將其移到較大裝置的結尾。</translation>
+    </message>
+    <message>
         <source>Choose Partitions</source>
-        <translation>選擇磁碟分割</translation>
+        <translation type="vanished">選擇磁碟分割</translation>
     </message>
     <message>
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
@@ -917,15 +1400,15 @@ Some bootable images, such as those for single-board computers, keep bootloader 
     </message>
     <message>
         <source>Partition %1 -- %2</source>
-        <translation>磁碟分割 %1 -- %2</translation>
+        <translation type="vanished">磁碟分割 %1 -- %2</translation>
     </message>
     <message>
         <source>Partition %1 -- %2 -- %3</source>
-        <translation>磁碟分割 %1 -- %2 -- %3</translation>
+        <translation type="vanished">磁碟分割 %1 -- %2 -- %3</translation>
     </message>
     <message>
         <source>At least one partition must stay checked.</source>
-        <translation>必須至少保留一個磁碟分割處於勾選狀態。</translation>
+        <translation type="vanished">必須至少保留一個磁碟分割處於勾選狀態。</translation>
     </message>
     <message>
         <source>Read Error</source>
@@ -949,11 +1432,11 @@ Some bootable images, such as those for single-board computers, keep bootloader 
     </message>
     <message>
         <source>No partition table was found on the device, so there is nothing to choose from. The whole device will be read.</source>
-        <translation>裝置上未找到磁碟分割表，因此沒有可供選擇的內容。將讀取整個裝置。</translation>
+        <translation type="vanished">裝置上未找到磁碟分割表，因此沒有可供選擇的內容。將讀取整個裝置。</translation>
     </message>
     <message>
         <source>Read canceled.</source>
-        <translation>讀取已取消。</translation>
+        <translation type="vanished">讀取已取消。</translation>
     </message>
     <message>
         <source>Disk is not large enough for the specified image.</source>
@@ -1215,8 +1698,120 @@ Error %2</source>
         <translation>主要 GPT 標頭的總和檢查碼無效</translation>
     </message>
     <message>
+        <source>%1, no partition table</source>
+        <translation>%1，無分割表</translation>
+    </message>
+    <message>
+        <source>unrecognized filesystem, no partition table</source>
+        <translation>無法辨識的檔案系統，無分割表</translation>
+    </message>
+    <message>
+        <source>the GPT header size is out of range</source>
+        <translation>GPT 標頭的大小超出範圍</translation>
+    </message>
+    <message>
+        <source>the GPT header checksum is invalid</source>
+        <translation>GPT 標頭的總和檢查碼無效</translation>
+    </message>
+    <message>
         <source>the GPT partition entry array is not where the header says</source>
         <translation>GPT 分割區項目陣列不在標頭所指的位置</translation>
+    </message>
+    <message>
+        <source>FirstUsableLBA lies inside the partition table</source>
+        <translation>FirstUsableLBA 位於分割表內部</translation>
+    </message>
+    <message>
+        <source>partition %1 runs past the end of the image</source>
+        <translation>分割區 %1 超出了映像檔的結尾</translation>
+    </message>
+    <message>
+        <source>partition %1 describes an impossible range</source>
+        <translation>分割區 %1 描述了一個不可能的範圍</translation>
+    </message>
+    <message>
+        <source>the GPT holds no partitions</source>
+        <translation>GPT 中沒有分割區</translation>
+    </message>
+    <message>
+        <source>two partitions overlap</source>
+        <translation>有兩個分割區重疊</translation>
+    </message>
+    <message>
+        <source>extended, with its logical partitions (0x%1)</source>
+        <translation>延伸分割區及其邏輯分割區 (0x%1)</translation>
+    </message>
+    <message>
+        <source>type 0x%1</source>
+        <translation>類型 0x%1</translation>
+    </message>
+    <message>
+        <source>the MBR holds no partitions</source>
+        <translation>MBR 中沒有分割區</translation>
+    </message>
+    <message>
+        <source>the MBR has more than one extended partition</source>
+        <translation>MBR 中有多個延伸分割區</translation>
+    </message>
+    <message>
+        <source>the image is smaller than one sector</source>
+        <translation>映像檔小於一個磁區</translation>
+    </message>
+    <message>
+        <source>the image has a protective MBR but no GPT header</source>
+        <translation>映像檔有保護性 MBR，但沒有 GPT 標頭</translation>
+    </message>
+    <message>
+        <source>an extended MBR partition cannot go on a GPT: choose the logical partitions&apos; image as the lead-in, or leave it out</source>
+        <translation>MBR 延伸分割區無法放到 GPT 上：請選擇包含這些邏輯分割區的映像檔作為前導區，或將其略過</translation>
+    </message>
+    <message>
+        <source>MBR partition type 0x%1 has no GPT equivalent this program knows</source>
+        <translation>MBR 分割區類型 0x%1 沒有本程式已知的 GPT 對應類型</translation>
+    </message>
+    <message>
+        <source>GPT partition type %1 has no MBR equivalent</source>
+        <translation>GPT 分割區類型 %1 沒有 MBR 對應類型</translation>
+    </message>
+    <message>
+        <source>no partitions are chosen</source>
+        <translation>未選擇任何分割區</translation>
+    </message>
+    <message>
+        <source>a chosen partition does not exist</source>
+        <translation>所選的某個分割區不存在</translation>
+    </message>
+    <message>
+        <source>a partition is chosen twice</source>
+        <translation>某個分割區被選擇了兩次</translation>
+    </message>
+    <message>
+        <source>the size of an image with no partition table is not known: scan it first</source>
+        <translation>沒有分割表的映像檔大小不明：請先掃描</translation>
+    </message>
+    <message>
+        <source>the lead-in image has no partition table</source>
+        <translation>前導區映像檔沒有分割表</translation>
+    </message>
+    <message>
+        <source>an MBR holds at most four partitions, and %1 are chosen</source>
+        <translation>MBR 最多容納四個分割區，而已選擇 %1 個</translation>
+    </message>
+    <message>
+        <source>an MBR can hold only one extended partition</source>
+        <translation>MBR 只能容納一個延伸分割區</translation>
+    </message>
+    <message>
+        <source>the GPT has room for %1 partitions, and %2 are chosen</source>
+        <translation>GPT 可容納 %1 個分割區，而已選擇 %2 個</translation>
+    </message>
+    <message>
+        <source>the layout no longer fits a 32-bit MBR entry</source>
+        <translation>配置已超出 32 位元 MBR 項目的範圍</translation>
+    </message>
+    <message>
+        <source>the partitions need %1 MB and the device has %2 MB</source>
+        <translation>這些分割區需要 %1 MB，而裝置只有 %2 MB</translation>
     </message>
     <message>
         <source>the GPT entry array does not fit on the device</source>
@@ -1301,6 +1896,18 @@ Error %2</source>
     <message>
         <source>The device reports a sector size of zero.</source>
         <translation>裝置回報的磁區大小為零。</translation>
+    </message>
+    <message>
+        <source>Disk %1 could not be opened (error %2).</source>
+        <translation>無法開啟磁碟 %1 (錯誤 %2)。</translation>
+    </message>
+    <message>
+        <source>The size of disk %1 could not be read (error %2).</source>
+        <translation>無法讀取磁碟 %1 的大小 (錯誤 %2)。</translation>
+    </message>
+    <message>
+        <source>Disk %1 has %2-byte sectors, not %3.</source>
+        <translation>磁碟 %1 的磁區為 %2 位元組，而不是 %3 位元組。</translation>
     </message>
     <message>
         <source>The image file could not be opened (error %1).</source>
@@ -1413,6 +2020,34 @@ Error %2</source>
     <message>
         <source>The image file could not be flushed (error %1).</source>
         <translation>無法清空映像檔緩衝區 (錯誤 %1)。</translation>
+    </message>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1：%2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1 在磁區 %2 處結束，早於它要在該處提供的分割區的結束位置：映像檔不完整。</translation>
+    </message>
+    <message>
+        <source>Disk %1 (%2)</source>
+        <translation>磁碟 %1 (%2)</translation>
+    </message>
+    <message>
+        <source>Source disks will be dismounted</source>
+        <translation>將卸載來源磁碟</translation>
+    </message>
+    <message>
+        <source>While they are read, the volumes on these source disks are locked and dismounted, so nothing changes them half way through:
+
+%1
+
+Programs using them lose them until the run ends. Nothing on them is changed. Continue?</source>
+        <translation>讀取期間，這些來源磁碟上的磁碟區會被鎖定並卸載，以免中途遭到變更：
+
+%1
+
+使用這些磁碟區的程式在作業結束前將無法存取它們。其上的內容不會被變更。要繼續嗎？</translation>
     </message>
 </context>
 </TS>

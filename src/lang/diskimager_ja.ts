@@ -2,6 +2,373 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ja_JP" sourcelanguage="en_US">
 <context>
+    <name>CombineDialog</name>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>カスタムパーティション</translation>
+    </message>
+    <message>
+        <source>Add image files or disks, tick the partitions to put on the device or in a new image file, and order them. Each source&apos;s partition table is read from its first sectors; nothing else is read until you write, or ask for a full scan.</source>
+        <translation>イメージファイルまたはディスクを追加し、デバイスまたは新しいイメージファイルに配置するパーティションにチェックを付けて、並べ替えてください。各ソースのパーティションテーブルは先頭のセクタから読み取られます。書き込むか完全スキャンを指示するまで、それ以外は読み取りません。</translation>
+    </message>
+    <message>
+        <source>Sources</source>
+        <translation>ソース</translation>
+    </message>
+    <message>
+        <source>Source / partition</source>
+        <translation>ソース / パーティション</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>種類</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>サイズ</translation>
+    </message>
+    <message>
+        <source>Add images...</source>
+        <translation>イメージを追加...</translation>
+    </message>
+    <message>
+        <source>Add disks...</source>
+        <translation>ディスクを追加...</translation>
+    </message>
+    <message>
+        <source>Take partitions from disks as well: cards, USB drives, and other disks. The disk Windows runs from is never offered. While a disk is read, its volumes are locked and dismounted.</source>
+        <translation>ディスクからもパーティションを取り込みます: カード、USB ドライブ、その他のディスク。Windows が起動しているディスクは表示されません。ディスクの読み取り中は、そのボリュームはロックされ、マウント解除されます。</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>Full scan</source>
+        <translation>完全スキャン</translation>
+    </message>
+    <message>
+        <source>Read and decompress the whole image, to learn its exact size and check that it holds every partition to its end. Only needed for an image with no partition table whose size the file does not record, or to check a compressed image before writing.</source>
+        <translation>イメージ全体を読み取って展開し、正確なサイズを調べ、すべてのパーティションが末尾まで含まれているかを確認します。パーティションテーブルがなく、ファイルにサイズが記録されていないイメージの場合、または書き込み前に圧縮イメージを確認する場合にのみ必要です。</translation>
+    </message>
+    <message>
+        <source>Layout</source>
+        <translation>レイアウト</translation>
+    </message>
+    <message>
+        <source>Partitions, in order:</source>
+        <translation>パーティション (順番):</translation>
+    </message>
+    <message>
+        <source>Up</source>
+        <translation>上へ</translation>
+    </message>
+    <message>
+        <source>Down</source>
+        <translation>下へ</translation>
+    </message>
+    <message>
+        <source>Lead-in from:</source>
+        <translation>先頭領域の取得元:</translation>
+    </message>
+    <message>
+        <source>Copy this image&apos;s boot code, and the space between its partition table and its first partition (up to 32 MiB), where a bootloader may be stored. The device then gets the same kind of partition table as this image, and the first partition starts where this image&apos;s did.</source>
+        <translation>このイメージのブートコードと、パーティションテーブルから最初のパーティションまでの領域 (最大 32 MiB) をコピーします。この領域にはブートローダーが格納されている場合があります。デバイスにはこのイメージと同じ種類のパーティションテーブルが作られ、最初のパーティションはこのイメージと同じ位置から始まります。</translation>
+    </message>
+    <message>
+        <source>On the device</source>
+        <translation>デバイス上</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>開始</translation>
+    </message>
+    <message>
+        <source>From</source>
+        <translation>取得元</translation>
+    </message>
+    <message>
+        <source>Write to</source>
+        <translation>書き込み先</translation>
+    </message>
+    <message>
+        <source>A device:</source>
+        <translation>デバイス:</translation>
+    </message>
+    <message>
+        <source>Show all devices</source>
+        <translation>すべてのデバイスを表示</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
+        <translation>固定ディスクも一覧に表示します。内蔵 PCIe カードリーダーはカードをリムーバブルでないデバイスとして見せることが多く、その場合は通常表示されません。Windows が起動しているディスクが一覧に出ることはありません。</translation>
+    </message>
+    <message>
+        <source>An image file:</source>
+        <translation>イメージファイル:</translation>
+    </message>
+    <message>
+        <source>combined.img</source>
+        <translation>combined.img</translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation>参照...</translation>
+    </message>
+    <message>
+        <source>Compress to</source>
+        <translation>圧縮形式</translation>
+    </message>
+    <message>
+        <source>The compressed format to write to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>書き込み時の圧縮形式: .img.zst が最も速く、.img.xz が最も小さく、.img.gz が最も広く対応しています</translation>
+    </message>
+    <message>
+        <source>Verify after writing</source>
+        <translation>書き込み後に照合</translation>
+    </message>
+    <message>
+        <source>Write...</source>
+        <translation>書込み...</translation>
+    </message>
+    <message>
+        <source>no device is chosen to write to</source>
+        <translation>書き込み先のデバイスが選択されていません</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read</source>
+        <translation>ディスク %1 を読み取れませんでした</translation>
+    </message>
+    <message>
+        <source>disk %1 has %2-byte sectors, and the sources %3-byte ones</source>
+        <translation>ディスク %1 のセクタは %2 バイトですが、ソースのセクタは %3 バイトです</translation>
+    </message>
+    <message>
+        <source>Disk %1: %2</source>
+        <translation>ディスク %1: %2</translation>
+    </message>
+    <message>
+        <source>Save the combined image as</source>
+        <translation>結合したイメージの保存先</translation>
+    </message>
+    <message>
+        <source>Disk Images (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</source>
+        <translation>ディスクイメージ (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>%1 KB</source>
+        <translation>%1 KB</translation>
+    </message>
+    <message>
+        <source>the image ends inside its own partition table</source>
+        <translation>イメージが自身のパーティションテーブルの途中で終わっています</translation>
+    </message>
+    <message>
+        <source>the partition table could not be read</source>
+        <translation>パーティションテーブルを読み取れませんでした</translation>
+    </message>
+    <message>
+        <source>Add images</source>
+        <translation>イメージを追加</translation>
+    </message>
+    <message>
+        <source>%1 cannot be used: %2.</source>
+        <translation>%1 は使用できません: %2。</translation>
+    </message>
+    <message>
+        <source>%1 has no partition table, so it is taken as one partition: the whole image. The file does not record how big that is, so it has to be read to the end to find out.
+
+Scan it now?</source>
+        <translation>%1 にはパーティションテーブルがないため、イメージ全体を 1 つのパーティションとして扱います。ファイルにはそのサイズが記録されていないため、末尾まで読み取って調べる必要があります。
+
+今すぐスキャンしますか？</translation>
+    </message>
+    <message>
+        <source>Add disks</source>
+        <translation>ディスクを追加</translation>
+    </message>
+    <message>
+        <source>Tick the disks to take partitions from:</source>
+        <translation>パーティションを取り込むディスクにチェックを付けてください:</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. The disk Windows is running from is never listed.</source>
+        <translation>固定ディスクも一覧に表示します。Windows が起動しているディスクが一覧に出ることはありません。</translation>
+    </message>
+    <message>
+        <source> -- the device being written to</source>
+        <translation> -- 書き込み先のデバイス</translation>
+    </message>
+    <message>
+        <source>Already a source.</source>
+        <translation>すでにソースに含まれています。</translation>
+    </message>
+    <message>
+        <source>Disk %1 cannot be used: %2.</source>
+        <translation>ディスク %1 は使用できません: %2。</translation>
+    </message>
+    <message>
+        <source>disk</source>
+        <translation>ディスク</translation>
+    </message>
+    <message>
+        <source>Scanning %1...</source>
+        <translation>%1 をスキャンしています...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>%1 could not be read to the end: %2</source>
+        <translation>%1 を末尾まで読み取れませんでした: %2</translation>
+    </message>
+    <message>
+        <source>Scanning %1: %2 read...</source>
+        <translation>%1 をスキャンしています: %2 読み取り済み...</translation>
+    </message>
+    <message>
+        <source>%1 ends at %2, before its partition %3 does: the image is incomplete, and that partition cannot be copied whole.</source>
+        <translation>%1 はパーティション %3 の終わりより前の %2 で終わっています。イメージは不完全で、そのパーティションを丸ごとコピーすることはできません。</translation>
+    </message>
+    <message>
+        <source>whole image</source>
+        <translation>イメージ全体</translation>
+    </message>
+    <message>
+        <source>Partition %1</source>
+        <translation>パーティション %1</translation>
+    </message>
+    <message>
+        <source>Partition %1: %2</source>
+        <translation>パーティション %1: %2</translation>
+    </message>
+    <message>
+        <source>%1, %2</source>
+        <translation>%1、%2</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>no partition table</source>
+        <translation>パーティションテーブルなし</translation>
+    </message>
+    <message>
+        <source>size not recorded</source>
+        <translation>サイズ未記録</translation>
+    </message>
+    <message>
+        <source>%1, scanned</source>
+        <translation>%1、スキャン済み</translation>
+    </message>
+    <message>
+        <source>unknown: scan the image</source>
+        <translation>不明: イメージをスキャンしてください</translation>
+    </message>
+    <message>
+        <source>None: a new, empty table</source>
+        <translation>無し: 新しい空のテーブル</translation>
+    </message>
+    <message>
+        <source>Tick the partitions to put on the device.</source>
+        <translation>デバイスに配置するパーティションにチェックを付けてください。</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1.</source>
+        <translation>書き込めません: %1。</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1 is the device being written to. Write to an image file, or choose another device.</source>
+        <translation>書き込めません: %1 は書き込み先のデバイスです。イメージファイルに書き込むか、別のデバイスを選択してください。</translation>
+    </message>
+    <message>
+        <source>Partition table (%1)</source>
+        <translation>パーティションテーブル (%1)</translation>
+    </message>
+    <message>
+        <source>Lead-in</source>
+        <translation>先頭領域</translation>
+    </message>
+    <message>
+        <source>Backup GPT</source>
+        <translation>バックアップ GPT</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: an image file of %3.</source>
+        <translation>%1、%2 個のパーティション: %3 のイメージファイル。</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
+        <translation>%1、%2 個のパーティション: %5 のうち %3 使用、%4 空き。</translation>
+    </message>
+    <message>
+        <source>Images of unrecorded size are checked only when scanned or written.</source>
+        <translation>サイズが記録されていないイメージは、スキャンまたは書き込みの時にのみ確認されます。</translation>
+    </message>
+    <message>
+        <source>Some partitions share a GUID: you will be asked about it.</source>
+        <translation>GUID が重複しているパーティションがあります。これについては後で確認されます。</translation>
+    </message>
+    <message>
+        <source>Name the image file to write.</source>
+        <translation>書き込むイメージファイルの名前を指定してください。</translation>
+    </message>
+    <message>
+        <source>%1 is one of the images being combined; choose another name.</source>
+        <translation>%1 は結合するイメージの 1 つです。別の名前を選択してください。</translation>
+    </message>
+    <message>
+        <source>%1 already exists. Overwrite it?</source>
+        <translation>%1 は既に存在します。上書きしますか？</translation>
+    </message>
+    <message>
+        <source>%1 is on disk %2, which is one of the sources: its volumes are locked while it is read, so nothing can be written to them. Choose a place on another disk.</source>
+        <translation>%1 はソースの 1 つであるディスク %2 上にあります。読み取り中はそのボリュームがロックされるため、書き込むことができません。別のディスク上の場所を選択してください。</translation>
+    </message>
+    <message>
+        <source>Duplicate partition GUIDs</source>
+        <translation>パーティション GUID の重複</translation>
+    </message>
+    <message>
+        <source>These unique partition GUIDs belong to more than one of the chosen partitions:
+
+%1
+
+The copies are usually the same partition taken from two copies of one image. With duplicate GUIDs a system that finds its partitions by PARTUUID -- in fstab or on the kernel command line -- may use the wrong one.
+
+New GUIDs can be generated for the later copies; the first keeps its own. Anything that names a regenerated partition by its old PARTUUID will then no longer find it.</source>
+        <translation>以下の一意パーティション GUID が、選択した複数のパーティションに属しています:
+
+%1
+
+通常、これは 1 つのイメージの 2 つのコピーから同じパーティションを取り込んだものです。GUID が重複していると、fstab やカーネルコマンドラインで PARTUUID によってパーティションを探すシステムが、誤ったほうを使う可能性があります。
+
+後のコピーには新しい GUID を生成できます。最初のものは元の GUID を保持します。その場合、再生成したパーティションを古い PARTUUID で指定しているものは、そのパーティションを見つけられなくなります。</translation>
+    </message>
+    <message>
+        <source>Generate new GUIDs</source>
+        <translation>新しい GUID を生成</translation>
+    </message>
+    <message>
+        <source>Keep them</source>
+        <translation>そのままにする</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
         <source>Win32 Disk Imager</source>
@@ -49,7 +416,7 @@
     </message>
     <message>
         <source>Choose partitions to read</source>
-        <translation>読み取るパーティションを選択</translation>
+        <translation type="vanished">読み取るパーティションを選択</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
@@ -65,7 +432,7 @@
     </message>
     <message>
         <source>Check GPT</source>
-        <translation>GPT を確認</translation>
+        <translation type="vanished">GPT を確認</translation>
     </message>
     <message>
         <source>Win Disk Imager</source>
@@ -77,7 +444,7 @@
     </message>
     <message>
         <source>Skip unpartitioned space</source>
-        <translation>未パーティション領域をスキップ</translation>
+        <translation type="vanished">未パーティション領域をスキップ</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
@@ -105,7 +472,35 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
-        <translation>読み取りの前に、デバイスのパーティションを一覧表示し、含めるものを選択できます。除外したものは未パーティション領域と同様にイメージから取り除かれます。この場合、「未パーティション領域をスキップ」がチェックされているかどうかにかかわらず、未パーティション領域も常にスキップされます。</translation>
+        <translation type="vanished">読み取りの前に、デバイスのパーティションを一覧表示し、含めるものを選択できます。除外したものは未パーティション領域と同様にイメージから取り除かれます。この場合、「未パーティション領域をスキップ」がチェックされているかどうかにかかわらず、未パーティション領域も常にスキップされます。</translation>
+    </message>
+    <message>
+        <source>Choose Partitions to Read</source>
+        <translation>読み取るパーティションを選択</translation>
+    </message>
+    <message>
+        <source>Read only some of the Device&apos;s partitions: opens Custom Partitioning with the Device as the source, every partition ticked, and the Image File as where it goes. Untick what to leave out.</source>
+        <translation>デバイスのパーティションの一部だけを読み取ります: デバイスをソース、すべてのパーティションにチェックを付けた状態、イメージファイルを出力先として「カスタムパーティション」を開きます。除外するもののチェックを外してください。</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space on Read</source>
+        <translation>読み取り時に未パーティション領域をスキップ</translation>
+    </message>
+    <message>
+        <source>Tools</source>
+        <translation>ツール</translation>
+    </message>
+    <message>
+        <source>Check Device GPT</source>
+        <translation>デバイスの GPT を確認</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning...</source>
+        <translation>カスタムパーティション...</translation>
+    </message>
+    <message>
+        <source>Put partitions from image files and disks onto a device, or into a new image file, in an order you choose, under a new partition table.</source>
+        <translation>イメージファイルやディスクのパーティションを、選択した順序で、新しいパーティションテーブルのもとにデバイスまたは新しいイメージファイルへ配置します。</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -655,7 +1050,7 @@ Continue Anyway?</source>
     </message>
     <message>
         <source>Select partitions to include in the Image.</source>
-        <translation>イメージに含めるパーティションを選択してください。</translation>
+        <translation type="vanished">イメージに含めるパーティションを選択してください。</translation>
     </message>
     <message>
         <source>The device could not be read at sector %1.</source>
@@ -804,12 +1199,76 @@ Repair the partition table now?</source>
         <translation>パーティションテーブルを読み取れなかったか、この機能が修復できる破損とは別の形で壊れています。</translation>
     </message>
     <message>
+        <source>The target device is also one of the sources.</source>
+        <translation>書き込み先のデバイスがソースの 1 つにもなっています。</translation>
+    </message>
+    <message>
+        <source>%1 is on the target device, and cannot be written to it.</source>
+        <translation>%1 は書き込み先のデバイス上にあるため、そのデバイスに書き込むことはできません。</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>確認中にデバイスの一覧が変わりました。書き込み先のデバイスを確認して、もう一度お試しください。</translation>
     </message>
     <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1 は、そこに提供するパーティションの終わりより前のセクタ %2 で終わっています。イメージは不完全です。</translation>
+    </message>
+    <message>
+        <source>Sector %1 of the device does not match sector %2 of %3.</source>
+        <translation>デバイスのセクタ %1 が %3 のセクタ %2 と一致しません。</translation>
+    </message>
+    <message>
+        <source>The device has been partially written and no longer holds a usable layout. Write it again before using it.</source>
+        <translation>デバイスは途中まで書き込まれており、使用可能なレイアウトではなくなっています。使用する前にもう一度書き込んでください。</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>書き込み中…</translation>
+    </message>
+    <message>
+        <source>The partition table on the device does not match what was written.</source>
+        <translation>デバイス上のパーティションテーブルが書き込んだ内容と一致しません。</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>書き込みと照合に成功しました。
+
+デバイスには、%3 個のイメージから取り込んだ %2 個のパーティションを持つ新しい %1 パーティションテーブルがあります。</translation>
+    </message>
+    <message>
+        <source>Write successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>書き込みに成功しました。
+
+デバイスには、%3 個のイメージから取り込んだ %2 個のパーティションを持つ新しい %1 パーティションテーブルがあります。</translation>
+    </message>
+    <message>
+        <source>Its backup is already at the end of the device, so Windows has nothing to repair.</source>
+        <translation>そのバックアップは既にデバイスの末尾にあるため、Windows が修復するものはありません。</translation>
+    </message>
+    <message>
+        <source>Whether it boots depends on its bootloaders finding their partitions where they now are.</source>
+        <translation>起動するかどうかは、ブートローダーがパーティションを現在の位置で見つけられるかどうかによります。</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>カスタムパーティション</translation>
     </message>
     <message>
         <source>The image is larger than the device, so the end of it was not written and the device does not hold a complete image.
@@ -892,8 +1351,32 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
 今すぐデバイスを取り外し、このパソコンに再挿入しないでください。そのまま対象のハードウェアに差し込んでください。</translation>
     </message>
     <message>
+        <source>The combined image ended early.</source>
+        <translation>結合したイメージが途中で終わりました。</translation>
+    </message>
+    <message>
+        <source>Sector %1 of %2 is not what was written.</source>
+        <translation>%2 のセクタ %1 が書き込んだ内容と一致しません。</translation>
+    </message>
+    <message>
+        <source>%1 holds more than the combined image, or does not end cleanly.</source>
+        <translation>%1 に結合したイメージより多くのデータが含まれているか、正しく終わっていません。</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.</source>
+        <translation>書き込みと照合に成功しました。</translation>
+    </message>
+    <message>
+        <source>%1 holds a %2 partition table with %3 partitions from %4 images.</source>
+        <translation>%1 には、%4 個のイメージから取り込んだ %3 個のパーティションを持つ %2 パーティションテーブルがあります。</translation>
+    </message>
+    <message>
+        <source>Its backup GPT ends the image; &quot;Fix GPT after write&quot; moves it to the end of a larger device when the image is written.</source>
+        <translation>バックアップ GPT はイメージの末尾にあります。「書き込み後に GPT を修正する」を使うと、イメージを書き込むときに、より大きいデバイスの末尾へ移動されます。</translation>
+    </message>
+    <message>
         <source>Choose Partitions</source>
-        <translation>パーティションの選択</translation>
+        <translation type="vanished">パーティションの選択</translation>
     </message>
     <message>
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
@@ -917,15 +1400,15 @@ Some bootable images, such as those for single-board computers, keep bootloader 
     </message>
     <message>
         <source>Partition %1 -- %2</source>
-        <translation>パーティション %1 -- %2</translation>
+        <translation type="vanished">パーティション %1 -- %2</translation>
     </message>
     <message>
         <source>Partition %1 -- %2 -- %3</source>
-        <translation>パーティション %1 -- %2 -- %3</translation>
+        <translation type="vanished">パーティション %1 -- %2 -- %3</translation>
     </message>
     <message>
         <source>At least one partition must stay checked.</source>
-        <translation>少なくとも1つのパーティションはチェックしたままにしてください。</translation>
+        <translation type="vanished">少なくとも1つのパーティションはチェックしたままにしてください。</translation>
     </message>
     <message>
         <source>Read Error</source>
@@ -949,11 +1432,11 @@ Some bootable images, such as those for single-board computers, keep bootloader 
     </message>
     <message>
         <source>No partition table was found on the device, so there is nothing to choose from. The whole device will be read.</source>
-        <translation>デバイスにパーティションテーブルが見つからなかったため、選択できるものがありません。デバイス全体を読み取ります。</translation>
+        <translation type="vanished">デバイスにパーティションテーブルが見つからなかったため、選択できるものがありません。デバイス全体を読み取ります。</translation>
     </message>
     <message>
         <source>Read canceled.</source>
-        <translation>読み取りをキャンセルしました。</translation>
+        <translation type="vanished">読み取りをキャンセルしました。</translation>
     </message>
     <message>
         <source>Disk is not large enough for the specified image.</source>
@@ -1215,8 +1698,120 @@ Error %2</source>
         <translation>プライマリ GPT ヘッダーのチェックサムが不正です</translation>
     </message>
     <message>
+        <source>%1, no partition table</source>
+        <translation>%1、パーティションテーブルなし</translation>
+    </message>
+    <message>
+        <source>unrecognized filesystem, no partition table</source>
+        <translation>認識できないファイルシステム、パーティションテーブルなし</translation>
+    </message>
+    <message>
+        <source>the GPT header size is out of range</source>
+        <translation>GPT ヘッダーのサイズが範囲外です</translation>
+    </message>
+    <message>
+        <source>the GPT header checksum is invalid</source>
+        <translation>GPT ヘッダーのチェックサムが不正です</translation>
+    </message>
+    <message>
         <source>the GPT partition entry array is not where the header says</source>
         <translation>GPT パーティションエントリ配列がヘッダーの示す位置にありません</translation>
+    </message>
+    <message>
+        <source>FirstUsableLBA lies inside the partition table</source>
+        <translation>FirstUsableLBA がパーティションテーブルの内側にあります</translation>
+    </message>
+    <message>
+        <source>partition %1 runs past the end of the image</source>
+        <translation>パーティション %1 がイメージの末尾を越えています</translation>
+    </message>
+    <message>
+        <source>partition %1 describes an impossible range</source>
+        <translation>パーティション %1 の範囲が不正です</translation>
+    </message>
+    <message>
+        <source>the GPT holds no partitions</source>
+        <translation>GPT にパーティションがありません</translation>
+    </message>
+    <message>
+        <source>two partitions overlap</source>
+        <translation>2 つのパーティションが重なっています</translation>
+    </message>
+    <message>
+        <source>extended, with its logical partitions (0x%1)</source>
+        <translation>拡張 (論理パーティションを含む) (0x%1)</translation>
+    </message>
+    <message>
+        <source>type 0x%1</source>
+        <translation>種類 0x%1</translation>
+    </message>
+    <message>
+        <source>the MBR holds no partitions</source>
+        <translation>MBR にパーティションがありません</translation>
+    </message>
+    <message>
+        <source>the MBR has more than one extended partition</source>
+        <translation>MBR に拡張パーティションが複数あります</translation>
+    </message>
+    <message>
+        <source>the image is smaller than one sector</source>
+        <translation>イメージが 1 セクタより小さいです</translation>
+    </message>
+    <message>
+        <source>the image has a protective MBR but no GPT header</source>
+        <translation>イメージに保護 MBR はありますが GPT ヘッダーがありません</translation>
+    </message>
+    <message>
+        <source>an extended MBR partition cannot go on a GPT: choose the logical partitions&apos; image as the lead-in, or leave it out</source>
+        <translation>拡張 MBR パーティションは GPT に配置できません: 論理パーティションのイメージを先頭領域の取得元に選択するか、除外してください</translation>
+    </message>
+    <message>
+        <source>MBR partition type 0x%1 has no GPT equivalent this program knows</source>
+        <translation>MBR パーティションの種類 0x%1 には、このプログラムが知っている GPT の対応する種類がありません</translation>
+    </message>
+    <message>
+        <source>GPT partition type %1 has no MBR equivalent</source>
+        <translation>GPT パーティションの種類 %1 には対応する MBR の種類がありません</translation>
+    </message>
+    <message>
+        <source>no partitions are chosen</source>
+        <translation>パーティションが選択されていません</translation>
+    </message>
+    <message>
+        <source>a chosen partition does not exist</source>
+        <translation>選択したパーティションが存在しません</translation>
+    </message>
+    <message>
+        <source>a partition is chosen twice</source>
+        <translation>パーティションが 2 回選択されています</translation>
+    </message>
+    <message>
+        <source>the size of an image with no partition table is not known: scan it first</source>
+        <translation>パーティションテーブルがないイメージのサイズが不明です: 先にスキャンしてください</translation>
+    </message>
+    <message>
+        <source>the lead-in image has no partition table</source>
+        <translation>先頭領域のイメージにパーティションテーブルがありません</translation>
+    </message>
+    <message>
+        <source>an MBR holds at most four partitions, and %1 are chosen</source>
+        <translation>MBR には最大 4 個のパーティションしか入りませんが、%1 個選択されています</translation>
+    </message>
+    <message>
+        <source>an MBR can hold only one extended partition</source>
+        <translation>MBR に入る拡張パーティションは 1 つだけです</translation>
+    </message>
+    <message>
+        <source>the GPT has room for %1 partitions, and %2 are chosen</source>
+        <translation>GPT に入るパーティションは %1 個までですが、%2 個選択されています</translation>
+    </message>
+    <message>
+        <source>the layout no longer fits a 32-bit MBR entry</source>
+        <translation>レイアウトが 32 ビットの MBR エントリに収まらなくなりました</translation>
+    </message>
+    <message>
+        <source>the partitions need %1 MB and the device has %2 MB</source>
+        <translation>パーティションには %1 MB 必要ですが、デバイスは %2 MB です</translation>
     </message>
     <message>
         <source>the GPT entry array does not fit on the device</source>
@@ -1301,6 +1896,18 @@ Error %2</source>
     <message>
         <source>The device reports a sector size of zero.</source>
         <translation>デバイスがセクタサイズ 0 を報告しています。</translation>
+    </message>
+    <message>
+        <source>Disk %1 could not be opened (error %2).</source>
+        <translation>ディスク %1 を開けませんでした (エラー %2)。</translation>
+    </message>
+    <message>
+        <source>The size of disk %1 could not be read (error %2).</source>
+        <translation>ディスク %1 のサイズを読み取れませんでした (エラー %2)。</translation>
+    </message>
+    <message>
+        <source>Disk %1 has %2-byte sectors, not %3.</source>
+        <translation>ディスク %1 のセクタは %2 バイトで、%3 バイトではありません。</translation>
     </message>
     <message>
         <source>The image file could not be opened (error %1).</source>
@@ -1413,6 +2020,34 @@ Error %2</source>
     <message>
         <source>The image file could not be flushed (error %1).</source>
         <translation>イメージファイルをフラッシュできませんでした (エラー %1)。</translation>
+    </message>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1 は、そこに提供するパーティションの終わりより前のセクタ %2 で終わっています。イメージは不完全です。</translation>
+    </message>
+    <message>
+        <source>Disk %1 (%2)</source>
+        <translation>ディスク %1 (%2)</translation>
+    </message>
+    <message>
+        <source>Source disks will be dismounted</source>
+        <translation>ソースディスクのマウントを解除します</translation>
+    </message>
+    <message>
+        <source>While they are read, the volumes on these source disks are locked and dismounted, so nothing changes them half way through:
+
+%1
+
+Programs using them lose them until the run ends. Nothing on them is changed. Continue?</source>
+        <translation>読み取りの途中で変更されないよう、これらのソースディスク上のボリュームは読み取り中ロックされ、マウント解除されます:
+
+%1
+
+それらを使用しているプログラムは、処理が終わるまでアクセスできなくなります。ディスク上の内容は変更されません。続行しますか？</translation>
     </message>
 </context>
 </TS>

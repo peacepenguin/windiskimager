@@ -27,6 +27,9 @@ Partitions can come from disks as well as image files. A source disk's
 "Skip unpartitioned space" is now "Skip unpartitioned space on Read", and the
   image file hash, "Check Device GPT" (was "Check GPT") and Custom
   Partitioning share a new Tools section
+Every language is translated all the way through again: the 150 new and
+  changed strings, most of them Custom Partitioning's, are machine
+  translations, so corrections are welcome
 
 Release 2.0.4
 =============

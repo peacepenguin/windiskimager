@@ -2,6 +2,373 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ta_IN">
 <context>
+    <name>CombineDialog</name>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>தனிப்பயன் பகிர்வாக்கம்</translation>
+    </message>
+    <message>
+        <source>Add image files or disks, tick the partitions to put on the device or in a new image file, and order them. Each source&apos;s partition table is read from its first sectors; nothing else is read until you write, or ask for a full scan.</source>
+        <translation>படிமக் கோப்புகளையோ வட்டுகளையோ சேர்த்து, சாதனத்தில் அல்லது புதிய படிமக் கோப்பில் வைக்க வேண்டிய பகிர்வுகளைக் குறியிட்டு, அவற்றை வரிசைப்படுத்தவும். ஒவ்வொரு மூலத்தின் பகிர்வு அட்டவணையும் அதன் முதல் செக்டர்களிலிருந்து படிக்கப்படும்; நீங்கள் எழுதும் வரை, அல்லது முழு வருடலைக் கேட்கும் வரை, வேறு எதுவும் படிக்கப்படாது.</translation>
+    </message>
+    <message>
+        <source>Sources</source>
+        <translation>மூலங்கள்</translation>
+    </message>
+    <message>
+        <source>Source / partition</source>
+        <translation>மூலம் / பகிர்வு</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>வகை</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>அளவு</translation>
+    </message>
+    <message>
+        <source>Add images...</source>
+        <translation>படிமங்களைச் சேர்...</translation>
+    </message>
+    <message>
+        <source>Add disks...</source>
+        <translation>வட்டுகளைச் சேர்...</translation>
+    </message>
+    <message>
+        <source>Take partitions from disks as well: cards, USB drives, and other disks. The disk Windows runs from is never offered. While a disk is read, its volumes are locked and dismounted.</source>
+        <translation>அட்டைகள், USB இயக்கிகள், பிற வட்டுகள் ஆகியவற்றிலிருந்தும் பகிர்வுகளை எடுக்கலாம். Windows இயங்கும் வட்டு ஒருபோதும் காட்டப்படாது. ஒரு வட்டு படிக்கப்படும்போது, அதன் தொகுதிகள் பூட்டப்பட்டு இறக்கப்படும்.</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>அகற்று</translation>
+    </message>
+    <message>
+        <source>Full scan</source>
+        <translation>முழு வருடல்</translation>
+    </message>
+    <message>
+        <source>Read and decompress the whole image, to learn its exact size and check that it holds every partition to its end. Only needed for an image with no partition table whose size the file does not record, or to check a compressed image before writing.</source>
+        <translation>படிமம் முழுவதையும் படித்து விரிவாக்கி, அதன் சரியான அளவை அறிந்து, அது ஒவ்வொரு பகிர்வையும் அதன் இறுதி வரை கொண்டுள்ளதா எனச் சரிபார்க்கும். பகிர்வு அட்டவணை இல்லாத, தன் அளவைக் கோப்பு பதிவு செய்யாத படிமத்துக்கு, அல்லது எழுதுவதற்கு முன் சுருக்கப்பட்ட படிமத்தைச் சரிபார்க்க மட்டுமே இது தேவை.</translation>
+    </message>
+    <message>
+        <source>Layout</source>
+        <translation>அமைப்பு</translation>
+    </message>
+    <message>
+        <source>Partitions, in order:</source>
+        <translation>பகிர்வுகள், வரிசைப்படி:</translation>
+    </message>
+    <message>
+        <source>Up</source>
+        <translation>மேலே</translation>
+    </message>
+    <message>
+        <source>Down</source>
+        <translation>கீழே</translation>
+    </message>
+    <message>
+        <source>Lead-in from:</source>
+        <translation>முன்பகுதி இதிலிருந்து:</translation>
+    </message>
+    <message>
+        <source>Copy this image&apos;s boot code, and the space between its partition table and its first partition (up to 32 MiB), where a bootloader may be stored. The device then gets the same kind of partition table as this image, and the first partition starts where this image&apos;s did.</source>
+        <translation>இந்தப் படிமத்தின் துவக்கக் குறியீட்டையும், அதன் பகிர்வு அட்டவணைக்கும் முதல் பகிர்வுக்கும் இடையிலான இடத்தையும் (32 MiB வரை) நகலெடுக்கும்; அங்கு துவக்கி சேமிக்கப்பட்டிருக்கலாம். பின்னர் சாதனத்துக்கு இந்தப் படிமத்தின் அதே வகைப் பகிர்வு அட்டவணை கிடைக்கும், முதல் பகிர்வும் இந்தப் படிமத்தில் தொடங்கிய இடத்திலேயே தொடங்கும்.</translation>
+    </message>
+    <message>
+        <source>On the device</source>
+        <translation>சாதனத்தில்</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>தொடக்கம்</translation>
+    </message>
+    <message>
+        <source>From</source>
+        <translation>மூலம்</translation>
+    </message>
+    <message>
+        <source>Write to</source>
+        <translation>எழுதுமிடம்</translation>
+    </message>
+    <message>
+        <source>A device:</source>
+        <translation>ஒரு சாதனம்:</translation>
+    </message>
+    <message>
+        <source>Show all devices</source>
+        <translation>அனைத்துச் சாதனங்களையும் காட்டு</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
+        <translation>நிலையான வட்டுகளையும் பட்டியலிடும். உள்ளக PCIe அட்டை வாசிப்பான்கள் பெரும்பாலும் அட்டையை அகற்ற முடியாத சாதனமாகக் காட்டுகின்றன; இல்லையெனில் அது மறைக்கப்பட்டிருக்கும். Windows இயங்கிக்கொண்டிருக்கும் வட்டு ஒருபோதும் பட்டியலிடப்படாது.</translation>
+    </message>
+    <message>
+        <source>An image file:</source>
+        <translation>ஒரு படிமக் கோப்பு:</translation>
+    </message>
+    <message>
+        <source>combined.img</source>
+        <translation>combined.img</translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation>உலாவு...</translation>
+    </message>
+    <message>
+        <source>Compress to</source>
+        <translation>அமுக்க வடிவம்</translation>
+    </message>
+    <message>
+        <source>The compressed format to write to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>எழுதுவதற்கான அமுக்க வடிவம்: .img.zst மிக விரைவானது, .img.xz மிகச் சிறியது, .img.gz மிகப் பரவலாக ஆதரிக்கப்படுவது</translation>
+    </message>
+    <message>
+        <source>Verify after writing</source>
+        <translation>எழுதிய பின் சரிபார்</translation>
+    </message>
+    <message>
+        <source>Write...</source>
+        <translation>எழுது...</translation>
+    </message>
+    <message>
+        <source>no device is chosen to write to</source>
+        <translation>எழுதுவதற்குச் சாதனம் எதுவும் தேர்ந்தெடுக்கப்படவில்லை</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read</source>
+        <translation>வட்டு %1-ஐப் படிக்க முடியவில்லை</translation>
+    </message>
+    <message>
+        <source>disk %1 has %2-byte sectors, and the sources %3-byte ones</source>
+        <translation>வட்டு %1-இல் %2-பைட் செக்டர்கள் உள்ளன, மூலங்களில் %3-பைட் செக்டர்கள்</translation>
+    </message>
+    <message>
+        <source>Disk %1: %2</source>
+        <translation>வட்டு %1: %2</translation>
+    </message>
+    <message>
+        <source>Save the combined image as</source>
+        <translation>இணைக்கப்பட்ட படிமத்தை இவ்வாறு சேமி</translation>
+    </message>
+    <message>
+        <source>Disk Images (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</source>
+        <translation>வட்டுப் படிமங்கள் (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>%1 KB</source>
+        <translation>%1 KB</translation>
+    </message>
+    <message>
+        <source>the image ends inside its own partition table</source>
+        <translation>படிமம் அதன் சொந்தப் பகிர்வு அட்டவணைக்குள்ளேயே முடிந்துவிடுகிறது</translation>
+    </message>
+    <message>
+        <source>the partition table could not be read</source>
+        <translation>பகிர்வு அட்டவணையைப் படிக்க முடியவில்லை</translation>
+    </message>
+    <message>
+        <source>Add images</source>
+        <translation>படிமங்களைச் சேர்</translation>
+    </message>
+    <message>
+        <source>%1 cannot be used: %2.</source>
+        <translation>%1-ஐப் பயன்படுத்த முடியாது: %2.</translation>
+    </message>
+    <message>
+        <source>%1 has no partition table, so it is taken as one partition: the whole image. The file does not record how big that is, so it has to be read to the end to find out.
+
+Scan it now?</source>
+        <translation>%1-இல் பகிர்வு அட்டவணை இல்லை; எனவே அது ஒரே பகிர்வாக, அதாவது முழுப் படிமமாக, எடுத்துக்கொள்ளப்படுகிறது. அதன் அளவைக் கோப்பு பதிவு செய்யவில்லை; எனவே அதை அறிய இறுதி வரை படிக்க வேண்டும்.
+
+இப்போது வருடவா?</translation>
+    </message>
+    <message>
+        <source>Add disks</source>
+        <translation>வட்டுகளைச் சேர்</translation>
+    </message>
+    <message>
+        <source>Tick the disks to take partitions from:</source>
+        <translation>பகிர்வுகளை எடுக்க வேண்டிய வட்டுகளைக் குறியிடவும்:</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. The disk Windows is running from is never listed.</source>
+        <translation>நிலையான வட்டுகளையும் பட்டியலிடும். Windows இயங்கிக்கொண்டிருக்கும் வட்டு ஒருபோதும் பட்டியலிடப்படாது.</translation>
+    </message>
+    <message>
+        <source> -- the device being written to</source>
+        <translation> -- எழுதப்படும் சாதனம்</translation>
+    </message>
+    <message>
+        <source>Already a source.</source>
+        <translation>ஏற்கெனவே ஒரு மூலம்.</translation>
+    </message>
+    <message>
+        <source>Disk %1 cannot be used: %2.</source>
+        <translation>வட்டு %1-ஐப் பயன்படுத்த முடியாது: %2.</translation>
+    </message>
+    <message>
+        <source>disk</source>
+        <translation>வட்டு</translation>
+    </message>
+    <message>
+        <source>Scanning %1...</source>
+        <translation>%1 வருடப்படுகிறது...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>ரத்து</translation>
+    </message>
+    <message>
+        <source>%1 could not be read to the end: %2</source>
+        <translation>%1-ஐ இறுதி வரை படிக்க முடியவில்லை: %2</translation>
+    </message>
+    <message>
+        <source>Scanning %1: %2 read...</source>
+        <translation>%1 வருடப்படுகிறது: %2 படிக்கப்பட்டது...</translation>
+    </message>
+    <message>
+        <source>%1 ends at %2, before its partition %3 does: the image is incomplete, and that partition cannot be copied whole.</source>
+        <translation>%1, அதன் பகிர்வு %3 முடிவதற்கு முன்பே %2-இல் முடிகிறது: படிமம் முழுமையடையவில்லை, அந்தப் பகிர்வை முழுமையாக நகலெடுக்க முடியாது.</translation>
+    </message>
+    <message>
+        <source>whole image</source>
+        <translation>முழுப் படிமம்</translation>
+    </message>
+    <message>
+        <source>Partition %1</source>
+        <translation>பகிர்வு %1</translation>
+    </message>
+    <message>
+        <source>Partition %1: %2</source>
+        <translation>பகிர்வு %1: %2</translation>
+    </message>
+    <message>
+        <source>%1, %2</source>
+        <translation>%1, %2</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>no partition table</source>
+        <translation>பகிர்வு அட்டவணை இல்லை</translation>
+    </message>
+    <message>
+        <source>size not recorded</source>
+        <translation>அளவு பதிவு செய்யப்படவில்லை</translation>
+    </message>
+    <message>
+        <source>%1, scanned</source>
+        <translation>%1, வருடப்பட்டது</translation>
+    </message>
+    <message>
+        <source>unknown: scan the image</source>
+        <translation>தெரியவில்லை: படிமத்தை வருடவும்</translation>
+    </message>
+    <message>
+        <source>None: a new, empty table</source>
+        <translation>ஏதுமில்லை: புதிய, வெற்று அட்டவணை</translation>
+    </message>
+    <message>
+        <source>Tick the partitions to put on the device.</source>
+        <translation>சாதனத்தில் வைக்க வேண்டிய பகிர்வுகளைக் குறியிடவும்.</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1.</source>
+        <translation>இதை எழுத முடியாது: %1.</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1 is the device being written to. Write to an image file, or choose another device.</source>
+        <translation>இதை எழுத முடியாது: %1 தான் எழுதப்படும் சாதனம். ஒரு படிமக் கோப்பில் எழுதவும், அல்லது வேறு சாதனத்தைத் தேர்ந்தெடுக்கவும்.</translation>
+    </message>
+    <message>
+        <source>Partition table (%1)</source>
+        <translation>பகிர்வு அட்டவணை (%1)</translation>
+    </message>
+    <message>
+        <source>Lead-in</source>
+        <translation>முன்பகுதி</translation>
+    </message>
+    <message>
+        <source>Backup GPT</source>
+        <translation>காப்பு GPT</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: an image file of %3.</source>
+        <translation>%1, %2 பகிர்வுகள்: %3 அளவுள்ள படிமக் கோப்பு.</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
+        <translation>%1, %2 பகிர்வுகள்: %5-இல் %3 பயன்பாட்டில், %4 காலி.</translation>
+    </message>
+    <message>
+        <source>Images of unrecorded size are checked only when scanned or written.</source>
+        <translation>அளவு பதிவு செய்யப்படாத படிமங்கள் வருடப்படும்போதோ எழுதப்படும்போதோ மட்டுமே சரிபார்க்கப்படும்.</translation>
+    </message>
+    <message>
+        <source>Some partitions share a GUID: you will be asked about it.</source>
+        <translation>சில பகிர்வுகள் ஒரே GUID-ஐப் பகிர்கின்றன: அதைப் பற்றி உங்களிடம் கேட்கப்படும்.</translation>
+    </message>
+    <message>
+        <source>Name the image file to write.</source>
+        <translation>எழுத வேண்டிய படிமக் கோப்புக்குப் பெயரிடவும்.</translation>
+    </message>
+    <message>
+        <source>%1 is one of the images being combined; choose another name.</source>
+        <translation>%1 இணைக்கப்படும் படிமங்களில் ஒன்று; வேறு பெயரைத் தேர்ந்தெடுக்கவும்.</translation>
+    </message>
+    <message>
+        <source>%1 already exists. Overwrite it?</source>
+        <translation>%1 ஏற்கெனவே உள்ளது. அதை மேலெழுதவா?</translation>
+    </message>
+    <message>
+        <source>%1 is on disk %2, which is one of the sources: its volumes are locked while it is read, so nothing can be written to them. Choose a place on another disk.</source>
+        <translation>%1, வட்டு %2-இல் உள்ளது; அது மூலங்களில் ஒன்று: அது படிக்கப்படும்போது அதன் தொகுதிகள் பூட்டப்படுவதால், அவற்றில் எதையும் எழுத முடியாது. வேறு வட்டில் ஓர் இடத்தைத் தேர்ந்தெடுக்கவும்.</translation>
+    </message>
+    <message>
+        <source>Duplicate partition GUIDs</source>
+        <translation>நகல் பகிர்வு GUID-கள்</translation>
+    </message>
+    <message>
+        <source>These unique partition GUIDs belong to more than one of the chosen partitions:
+
+%1
+
+The copies are usually the same partition taken from two copies of one image. With duplicate GUIDs a system that finds its partitions by PARTUUID -- in fstab or on the kernel command line -- may use the wrong one.
+
+New GUIDs can be generated for the later copies; the first keeps its own. Anything that names a regenerated partition by its old PARTUUID will then no longer find it.</source>
+        <translation>இந்தத் தனித்த பகிர்வு GUID-கள் தேர்ந்தெடுக்கப்பட்ட பகிர்வுகளில் ஒன்றுக்கு மேற்பட்டவற்றுக்குச் சொந்தமானவை:
+
+%1
+
+பொதுவாக இவை ஒரே படிமத்தின் இரு நகல்களிலிருந்து எடுக்கப்பட்ட ஒரே பகிர்வாகும். GUID-கள் நகலாக இருந்தால், PARTUUID மூலம் -- fstab-இல் அல்லது kernel கட்டளை வரியில் -- தன் பகிர்வுகளைக் கண்டறியும் அமைப்பு தவறான ஒன்றைப் பயன்படுத்தக்கூடும்.
+
+பிந்தைய நகல்களுக்குப் புதிய GUID-களை உருவாக்கலாம்; முதலாவது தன் சொந்த GUID-ஐ வைத்துக்கொள்ளும். மறுஉருவாக்கப்பட்ட பகிர்வை அதன் பழைய PARTUUID மூலம் குறிப்பிடும் எதுவும் அதன்பின் அதைக் கண்டறியாது.</translation>
+    </message>
+    <message>
+        <source>Generate new GUIDs</source>
+        <translation>புதிய GUID-களை உருவாக்கு</translation>
+    </message>
+    <message>
+        <source>Keep them</source>
+        <translation>அவற்றை வைத்திரு</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
         <source>Win32 Disk Imager</source>
@@ -49,7 +416,7 @@
     </message>
     <message>
         <source>Choose partitions to read</source>
-        <translation>படிக்க வேண்டிய பகிர்வுகளைத் தேர்வுசெய்</translation>
+        <translation type="vanished">படிக்க வேண்டிய பகிர்வுகளைத் தேர்வுசெய்</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
@@ -65,7 +432,7 @@
     </message>
     <message>
         <source>Check GPT</source>
-        <translation>GPT சரிபார்</translation>
+        <translation type="vanished">GPT சரிபார்</translation>
     </message>
     <message>
         <source>Win Disk Imager</source>
@@ -77,7 +444,7 @@
     </message>
     <message>
         <source>Skip unpartitioned space</source>
-        <translation>பகிரப்படாத இடத்தைத் தவிர்</translation>
+        <translation type="vanished">பகிரப்படாத இடத்தைத் தவிர்</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
@@ -105,7 +472,35 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
-        <translation>படிப்பதற்கு முன், சாதனத்தின் பகிர்வுகளைப் பட்டியலிட்டு, சேர்க்க வேண்டியவற்றைத் தேர்வுசெய்ய அனுமதிக்கிறது. விடுபட்டவை பகிரப்படாத இடம் போலவே படிமத்திலிருந்து அகற்றப்படும் -- &quot;பகிரப்படாத இடத்தைத் தவிர்&quot; தேர்வு செய்யப்பட்டிருந்தாலும் இல்லாவிட்டாலும், பகிரப்படாத இடமும் எப்போதும் தவிர்க்கப்படும்.</translation>
+        <translation type="vanished">படிப்பதற்கு முன், சாதனத்தின் பகிர்வுகளைப் பட்டியலிட்டு, சேர்க்க வேண்டியவற்றைத் தேர்வுசெய்ய அனுமதிக்கிறது. விடுபட்டவை பகிரப்படாத இடம் போலவே படிமத்திலிருந்து அகற்றப்படும் -- &quot;பகிரப்படாத இடத்தைத் தவிர்&quot; தேர்வு செய்யப்பட்டிருந்தாலும் இல்லாவிட்டாலும், பகிரப்படாத இடமும் எப்போதும் தவிர்க்கப்படும்.</translation>
+    </message>
+    <message>
+        <source>Choose Partitions to Read</source>
+        <translation>படிக்க வேண்டிய பகிர்வுகளைத் தேர்வுசெய்</translation>
+    </message>
+    <message>
+        <source>Read only some of the Device&apos;s partitions: opens Custom Partitioning with the Device as the source, every partition ticked, and the Image File as where it goes. Untick what to leave out.</source>
+        <translation>சாதனத்தின் சில பகிர்வுகளை மட்டும் படிக்கும்: சாதனத்தை மூலமாகவும், ஒவ்வொரு பகிர்வும் குறியிடப்பட்டதாகவும், படிமக் கோப்பைச் சேருமிடமாகவும் கொண்டு தனிப்பயன் பகிர்வாக்கத்தைத் திறக்கும். விலக்க வேண்டியவற்றின் குறியை நீக்கவும்.</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space on Read</source>
+        <translation>படிக்கும்போது பகிரப்படாத இடத்தைத் தவிர்</translation>
+    </message>
+    <message>
+        <source>Tools</source>
+        <translation>கருவிகள்</translation>
+    </message>
+    <message>
+        <source>Check Device GPT</source>
+        <translation>சாதனத்தின் GPT-ஐச் சரிபார்</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning...</source>
+        <translation>தனிப்பயன் பகிர்வாக்கம்...</translation>
+    </message>
+    <message>
+        <source>Put partitions from image files and disks onto a device, or into a new image file, in an order you choose, under a new partition table.</source>
+        <translation>படிமக் கோப்புகளிலிருந்தும் வட்டுகளிலிருந்தும் பகிர்வுகளை, நீங்கள் தேர்ந்தெடுக்கும் வரிசையில், புதிய பகிர்வு அட்டவணையின் கீழ், ஒரு சாதனத்தில் அல்லது புதிய படிமக் கோப்பில் வைக்கும்.</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -561,6 +956,70 @@ Repair the partition table now?</source>
         <translation>பகிர்வு அட்டவணையைப் படிக்க முடியவில்லை, அல்லது இந்தச் செயல்பாடு சரிசெய்யும் வகையிலிருந்து வேறுவிதமாக அது சிதைந்துள்ளது.</translation>
     </message>
     <message>
+        <source>The target device is also one of the sources.</source>
+        <translation>இலக்குச் சாதனமும் மூலங்களில் ஒன்றாக உள்ளது.</translation>
+    </message>
+    <message>
+        <source>%1 is on the target device, and cannot be written to it.</source>
+        <translation>%1 இலக்குச் சாதனத்தில் உள்ளது; அதை அந்தச் சாதனத்தில் எழுத முடியாது.</translation>
+    </message>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1, அது அங்கு வழங்க வேண்டிய பகிர்வு முடிவதற்கு முன்பே செக்டர் %2-இல் முடிகிறது: படிமம் முழுமையடையவில்லை.</translation>
+    </message>
+    <message>
+        <source>Sector %1 of the device does not match sector %2 of %3.</source>
+        <translation>சாதனத்தின் செக்டர் %1, %3-இன் செக்டர் %2-உடன் பொருந்தவில்லை.</translation>
+    </message>
+    <message>
+        <source>The device has been partially written and no longer holds a usable layout. Write it again before using it.</source>
+        <translation>சாதனத்தில் ஒரு பகுதி மட்டுமே எழுதப்பட்டுள்ளது; இனி அதில் பயன்படுத்தக்கூடிய அமைப்பு இல்லை. பயன்படுத்தும் முன் மீண்டும் எழுதவும்.</translation>
+    </message>
+    <message>
+        <source>The partition table on the device does not match what was written.</source>
+        <translation>சாதனத்தில் உள்ள பகிர்வு அட்டவணை எழுதப்பட்டதுடன் பொருந்தவில்லை.</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>எழுதுதலும் சரிபார்ப்பும் வெற்றிகரமாக முடிந்தன.
+
+சாதனத்தில் இப்போது %3 படிமங்களிலிருந்து %2 பகிர்வுகளைக் கொண்ட புதிய %1 பகிர்வு அட்டவணை உள்ளது.</translation>
+    </message>
+    <message>
+        <source>Write successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>எழுதுதல் வெற்றிகரமாக முடிந்தது.
+
+சாதனத்தில் இப்போது %3 படிமங்களிலிருந்து %2 பகிர்வுகளைக் கொண்ட புதிய %1 பகிர்வு அட்டவணை உள்ளது.</translation>
+    </message>
+    <message>
+        <source>Its backup is already at the end of the device, so Windows has nothing to repair.</source>
+        <translation>அதன் காப்பு ஏற்கெனவே சாதனத்தின் இறுதியில் உள்ளது; எனவே Windows சரிசெய்ய எதுவும் இல்லை.</translation>
+    </message>
+    <message>
+        <source>Whether it boots depends on its bootloaders finding their partitions where they now are.</source>
+        <translation>இது துவங்குமா என்பது, அதன் துவக்கிகள் தங்கள் பகிர்வுகளை அவை இப்போது உள்ள இடத்தில் கண்டறிவதைப் பொறுத்தது.</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>தனிப்பயன் பகிர்வாக்கம்</translation>
+    </message>
+    <message>
         <source>More space required than is available:
   Required: %1 sectors
   Available: %2 sectors
@@ -609,6 +1068,30 @@ Continue Anyway?</source>
 இருப்பினும் தொடரவா?</translation>
     </message>
     <message>
+        <source>The combined image ended early.</source>
+        <translation>இணைக்கப்பட்ட படிமம் முன்கூட்டியே முடிந்துவிட்டது.</translation>
+    </message>
+    <message>
+        <source>Sector %1 of %2 is not what was written.</source>
+        <translation>%2-இன் செக்டர் %1 எழுதப்பட்டதுடன் பொருந்தவில்லை.</translation>
+    </message>
+    <message>
+        <source>%1 holds more than the combined image, or does not end cleanly.</source>
+        <translation>%1-இல் இணைக்கப்பட்ட படிமத்தை விட அதிகம் உள்ளது, அல்லது அது சீராக முடியவில்லை.</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.</source>
+        <translation>எழுதுதலும் சரிபார்ப்பும் வெற்றிகரமாக முடிந்தன.</translation>
+    </message>
+    <message>
+        <source>%1 holds a %2 partition table with %3 partitions from %4 images.</source>
+        <translation>%1-இல் %4 படிமங்களிலிருந்து %3 பகிர்வுகளைக் கொண்ட %2 பகிர்வு அட்டவணை உள்ளது.</translation>
+    </message>
+    <message>
+        <source>Its backup GPT ends the image; &quot;Fix GPT after write&quot; moves it to the end of a larger device when the image is written.</source>
+        <translation>அதன் காப்பு GPT படிமத்தின் இறுதியில் உள்ளது; படிமம் எழுதப்படும்போது &quot;எழுதிய பின் GPT-ஐச் சரிசெய்&quot; அதைப் பெரிய சாதனத்தின் இறுதிக்கு நகர்த்தும்.</translation>
+    </message>
+    <message>
         <source>Write cancelled.</source>
         <translation>எழுதுதல் ரத்துசெய்யப்பட்டது.</translation>
     </message>
@@ -634,7 +1117,7 @@ Continue Anyway?</source>
     </message>
     <message>
         <source>Choose Partitions</source>
-        <translation>பகிர்வுகளைத் தேர்வுசெய்</translation>
+        <translation type="vanished">பகிர்வுகளைத் தேர்வுசெய்</translation>
     </message>
     <message>
         <source>Choose which partitions to include in the image. Anything left unchecked is removed, the same as unpartitioned space.</source>
@@ -642,15 +1125,15 @@ Continue Anyway?</source>
     </message>
     <message>
         <source>Partition %1 -- %2</source>
-        <translation>பகிர்வு %1 -- %2</translation>
+        <translation type="vanished">பகிர்வு %1 -- %2</translation>
     </message>
     <message>
         <source>Partition %1 -- %2 -- %3</source>
-        <translation>பகிர்வு %1 -- %2 -- %3</translation>
+        <translation type="vanished">பகிர்வு %1 -- %2 -- %3</translation>
     </message>
     <message>
         <source>At least one partition must stay checked.</source>
-        <translation>குறைந்தது ஒரு பகிர்வு தேர்வு செய்யப்பட்டிருக்க வேண்டும்.</translation>
+        <translation type="vanished">குறைந்தது ஒரு பகிர்வு தேர்வு செய்யப்பட்டிருக்க வேண்டும்.</translation>
     </message>
     <message>
         <source>Read Error</source>
@@ -851,7 +1334,7 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
     </message>
     <message>
         <source>Select partitions to include in the Image.</source>
-        <translation>படிமத்தில் சேர்க்க வேண்டிய பகிர்வுகளைத் தேர்ந்தெடுக்கவும்.</translation>
+        <translation type="vanished">படிமத்தில் சேர்க்க வேண்டிய பகிர்வுகளைத் தேர்ந்தெடுக்கவும்.</translation>
     </message>
     <message>
         <source>Images can only be read back uncompressed. Choose a file name without a .gz or .xz extension, or check &quot;Read to .img.gz&quot; or &quot;Read to .img.xz&quot;.</source>
@@ -859,11 +1342,11 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
     </message>
     <message>
         <source>No partition table was found on the device, so there is nothing to choose from. The whole device will be read.</source>
-        <translation>சாதனத்தில் பகிர்வு அட்டவணை எதுவும் கண்டறியப்படவில்லை, எனவே தேர்வு செய்ய எதுவும் இல்லை. முழு சாதனமும் படிக்கப்படும்.</translation>
+        <translation type="vanished">சாதனத்தில் பகிர்வு அட்டவணை எதுவும் கண்டறியப்படவில்லை, எனவே தேர்வு செய்ய எதுவும் இல்லை. முழு சாதனமும் படிக்கப்படும்.</translation>
     </message>
     <message>
         <source>Read canceled.</source>
-        <translation>படித்தல் ரத்து செய்யப்பட்டது.</translation>
+        <translation type="vanished">படித்தல் ரத்து செய்யப்பட்டது.</translation>
     </message>
     <message>
         <source>Verify cancelled.</source>
@@ -1081,8 +1564,120 @@ Error %2</source>
         <translation>முதன்மை GPT தலைப்பின் சரிபார்ப்புத் தொகை செல்லுபடியாகாது</translation>
     </message>
     <message>
+        <source>%1, no partition table</source>
+        <translation>%1, பகிர்வு அட்டவணை இல்லை</translation>
+    </message>
+    <message>
+        <source>unrecognized filesystem, no partition table</source>
+        <translation>அறியப்படாத கோப்பு முறைமை, பகிர்வு அட்டவணை இல்லை</translation>
+    </message>
+    <message>
+        <source>the GPT header size is out of range</source>
+        <translation>GPT தலைப்பின் அளவு வரம்புக்கு வெளியே உள்ளது</translation>
+    </message>
+    <message>
+        <source>the GPT header checksum is invalid</source>
+        <translation>GPT தலைப்பின் சரிபார்ப்புத் தொகை செல்லுபடியாகாது</translation>
+    </message>
+    <message>
         <source>the GPT partition entry array is not where the header says</source>
         <translation>GPT பகிர்வு உள்ளீட்டு அணி, தலைப்பு குறிப்பிடும் இடத்தில் இல்லை</translation>
+    </message>
+    <message>
+        <source>FirstUsableLBA lies inside the partition table</source>
+        <translation>FirstUsableLBA பகிர்வு அட்டவணைக்குள் உள்ளது</translation>
+    </message>
+    <message>
+        <source>partition %1 runs past the end of the image</source>
+        <translation>பகிர்வு %1 படிமத்தின் இறுதியைத் தாண்டி நீள்கிறது</translation>
+    </message>
+    <message>
+        <source>partition %1 describes an impossible range</source>
+        <translation>பகிர்வு %1 சாத்தியமற்ற வரம்பைக் குறிக்கிறது</translation>
+    </message>
+    <message>
+        <source>the GPT holds no partitions</source>
+        <translation>GPT-இல் பகிர்வுகள் எதுவும் இல்லை</translation>
+    </message>
+    <message>
+        <source>two partitions overlap</source>
+        <translation>இரண்டு பகிர்வுகள் ஒன்றின் மேல் ஒன்று படிகின்றன</translation>
+    </message>
+    <message>
+        <source>extended, with its logical partitions (0x%1)</source>
+        <translation>நீட்டிக்கப்பட்டது, அதன் தருக்கப் பகிர்வுகளுடன் (0x%1)</translation>
+    </message>
+    <message>
+        <source>type 0x%1</source>
+        <translation>வகை 0x%1</translation>
+    </message>
+    <message>
+        <source>the MBR holds no partitions</source>
+        <translation>MBR-இல் பகிர்வுகள் எதுவும் இல்லை</translation>
+    </message>
+    <message>
+        <source>the MBR has more than one extended partition</source>
+        <translation>MBR-இல் ஒன்றுக்கு மேற்பட்ட நீட்டிக்கப்பட்ட பகிர்வுகள் உள்ளன</translation>
+    </message>
+    <message>
+        <source>the image is smaller than one sector</source>
+        <translation>படிமம் ஒரு செக்டரை விடச் சிறியது</translation>
+    </message>
+    <message>
+        <source>the image has a protective MBR but no GPT header</source>
+        <translation>படிமத்தில் பாதுகாப்பு MBR உள்ளது, ஆனால் GPT தலைப்பு இல்லை</translation>
+    </message>
+    <message>
+        <source>an extended MBR partition cannot go on a GPT: choose the logical partitions&apos; image as the lead-in, or leave it out</source>
+        <translation>நீட்டிக்கப்பட்ட MBR பகிர்வை GPT-இல் வைக்க முடியாது: தருக்கப் பகிர்வுகளின் படிமத்தை முன்பகுதியாகத் தேர்ந்தெடுக்கவும், அல்லது அதை விலக்கவும்</translation>
+    </message>
+    <message>
+        <source>MBR partition type 0x%1 has no GPT equivalent this program knows</source>
+        <translation>MBR பகிர்வு வகை 0x%1-க்கு இந்த நிரல் அறிந்த GPT இணை இல்லை</translation>
+    </message>
+    <message>
+        <source>GPT partition type %1 has no MBR equivalent</source>
+        <translation>GPT பகிர்வு வகை %1-க்கு MBR இணை இல்லை</translation>
+    </message>
+    <message>
+        <source>no partitions are chosen</source>
+        <translation>பகிர்வுகள் எதுவும் தேர்ந்தெடுக்கப்படவில்லை</translation>
+    </message>
+    <message>
+        <source>a chosen partition does not exist</source>
+        <translation>தேர்ந்தெடுக்கப்பட்ட ஒரு பகிர்வு இல்லை</translation>
+    </message>
+    <message>
+        <source>a partition is chosen twice</source>
+        <translation>ஒரு பகிர்வு இருமுறை தேர்ந்தெடுக்கப்பட்டுள்ளது</translation>
+    </message>
+    <message>
+        <source>the size of an image with no partition table is not known: scan it first</source>
+        <translation>பகிர்வு அட்டவணை இல்லாத படிமத்தின் அளவு தெரியவில்லை: முதலில் அதை வருடவும்</translation>
+    </message>
+    <message>
+        <source>the lead-in image has no partition table</source>
+        <translation>முன்பகுதிப் படிமத்தில் பகிர்வு அட்டவணை இல்லை</translation>
+    </message>
+    <message>
+        <source>an MBR holds at most four partitions, and %1 are chosen</source>
+        <translation>MBR அதிகபட்சம் நான்கு பகிர்வுகளையே கொள்ளும், ஆனால் %1 தேர்ந்தெடுக்கப்பட்டுள்ளன</translation>
+    </message>
+    <message>
+        <source>an MBR can hold only one extended partition</source>
+        <translation>MBR ஒரே ஒரு நீட்டிக்கப்பட்ட பகிர்வை மட்டுமே கொள்ளும்</translation>
+    </message>
+    <message>
+        <source>the GPT has room for %1 partitions, and %2 are chosen</source>
+        <translation>GPT-இல் %1 பகிர்வுகளுக்கே இடம் உள்ளது, ஆனால் %2 தேர்ந்தெடுக்கப்பட்டுள்ளன</translation>
+    </message>
+    <message>
+        <source>the layout no longer fits a 32-bit MBR entry</source>
+        <translation>அமைப்பு இனி 32-பிட் MBR உள்ளீட்டில் பொருந்தாது</translation>
+    </message>
+    <message>
+        <source>the partitions need %1 MB and the device has %2 MB</source>
+        <translation>பகிர்வுகளுக்கு %1 MB தேவை, சாதனத்தில் %2 MB உள்ளது</translation>
     </message>
     <message>
         <source>the GPT entry array does not fit on the device</source>
@@ -1167,6 +1762,18 @@ Error %2</source>
     <message>
         <source>The device reports a sector size of zero.</source>
         <translation>சாதனம் செக்டர் அளவைப் பூஜ்ஜியமாகத் தெரிவிக்கிறது.</translation>
+    </message>
+    <message>
+        <source>Disk %1 could not be opened (error %2).</source>
+        <translation>வட்டு %1-ஐத் திறக்க முடியவில்லை (பிழை %2).</translation>
+    </message>
+    <message>
+        <source>The size of disk %1 could not be read (error %2).</source>
+        <translation>வட்டு %1-இன் அளவைப் படிக்க முடியவில்லை (பிழை %2).</translation>
+    </message>
+    <message>
+        <source>Disk %1 has %2-byte sectors, not %3.</source>
+        <translation>வட்டு %1-இல் %3 அல்ல, %2-பைட் செக்டர்கள் உள்ளன.</translation>
     </message>
     <message>
         <source>The image file could not be opened (error %1).</source>
@@ -1279,6 +1886,34 @@ Error %2</source>
     <message>
         <source>The image file could not be flushed (error %1).</source>
         <translation>படிமக் கோப்பின் இடையகத்தைக் காலி செய்ய முடியவில்லை (பிழை %1).</translation>
+    </message>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1, அது அங்கு வழங்க வேண்டிய பகிர்வு முடிவதற்கு முன்பே செக்டர் %2-இல் முடிகிறது: படிமம் முழுமையடையவில்லை.</translation>
+    </message>
+    <message>
+        <source>Disk %1 (%2)</source>
+        <translation>வட்டு %1 (%2)</translation>
+    </message>
+    <message>
+        <source>Source disks will be dismounted</source>
+        <translation>மூல வட்டுகள் இறக்கப்படும்</translation>
+    </message>
+    <message>
+        <source>While they are read, the volumes on these source disks are locked and dismounted, so nothing changes them half way through:
+
+%1
+
+Programs using them lose them until the run ends. Nothing on them is changed. Continue?</source>
+        <translation>அவை படிக்கப்படும்போது, இடையில் எதுவும் அவற்றை மாற்றாதபடி, இந்த மூல வட்டுகளில் உள்ள தொகுதிகள் பூட்டப்பட்டு இறக்கப்படும்:
+
+%1
+
+அவற்றைப் பயன்படுத்தும் நிரல்கள் இயக்கம் முடியும் வரை அவற்றை இழக்கும். அவற்றில் உள்ள எதுவும் மாற்றப்படாது. தொடரவா?</translation>
     </message>
 </context>
 </TS>

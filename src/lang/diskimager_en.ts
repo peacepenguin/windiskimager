@@ -2,6 +2,373 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="en">
 <context>
+    <name>CombineDialog</name>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>Custom Partitioning</translation>
+    </message>
+    <message>
+        <source>Add image files or disks, tick the partitions to put on the device or in a new image file, and order them. Each source&apos;s partition table is read from its first sectors; nothing else is read until you write, or ask for a full scan.</source>
+        <translation>Add image files or disks, tick the partitions to put on the device or in a new image file, and order them. Each source&apos;s partition table is read from its first sectors; nothing else is read until you write, or ask for a full scan.</translation>
+    </message>
+    <message>
+        <source>Sources</source>
+        <translation>Sources</translation>
+    </message>
+    <message>
+        <source>Source / partition</source>
+        <translation>Source / partition</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>Type</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Size</translation>
+    </message>
+    <message>
+        <source>Add images...</source>
+        <translation>Add images...</translation>
+    </message>
+    <message>
+        <source>Add disks...</source>
+        <translation>Add disks...</translation>
+    </message>
+    <message>
+        <source>Take partitions from disks as well: cards, USB drives, and other disks. The disk Windows runs from is never offered. While a disk is read, its volumes are locked and dismounted.</source>
+        <translation>Take partitions from disks as well: cards, USB drives, and other disks. The disk Windows runs from is never offered. While a disk is read, its volumes are locked and dismounted.</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Remove</translation>
+    </message>
+    <message>
+        <source>Full scan</source>
+        <translation>Full scan</translation>
+    </message>
+    <message>
+        <source>Read and decompress the whole image, to learn its exact size and check that it holds every partition to its end. Only needed for an image with no partition table whose size the file does not record, or to check a compressed image before writing.</source>
+        <translation>Read and decompress the whole image, to learn its exact size and check that it holds every partition to its end. Only needed for an image with no partition table whose size the file does not record, or to check a compressed image before writing.</translation>
+    </message>
+    <message>
+        <source>Layout</source>
+        <translation>Layout</translation>
+    </message>
+    <message>
+        <source>Partitions, in order:</source>
+        <translation>Partitions, in order:</translation>
+    </message>
+    <message>
+        <source>Up</source>
+        <translation>Up</translation>
+    </message>
+    <message>
+        <source>Down</source>
+        <translation>Down</translation>
+    </message>
+    <message>
+        <source>Lead-in from:</source>
+        <translation>Lead-in from:</translation>
+    </message>
+    <message>
+        <source>Copy this image&apos;s boot code, and the space between its partition table and its first partition (up to 32 MiB), where a bootloader may be stored. The device then gets the same kind of partition table as this image, and the first partition starts where this image&apos;s did.</source>
+        <translation>Copy this image&apos;s boot code, and the space between its partition table and its first partition (up to 32 MiB), where a bootloader may be stored. The device then gets the same kind of partition table as this image, and the first partition starts where this image&apos;s did.</translation>
+    </message>
+    <message>
+        <source>On the device</source>
+        <translation>On the device</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>Start</translation>
+    </message>
+    <message>
+        <source>From</source>
+        <translation>From</translation>
+    </message>
+    <message>
+        <source>Write to</source>
+        <translation>Write to</translation>
+    </message>
+    <message>
+        <source>A device:</source>
+        <translation>A device:</translation>
+    </message>
+    <message>
+        <source>Show all devices</source>
+        <translation>Show all devices</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
+        <translation>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</translation>
+    </message>
+    <message>
+        <source>An image file:</source>
+        <translation>An image file:</translation>
+    </message>
+    <message>
+        <source>combined.img</source>
+        <translation>combined.img</translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation>Browse...</translation>
+    </message>
+    <message>
+        <source>Compress to</source>
+        <translation>Compress to</translation>
+    </message>
+    <message>
+        <source>The compressed format to write to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>The compressed format to write to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</translation>
+    </message>
+    <message>
+        <source>Verify after writing</source>
+        <translation>Verify after writing</translation>
+    </message>
+    <message>
+        <source>Write...</source>
+        <translation>Write...</translation>
+    </message>
+    <message>
+        <source>no device is chosen to write to</source>
+        <translation>no device is chosen to write to</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read</source>
+        <translation>disk %1 could not be read</translation>
+    </message>
+    <message>
+        <source>disk %1 has %2-byte sectors, and the sources %3-byte ones</source>
+        <translation>disk %1 has %2-byte sectors, and the sources %3-byte ones</translation>
+    </message>
+    <message>
+        <source>Disk %1: %2</source>
+        <translation>Disk %1: %2</translation>
+    </message>
+    <message>
+        <source>Save the combined image as</source>
+        <translation>Save the combined image as</translation>
+    </message>
+    <message>
+        <source>Disk Images (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</source>
+        <translation>Disk Images (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>%1 KB</source>
+        <translation>%1 KB</translation>
+    </message>
+    <message>
+        <source>the image ends inside its own partition table</source>
+        <translation>the image ends inside its own partition table</translation>
+    </message>
+    <message>
+        <source>the partition table could not be read</source>
+        <translation>the partition table could not be read</translation>
+    </message>
+    <message>
+        <source>Add images</source>
+        <translation>Add images</translation>
+    </message>
+    <message>
+        <source>%1 cannot be used: %2.</source>
+        <translation>%1 cannot be used: %2.</translation>
+    </message>
+    <message>
+        <source>%1 has no partition table, so it is taken as one partition: the whole image. The file does not record how big that is, so it has to be read to the end to find out.
+
+Scan it now?</source>
+        <translation>%1 has no partition table, so it is taken as one partition: the whole image. The file does not record how big that is, so it has to be read to the end to find out.
+
+Scan it now?</translation>
+    </message>
+    <message>
+        <source>Add disks</source>
+        <translation>Add disks</translation>
+    </message>
+    <message>
+        <source>Tick the disks to take partitions from:</source>
+        <translation>Tick the disks to take partitions from:</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. The disk Windows is running from is never listed.</source>
+        <translation>Also list fixed disks. The disk Windows is running from is never listed.</translation>
+    </message>
+    <message>
+        <source> -- the device being written to</source>
+        <translation> -- the device being written to</translation>
+    </message>
+    <message>
+        <source>Already a source.</source>
+        <translation>Already a source.</translation>
+    </message>
+    <message>
+        <source>Disk %1 cannot be used: %2.</source>
+        <translation>Disk %1 cannot be used: %2.</translation>
+    </message>
+    <message>
+        <source>disk</source>
+        <translation>disk</translation>
+    </message>
+    <message>
+        <source>Scanning %1...</source>
+        <translation>Scanning %1...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>%1 could not be read to the end: %2</source>
+        <translation>%1 could not be read to the end: %2</translation>
+    </message>
+    <message>
+        <source>Scanning %1: %2 read...</source>
+        <translation>Scanning %1: %2 read...</translation>
+    </message>
+    <message>
+        <source>%1 ends at %2, before its partition %3 does: the image is incomplete, and that partition cannot be copied whole.</source>
+        <translation>%1 ends at %2, before its partition %3 does: the image is incomplete, and that partition cannot be copied whole.</translation>
+    </message>
+    <message>
+        <source>whole image</source>
+        <translation>whole image</translation>
+    </message>
+    <message>
+        <source>Partition %1</source>
+        <translation>Partition %1</translation>
+    </message>
+    <message>
+        <source>Partition %1: %2</source>
+        <translation>Partition %1: %2</translation>
+    </message>
+    <message>
+        <source>%1, %2</source>
+        <translation>%1, %2</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>no partition table</source>
+        <translation>no partition table</translation>
+    </message>
+    <message>
+        <source>size not recorded</source>
+        <translation>size not recorded</translation>
+    </message>
+    <message>
+        <source>%1, scanned</source>
+        <translation>%1, scanned</translation>
+    </message>
+    <message>
+        <source>unknown: scan the image</source>
+        <translation>unknown: scan the image</translation>
+    </message>
+    <message>
+        <source>None: a new, empty table</source>
+        <translation>None: a new, empty table</translation>
+    </message>
+    <message>
+        <source>Tick the partitions to put on the device.</source>
+        <translation>Tick the partitions to put on the device.</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1.</source>
+        <translation>This cannot be written: %1.</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1 is the device being written to. Write to an image file, or choose another device.</source>
+        <translation>This cannot be written: %1 is the device being written to. Write to an image file, or choose another device.</translation>
+    </message>
+    <message>
+        <source>Partition table (%1)</source>
+        <translation>Partition table (%1)</translation>
+    </message>
+    <message>
+        <source>Lead-in</source>
+        <translation>Lead-in</translation>
+    </message>
+    <message>
+        <source>Backup GPT</source>
+        <translation>Backup GPT</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: an image file of %3.</source>
+        <translation>%1, %2 partitions: an image file of %3.</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
+        <translation>%1, %2 partitions: %3 used, %4 free of %5.</translation>
+    </message>
+    <message>
+        <source>Images of unrecorded size are checked only when scanned or written.</source>
+        <translation>Images of unrecorded size are checked only when scanned or written.</translation>
+    </message>
+    <message>
+        <source>Some partitions share a GUID: you will be asked about it.</source>
+        <translation>Some partitions share a GUID: you will be asked about it.</translation>
+    </message>
+    <message>
+        <source>Name the image file to write.</source>
+        <translation>Name the image file to write.</translation>
+    </message>
+    <message>
+        <source>%1 is one of the images being combined; choose another name.</source>
+        <translation>%1 is one of the images being combined; choose another name.</translation>
+    </message>
+    <message>
+        <source>%1 already exists. Overwrite it?</source>
+        <translation>%1 already exists. Overwrite it?</translation>
+    </message>
+    <message>
+        <source>%1 is on disk %2, which is one of the sources: its volumes are locked while it is read, so nothing can be written to them. Choose a place on another disk.</source>
+        <translation>%1 is on disk %2, which is one of the sources: its volumes are locked while it is read, so nothing can be written to them. Choose a place on another disk.</translation>
+    </message>
+    <message>
+        <source>Duplicate partition GUIDs</source>
+        <translation>Duplicate partition GUIDs</translation>
+    </message>
+    <message>
+        <source>These unique partition GUIDs belong to more than one of the chosen partitions:
+
+%1
+
+The copies are usually the same partition taken from two copies of one image. With duplicate GUIDs a system that finds its partitions by PARTUUID -- in fstab or on the kernel command line -- may use the wrong one.
+
+New GUIDs can be generated for the later copies; the first keeps its own. Anything that names a regenerated partition by its old PARTUUID will then no longer find it.</source>
+        <translation>These unique partition GUIDs belong to more than one of the chosen partitions:
+
+%1
+
+The copies are usually the same partition taken from two copies of one image. With duplicate GUIDs a system that finds its partitions by PARTUUID -- in fstab or on the kernel command line -- may use the wrong one.
+
+New GUIDs can be generated for the later copies; the first keeps its own. Anything that names a regenerated partition by its old PARTUUID will then no longer find it.</translation>
+    </message>
+    <message>
+        <source>Generate new GUIDs</source>
+        <translation>Generate new GUIDs</translation>
+    </message>
+    <message>
+        <source>Keep them</source>
+        <translation>Keep them</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
         <source>Win32 Disk Imager</source>
@@ -49,7 +416,7 @@
     </message>
     <message>
         <source>Choose partitions to read</source>
-        <translation>Choose partitions to read</translation>
+        <translation type="vanished">Choose partitions to read</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
@@ -65,7 +432,7 @@
     </message>
     <message>
         <source>Check GPT</source>
-        <translation>Check GPT</translation>
+        <translation type="vanished">Check GPT</translation>
     </message>
     <message>
         <source>Win Disk Imager</source>
@@ -77,7 +444,7 @@
     </message>
     <message>
         <source>Skip unpartitioned space</source>
-        <translation>Skip unpartitioned space</translation>
+        <translation type="vanished">Skip unpartitioned space</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
@@ -105,7 +472,35 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
-        <translation>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</translation>
+        <translation type="vanished">Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</translation>
+    </message>
+    <message>
+        <source>Choose Partitions to Read</source>
+        <translation>Choose Partitions to Read</translation>
+    </message>
+    <message>
+        <source>Read only some of the Device&apos;s partitions: opens Custom Partitioning with the Device as the source, every partition ticked, and the Image File as where it goes. Untick what to leave out.</source>
+        <translation>Read only some of the Device&apos;s partitions: opens Custom Partitioning with the Device as the source, every partition ticked, and the Image File as where it goes. Untick what to leave out.</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space on Read</source>
+        <translation>Skip unpartitioned space on Read</translation>
+    </message>
+    <message>
+        <source>Tools</source>
+        <translation>Tools</translation>
+    </message>
+    <message>
+        <source>Check Device GPT</source>
+        <translation>Check Device GPT</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning...</source>
+        <translation>Custom Partitioning...</translation>
+    </message>
+    <message>
+        <source>Put partitions from image files and disks onto a device, or into a new image file, in an order you choose, under a new partition table.</source>
+        <translation>Put partitions from image files and disks onto a device, or into a new image file, in an order you choose, under a new partition table.</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -792,12 +1187,76 @@ Repair the partition table now?</translation>
         <translation>The partition table could not be read, or is damaged in some way other than the one this repairs.</translation>
     </message>
     <message>
+        <source>The target device is also one of the sources.</source>
+        <translation>The target device is also one of the sources.</translation>
+    </message>
+    <message>
+        <source>%1 is on the target device, and cannot be written to it.</source>
+        <translation>%1 is on the target device, and cannot be written to it.</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>The device list changed while you were confirming. Check the target device and try again.</translation>
     </message>
     <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</translation>
+    </message>
+    <message>
+        <source>Sector %1 of the device does not match sector %2 of %3.</source>
+        <translation>Sector %1 of the device does not match sector %2 of %3.</translation>
+    </message>
+    <message>
+        <source>The device has been partially written and no longer holds a usable layout. Write it again before using it.</source>
+        <translation>The device has been partially written and no longer holds a usable layout. Write it again before using it.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Writing...</translation>
+    </message>
+    <message>
+        <source>The partition table on the device does not match what was written.</source>
+        <translation>The partition table on the device does not match what was written.</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>Write and verify successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</translation>
+    </message>
+    <message>
+        <source>Write successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>Write successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</translation>
+    </message>
+    <message>
+        <source>Its backup is already at the end of the device, so Windows has nothing to repair.</source>
+        <translation>Its backup is already at the end of the device, so Windows has nothing to repair.</translation>
+    </message>
+    <message>
+        <source>Whether it boots depends on its bootloaders finding their partitions where they now are.</source>
+        <translation>Whether it boots depends on its bootloaders finding their partitions where they now are.</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>Custom Partitioning</translation>
     </message>
     <message>
         <source>The image is larger than the device, so the end of it was not written and the device does not hold a complete image.
@@ -880,8 +1339,32 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
 Remove the device NOW and do not re-insert it here. Put it straight into the target hardware.</translation>
     </message>
     <message>
+        <source>The combined image ended early.</source>
+        <translation>The combined image ended early.</translation>
+    </message>
+    <message>
+        <source>Sector %1 of %2 is not what was written.</source>
+        <translation>Sector %1 of %2 is not what was written.</translation>
+    </message>
+    <message>
+        <source>%1 holds more than the combined image, or does not end cleanly.</source>
+        <translation>%1 holds more than the combined image, or does not end cleanly.</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.</source>
+        <translation>Write and verify successful.</translation>
+    </message>
+    <message>
+        <source>%1 holds a %2 partition table with %3 partitions from %4 images.</source>
+        <translation>%1 holds a %2 partition table with %3 partitions from %4 images.</translation>
+    </message>
+    <message>
+        <source>Its backup GPT ends the image; &quot;Fix GPT after write&quot; moves it to the end of a larger device when the image is written.</source>
+        <translation>Its backup GPT ends the image; &quot;Fix GPT after write&quot; moves it to the end of a larger device when the image is written.</translation>
+    </message>
+    <message>
         <source>Choose Partitions</source>
-        <translation>Choose Partitions</translation>
+        <translation type="vanished">Choose Partitions</translation>
     </message>
     <message>
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
@@ -905,15 +1388,15 @@ Some bootable images, such as those for single-board computers, keep bootloader 
     </message>
     <message>
         <source>Partition %1 -- %2</source>
-        <translation>Partition %1 -- %2</translation>
+        <translation type="vanished">Partition %1 -- %2</translation>
     </message>
     <message>
         <source>Partition %1 -- %2 -- %3</source>
-        <translation>Partition %1 -- %2 -- %3</translation>
+        <translation type="vanished">Partition %1 -- %2 -- %3</translation>
     </message>
     <message>
         <source>At least one partition must stay checked.</source>
-        <translation>At least one partition must stay checked.</translation>
+        <translation type="vanished">At least one partition must stay checked.</translation>
     </message>
     <message>
         <source>Read Error</source>
@@ -937,11 +1420,11 @@ Some bootable images, such as those for single-board computers, keep bootloader 
     </message>
     <message>
         <source>No partition table was found on the device, so there is nothing to choose from. The whole device will be read.</source>
-        <translation>No partition table was found on the device, so there is nothing to choose from. The whole device will be read.</translation>
+        <translation type="vanished">No partition table was found on the device, so there is nothing to choose from. The whole device will be read.</translation>
     </message>
     <message>
         <source>Read canceled.</source>
-        <translation>Read canceled.</translation>
+        <translation type="vanished">Read canceled.</translation>
     </message>
     <message>
         <source>Disk is not large enough for the specified image.</source>
@@ -1029,7 +1512,7 @@ Continue Anyway?</translation>
     </message>
     <message>
         <source>Select partitions to include in the Image.</source>
-        <translation>Select partitions to include in the Image.</translation>
+        <translation type="vanished">Select partitions to include in the Image.</translation>
     </message>
     <message>
         <source>Verify Failure</source>
@@ -1243,8 +1726,120 @@ Error %2</translation>
         <translation>the primary GPT header checksum is invalid</translation>
     </message>
     <message>
+        <source>%1, no partition table</source>
+        <translation>%1, no partition table</translation>
+    </message>
+    <message>
+        <source>unrecognized filesystem, no partition table</source>
+        <translation>unrecognized filesystem, no partition table</translation>
+    </message>
+    <message>
+        <source>the GPT header size is out of range</source>
+        <translation>the GPT header size is out of range</translation>
+    </message>
+    <message>
+        <source>the GPT header checksum is invalid</source>
+        <translation>the GPT header checksum is invalid</translation>
+    </message>
+    <message>
         <source>the GPT partition entry array is not where the header says</source>
         <translation>the GPT partition entry array is not where the header says</translation>
+    </message>
+    <message>
+        <source>FirstUsableLBA lies inside the partition table</source>
+        <translation>FirstUsableLBA lies inside the partition table</translation>
+    </message>
+    <message>
+        <source>partition %1 runs past the end of the image</source>
+        <translation>partition %1 runs past the end of the image</translation>
+    </message>
+    <message>
+        <source>partition %1 describes an impossible range</source>
+        <translation>partition %1 describes an impossible range</translation>
+    </message>
+    <message>
+        <source>the GPT holds no partitions</source>
+        <translation>the GPT holds no partitions</translation>
+    </message>
+    <message>
+        <source>two partitions overlap</source>
+        <translation>two partitions overlap</translation>
+    </message>
+    <message>
+        <source>extended, with its logical partitions (0x%1)</source>
+        <translation>extended, with its logical partitions (0x%1)</translation>
+    </message>
+    <message>
+        <source>type 0x%1</source>
+        <translation>type 0x%1</translation>
+    </message>
+    <message>
+        <source>the MBR holds no partitions</source>
+        <translation>the MBR holds no partitions</translation>
+    </message>
+    <message>
+        <source>the MBR has more than one extended partition</source>
+        <translation>the MBR has more than one extended partition</translation>
+    </message>
+    <message>
+        <source>the image is smaller than one sector</source>
+        <translation>the image is smaller than one sector</translation>
+    </message>
+    <message>
+        <source>the image has a protective MBR but no GPT header</source>
+        <translation>the image has a protective MBR but no GPT header</translation>
+    </message>
+    <message>
+        <source>an extended MBR partition cannot go on a GPT: choose the logical partitions&apos; image as the lead-in, or leave it out</source>
+        <translation>an extended MBR partition cannot go on a GPT: choose the logical partitions&apos; image as the lead-in, or leave it out</translation>
+    </message>
+    <message>
+        <source>MBR partition type 0x%1 has no GPT equivalent this program knows</source>
+        <translation>MBR partition type 0x%1 has no GPT equivalent this program knows</translation>
+    </message>
+    <message>
+        <source>GPT partition type %1 has no MBR equivalent</source>
+        <translation>GPT partition type %1 has no MBR equivalent</translation>
+    </message>
+    <message>
+        <source>no partitions are chosen</source>
+        <translation>no partitions are chosen</translation>
+    </message>
+    <message>
+        <source>a chosen partition does not exist</source>
+        <translation>a chosen partition does not exist</translation>
+    </message>
+    <message>
+        <source>a partition is chosen twice</source>
+        <translation>a partition is chosen twice</translation>
+    </message>
+    <message>
+        <source>the size of an image with no partition table is not known: scan it first</source>
+        <translation>the size of an image with no partition table is not known: scan it first</translation>
+    </message>
+    <message>
+        <source>the lead-in image has no partition table</source>
+        <translation>the lead-in image has no partition table</translation>
+    </message>
+    <message>
+        <source>an MBR holds at most four partitions, and %1 are chosen</source>
+        <translation>an MBR holds at most four partitions, and %1 are chosen</translation>
+    </message>
+    <message>
+        <source>an MBR can hold only one extended partition</source>
+        <translation>an MBR can hold only one extended partition</translation>
+    </message>
+    <message>
+        <source>the GPT has room for %1 partitions, and %2 are chosen</source>
+        <translation>the GPT has room for %1 partitions, and %2 are chosen</translation>
+    </message>
+    <message>
+        <source>the layout no longer fits a 32-bit MBR entry</source>
+        <translation>the layout no longer fits a 32-bit MBR entry</translation>
+    </message>
+    <message>
+        <source>the partitions need %1 MB and the device has %2 MB</source>
+        <translation>the partitions need %1 MB and the device has %2 MB</translation>
     </message>
     <message>
         <source>the GPT entry array does not fit on the device</source>
@@ -1329,6 +1924,18 @@ Error %2</translation>
     <message>
         <source>The device reports a sector size of zero.</source>
         <translation>The device reports a sector size of zero.</translation>
+    </message>
+    <message>
+        <source>Disk %1 could not be opened (error %2).</source>
+        <translation>Disk %1 could not be opened (error %2).</translation>
+    </message>
+    <message>
+        <source>The size of disk %1 could not be read (error %2).</source>
+        <translation>The size of disk %1 could not be read (error %2).</translation>
+    </message>
+    <message>
+        <source>Disk %1 has %2-byte sectors, not %3.</source>
+        <translation>Disk %1 has %2-byte sectors, not %3.</translation>
     </message>
     <message>
         <source>The image file could not be opened (error %1).</source>
@@ -1441,6 +2048,34 @@ Error %2</translation>
     <message>
         <source>The image file could not be flushed (error %1).</source>
         <translation>The image file could not be flushed (error %1).</translation>
+    </message>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</translation>
+    </message>
+    <message>
+        <source>Disk %1 (%2)</source>
+        <translation>Disk %1 (%2)</translation>
+    </message>
+    <message>
+        <source>Source disks will be dismounted</source>
+        <translation>Source disks will be dismounted</translation>
+    </message>
+    <message>
+        <source>While they are read, the volumes on these source disks are locked and dismounted, so nothing changes them half way through:
+
+%1
+
+Programs using them lose them until the run ends. Nothing on them is changed. Continue?</source>
+        <translation>While they are read, the volumes on these source disks are locked and dismounted, so nothing changes them half way through:
+
+%1
+
+Programs using them lose them until the run ends. Nothing on them is changed. Continue?</translation>
     </message>
 </context>
 </TS>

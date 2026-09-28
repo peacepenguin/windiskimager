@@ -2,6 +2,373 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="es">
 <context>
+    <name>CombineDialog</name>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>Particionado personalizado</translation>
+    </message>
+    <message>
+        <source>Add image files or disks, tick the partitions to put on the device or in a new image file, and order them. Each source&apos;s partition table is read from its first sectors; nothing else is read until you write, or ask for a full scan.</source>
+        <translation>Añada archivos de imagen o discos, marque las particiones que quiere poner en el dispositivo o en un nuevo archivo de imagen y ordénelas. La tabla de particiones de cada origen se lee de sus primeros sectores; no se lee nada más hasta que escriba o pida un análisis completo.</translation>
+    </message>
+    <message>
+        <source>Sources</source>
+        <translation>Orígenes</translation>
+    </message>
+    <message>
+        <source>Source / partition</source>
+        <translation>Origen / partición</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>Tipo</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Tamaño</translation>
+    </message>
+    <message>
+        <source>Add images...</source>
+        <translation>Añadir imágenes...</translation>
+    </message>
+    <message>
+        <source>Add disks...</source>
+        <translation>Añadir discos...</translation>
+    </message>
+    <message>
+        <source>Take partitions from disks as well: cards, USB drives, and other disks. The disk Windows runs from is never offered. While a disk is read, its volumes are locked and dismounted.</source>
+        <translation>Tomar particiones también de discos: tarjetas, unidades USB y otros discos. Nunca se ofrece el disco desde el que se ejecuta Windows. Mientras se lee un disco, sus volúmenes se bloquean y se desmontan.</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Quitar</translation>
+    </message>
+    <message>
+        <source>Full scan</source>
+        <translation>Análisis completo</translation>
+    </message>
+    <message>
+        <source>Read and decompress the whole image, to learn its exact size and check that it holds every partition to its end. Only needed for an image with no partition table whose size the file does not record, or to check a compressed image before writing.</source>
+        <translation>Lee y descomprime la imagen entera para conocer su tamaño exacto y comprobar que contiene cada partición hasta su final. Solo es necesario para una imagen sin tabla de particiones cuyo archivo no indica el tamaño, o para comprobar una imagen comprimida antes de escribirla.</translation>
+    </message>
+    <message>
+        <source>Layout</source>
+        <translation>Disposición</translation>
+    </message>
+    <message>
+        <source>Partitions, in order:</source>
+        <translation>Particiones, en orden:</translation>
+    </message>
+    <message>
+        <source>Up</source>
+        <translation>Subir</translation>
+    </message>
+    <message>
+        <source>Down</source>
+        <translation>Bajar</translation>
+    </message>
+    <message>
+        <source>Lead-in from:</source>
+        <translation>Zona de arranque de:</translation>
+    </message>
+    <message>
+        <source>Copy this image&apos;s boot code, and the space between its partition table and its first partition (up to 32 MiB), where a bootloader may be stored. The device then gets the same kind of partition table as this image, and the first partition starts where this image&apos;s did.</source>
+        <translation>Copia el código de arranque de esta imagen y el espacio entre su tabla de particiones y su primera partición (hasta 32 MiB), donde puede guardarse un gestor de arranque. El dispositivo recibe entonces el mismo tipo de tabla de particiones que esta imagen, y la primera partición empieza donde empezaba la de esta imagen.</translation>
+    </message>
+    <message>
+        <source>On the device</source>
+        <translation>En el dispositivo</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>Inicio</translation>
+    </message>
+    <message>
+        <source>From</source>
+        <translation>Origen</translation>
+    </message>
+    <message>
+        <source>Write to</source>
+        <translation>Escribir en</translation>
+    </message>
+    <message>
+        <source>A device:</source>
+        <translation>Un dispositivo:</translation>
+    </message>
+    <message>
+        <source>Show all devices</source>
+        <translation>Mostrar todos los dispositivos</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
+        <translation>Muestra también los discos fijos. Los lectores de tarjetas PCIe internos suelen presentar la tarjeta como un dispositivo no extraíble, que de otro modo queda oculto. Nunca se muestra el disco desde el que se ejecuta Windows.</translation>
+    </message>
+    <message>
+        <source>An image file:</source>
+        <translation>Un archivo de imagen:</translation>
+    </message>
+    <message>
+        <source>combined.img</source>
+        <translation>combined.img</translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation>Examinar...</translation>
+    </message>
+    <message>
+        <source>Compress to</source>
+        <translation>Comprimir en</translation>
+    </message>
+    <message>
+        <source>The compressed format to write to: .img.zst is the fastest, .img.xz the smallest, and .img.gz the most widely supported</source>
+        <translation>El formato comprimido de escritura: .img.zst es el más rápido, .img.xz el más pequeño y .img.gz el más compatible</translation>
+    </message>
+    <message>
+        <source>Verify after writing</source>
+        <translation>Verificar después de escribir</translation>
+    </message>
+    <message>
+        <source>Write...</source>
+        <translation>Escribir...</translation>
+    </message>
+    <message>
+        <source>no device is chosen to write to</source>
+        <translation>no se ha elegido ningún dispositivo en el que escribir</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read</source>
+        <translation>no se pudo leer el disco %1</translation>
+    </message>
+    <message>
+        <source>disk %1 has %2-byte sectors, and the sources %3-byte ones</source>
+        <translation>el disco %1 tiene sectores de %2 bytes, y los orígenes de %3 bytes</translation>
+    </message>
+    <message>
+        <source>Disk %1: %2</source>
+        <translation>Disco %1: %2</translation>
+    </message>
+    <message>
+        <source>Save the combined image as</source>
+        <translation>Guardar la imagen combinada como</translation>
+    </message>
+    <message>
+        <source>Disk Images (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</source>
+        <translation>Imágenes de disco (*.img *.img.gz *.img.xz *.img.bz2 *.img.zst)</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>%1 KB</source>
+        <translation>%1 KB</translation>
+    </message>
+    <message>
+        <source>the image ends inside its own partition table</source>
+        <translation>la imagen termina dentro de su propia tabla de particiones</translation>
+    </message>
+    <message>
+        <source>the partition table could not be read</source>
+        <translation>no se pudo leer la tabla de particiones</translation>
+    </message>
+    <message>
+        <source>Add images</source>
+        <translation>Añadir imágenes</translation>
+    </message>
+    <message>
+        <source>%1 cannot be used: %2.</source>
+        <translation>%1 no se puede usar: %2.</translation>
+    </message>
+    <message>
+        <source>%1 has no partition table, so it is taken as one partition: the whole image. The file does not record how big that is, so it has to be read to the end to find out.
+
+Scan it now?</source>
+        <translation>%1 no tiene tabla de particiones, así que se toma como una sola partición: la imagen entera. El archivo no indica su tamaño, así que hay que leerlo hasta el final para averiguarlo.
+
+¿Analizarlo ahora?</translation>
+    </message>
+    <message>
+        <source>Add disks</source>
+        <translation>Añadir discos</translation>
+    </message>
+    <message>
+        <source>Tick the disks to take partitions from:</source>
+        <translation>Marque los discos de los que tomar particiones:</translation>
+    </message>
+    <message>
+        <source>Also list fixed disks. The disk Windows is running from is never listed.</source>
+        <translation>Muestra también los discos fijos. Nunca se muestra el disco desde el que se ejecuta Windows.</translation>
+    </message>
+    <message>
+        <source> -- the device being written to</source>
+        <translation> -- el dispositivo en el que se escribe</translation>
+    </message>
+    <message>
+        <source>Already a source.</source>
+        <translation>Ya es un origen.</translation>
+    </message>
+    <message>
+        <source>Disk %1 cannot be used: %2.</source>
+        <translation>El disco %1 no se puede usar: %2.</translation>
+    </message>
+    <message>
+        <source>disk</source>
+        <translation>disco</translation>
+    </message>
+    <message>
+        <source>Scanning %1...</source>
+        <translation>Analizando %1…</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>%1 could not be read to the end: %2</source>
+        <translation>No se pudo leer %1 hasta el final: %2</translation>
+    </message>
+    <message>
+        <source>Scanning %1: %2 read...</source>
+        <translation>Analizando %1: %2 leídos…</translation>
+    </message>
+    <message>
+        <source>%1 ends at %2, before its partition %3 does: the image is incomplete, and that partition cannot be copied whole.</source>
+        <translation>%1 termina en %2, antes de que termine su partición %3: la imagen está incompleta y esa partición no se puede copiar entera.</translation>
+    </message>
+    <message>
+        <source>whole image</source>
+        <translation>imagen entera</translation>
+    </message>
+    <message>
+        <source>Partition %1</source>
+        <translation>Partición %1</translation>
+    </message>
+    <message>
+        <source>Partition %1: %2</source>
+        <translation>Partición %1: %2</translation>
+    </message>
+    <message>
+        <source>%1, %2</source>
+        <translation>%1, %2</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>no partition table</source>
+        <translation>sin tabla de particiones</translation>
+    </message>
+    <message>
+        <source>size not recorded</source>
+        <translation>tamaño no indicado</translation>
+    </message>
+    <message>
+        <source>%1, scanned</source>
+        <translation>%1, analizado</translation>
+    </message>
+    <message>
+        <source>unknown: scan the image</source>
+        <translation>desconocido: analice la imagen</translation>
+    </message>
+    <message>
+        <source>None: a new, empty table</source>
+        <translation>Ninguna: una tabla nueva y vacía</translation>
+    </message>
+    <message>
+        <source>Tick the partitions to put on the device.</source>
+        <translation>Marque las particiones que quiere poner en el dispositivo.</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1.</source>
+        <translation>No se puede escribir: %1.</translation>
+    </message>
+    <message>
+        <source>This cannot be written: %1 is the device being written to. Write to an image file, or choose another device.</source>
+        <translation>No se puede escribir: %1 es el dispositivo en el que se escribe. Escriba en un archivo de imagen o elija otro dispositivo.</translation>
+    </message>
+    <message>
+        <source>Partition table (%1)</source>
+        <translation>Tabla de particiones (%1)</translation>
+    </message>
+    <message>
+        <source>Lead-in</source>
+        <translation>Zona de arranque</translation>
+    </message>
+    <message>
+        <source>Backup GPT</source>
+        <translation>GPT de respaldo</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: an image file of %3.</source>
+        <translation>%1, %2 particiones: un archivo de imagen de %3.</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
+        <translation>%1, %2 particiones: %3 usados, %4 libres de %5.</translation>
+    </message>
+    <message>
+        <source>Images of unrecorded size are checked only when scanned or written.</source>
+        <translation>Las imágenes de tamaño no indicado solo se comprueban al analizarlas o escribirlas.</translation>
+    </message>
+    <message>
+        <source>Some partitions share a GUID: you will be asked about it.</source>
+        <translation>Algunas particiones comparten un GUID: se le preguntará al respecto.</translation>
+    </message>
+    <message>
+        <source>Name the image file to write.</source>
+        <translation>Indique el nombre del archivo de imagen que se escribirá.</translation>
+    </message>
+    <message>
+        <source>%1 is one of the images being combined; choose another name.</source>
+        <translation>%1 es una de las imágenes que se combinan; elija otro nombre.</translation>
+    </message>
+    <message>
+        <source>%1 already exists. Overwrite it?</source>
+        <translation>%1 ya existe. ¿Sobrescribirlo?</translation>
+    </message>
+    <message>
+        <source>%1 is on disk %2, which is one of the sources: its volumes are locked while it is read, so nothing can be written to them. Choose a place on another disk.</source>
+        <translation>%1 está en el disco %2, que es uno de los orígenes: sus volúmenes se bloquean mientras se lee, así que no se puede escribir nada en ellos. Elija una ubicación en otro disco.</translation>
+    </message>
+    <message>
+        <source>Duplicate partition GUIDs</source>
+        <translation>GUID de partición duplicados</translation>
+    </message>
+    <message>
+        <source>These unique partition GUIDs belong to more than one of the chosen partitions:
+
+%1
+
+The copies are usually the same partition taken from two copies of one image. With duplicate GUIDs a system that finds its partitions by PARTUUID -- in fstab or on the kernel command line -- may use the wrong one.
+
+New GUIDs can be generated for the later copies; the first keeps its own. Anything that names a regenerated partition by its old PARTUUID will then no longer find it.</source>
+        <translation>Estos GUID únicos de partición pertenecen a más de una de las particiones elegidas:
+
+%1
+
+Normalmente se trata de la misma partición tomada de dos copias de una misma imagen. Con GUID duplicados, un sistema que encuentra sus particiones por PARTUUID -- en fstab o en la línea de comandos del kernel -- puede usar la equivocada.
+
+Se pueden generar GUID nuevos para las copias posteriores; la primera conserva el suyo. Todo lo que haga referencia a una partición regenerada por su PARTUUID anterior dejará de encontrarla.</translation>
+    </message>
+    <message>
+        <source>Generate new GUIDs</source>
+        <translation>Generar GUID nuevos</translation>
+    </message>
+    <message>
+        <source>Keep them</source>
+        <translation>Conservarlos</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
         <source>Win32 Disk Imager</source>
@@ -49,7 +416,7 @@
     </message>
     <message>
         <source>Choose partitions to read</source>
-        <translation>Elegir particiones a leer</translation>
+        <translation type="vanished">Elegir particiones a leer</translation>
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always shrinks the image, whether or not &quot;Shrink image on Read&quot; is also checked.</source>
@@ -65,7 +432,7 @@
     </message>
     <message>
         <source>Check GPT</source>
-        <translation>Comprobar la GPT</translation>
+        <translation type="vanished">Comprobar la GPT</translation>
     </message>
     <message>
         <source>Win Disk Imager</source>
@@ -77,7 +444,7 @@
     </message>
     <message>
         <source>Skip unpartitioned space</source>
-        <translation>Omitir espacio sin particionar</translation>
+        <translation type="vanished">Omitir espacio sin particionar</translation>
     </message>
     <message>
         <source>Reads the MBR or GPT of the Device and leaves its unpartitioned space out of the image, keeping the partitions, the partition table and any space a GPT reserves ahead of its partitions. The backup GPT is moved to the new end of the image.</source>
@@ -105,7 +472,35 @@
     </message>
     <message>
         <source>Before reading, list the Device&apos;s partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not &quot;Skip unpartitioned space&quot; is also checked.</source>
-        <translation>Antes de leer, muestra las particiones del dispositivo y permite elegir cuáles incluir. Todo lo que se deje fuera se elimina de la imagen, igual que el espacio sin particionar -- esto siempre omite también el espacio sin particionar, esté o no marcada la opción «Omitir espacio sin particionar».</translation>
+        <translation type="vanished">Antes de leer, muestra las particiones del dispositivo y permite elegir cuáles incluir. Todo lo que se deje fuera se elimina de la imagen, igual que el espacio sin particionar -- esto siempre omite también el espacio sin particionar, esté o no marcada la opción «Omitir espacio sin particionar».</translation>
+    </message>
+    <message>
+        <source>Choose Partitions to Read</source>
+        <translation>Elegir particiones a leer</translation>
+    </message>
+    <message>
+        <source>Read only some of the Device&apos;s partitions: opens Custom Partitioning with the Device as the source, every partition ticked, and the Image File as where it goes. Untick what to leave out.</source>
+        <translation>Leer solo algunas particiones del dispositivo: abre «Particionado personalizado» con el dispositivo como origen, todas las particiones marcadas y el archivo de imagen como destino. Desmarque lo que quiera dejar fuera.</translation>
+    </message>
+    <message>
+        <source>Skip unpartitioned space on Read</source>
+        <translation>Omitir espacio sin particionar al leer</translation>
+    </message>
+    <message>
+        <source>Tools</source>
+        <translation>Herramientas</translation>
+    </message>
+    <message>
+        <source>Check Device GPT</source>
+        <translation>Comprobar la GPT del dispositivo</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning...</source>
+        <translation>Particionado personalizado...</translation>
+    </message>
+    <message>
+        <source>Put partitions from image files and disks onto a device, or into a new image file, in an order you choose, under a new partition table.</source>
+        <translation>Poner particiones de archivos de imagen y discos en un dispositivo, o en un nuevo archivo de imagen, en el orden que elija, bajo una nueva tabla de particiones.</translation>
     </message>
     <message>
         <source>Image File Hash</source>
@@ -663,7 +1058,7 @@ No se pudo comprobar si el espacio sobrante contiene datos, porque la imagen est
     </message>
     <message>
         <source>Select partitions to include in the Image.</source>
-        <translation>Seleccione las particiones a incluir en la imagen.</translation>
+        <translation type="vanished">Seleccione las particiones a incluir en la imagen.</translation>
     </message>
     <message>
         <source>Image larger than device</source>
@@ -784,12 +1179,76 @@ Esto es lo que deja Windows cuando reanaliza una tarjeta escrita sin «Corregir 
         <translation>No se pudo leer la tabla de particiones, o está dañada de una forma distinta a la que esto repara.</translation>
     </message>
     <message>
+        <source>The target device is also one of the sources.</source>
+        <translation>El dispositivo de destino también es uno de los orígenes.</translation>
+    </message>
+    <message>
+        <source>%1 is on the target device, and cannot be written to it.</source>
+        <translation>%1 está en el dispositivo de destino y no se puede escribir en él.</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>La lista de dispositivos cambió mientras confirmaba. Compruebe el dispositivo de destino e inténtelo de nuevo.</translation>
     </message>
     <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1 termina en el sector %2, antes de que termine la partición que debe aportar ahí: la imagen está incompleta.</translation>
+    </message>
+    <message>
+        <source>Sector %1 of the device does not match sector %2 of %3.</source>
+        <translation>El sector %1 del dispositivo no coincide con el sector %2 de %3.</translation>
+    </message>
+    <message>
+        <source>The device has been partially written and no longer holds a usable layout. Write it again before using it.</source>
+        <translation>El dispositivo se ha escrito parcialmente y ya no contiene una disposición utilizable. Vuelva a escribirlo antes de usarlo.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Escribiendo…</translation>
+    </message>
+    <message>
+        <source>The partition table on the device does not match what was written.</source>
+        <translation>La tabla de particiones del dispositivo no coincide con lo que se escribió.</translation>
+    </message>
+    <message>
+        <source>GPT</source>
+        <translation>GPT</translation>
+    </message>
+    <message>
+        <source>MBR</source>
+        <translation>MBR</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>Escritura y verificación correctas.
+
+El dispositivo contiene una nueva tabla de particiones %1 con %2 particiones de %3 imágenes.</translation>
+    </message>
+    <message>
+        <source>Write successful.
+
+The device holds a new %1 partition table with %2 partitions from %3 images.</source>
+        <translation>Escritura correcta.
+
+El dispositivo contiene una nueva tabla de particiones %1 con %2 particiones de %3 imágenes.</translation>
+    </message>
+    <message>
+        <source>Its backup is already at the end of the device, so Windows has nothing to repair.</source>
+        <translation>Su copia de respaldo ya está al final del dispositivo, por lo que Windows no tiene nada que reparar.</translation>
+    </message>
+    <message>
+        <source>Whether it boots depends on its bootloaders finding their partitions where they now are.</source>
+        <translation>Que arranque depende de que sus gestores de arranque encuentren sus particiones donde están ahora.</translation>
+    </message>
+    <message>
+        <source>Custom Partitioning</source>
+        <translation>Particionado personalizado</translation>
     </message>
     <message>
         <source>The image is larger than the device, so the end of it was not written and the device does not hold a complete image.
@@ -872,8 +1331,32 @@ Remove the device NOW and do not re-insert it here. Put it straight into the tar
 Extraiga el dispositivo AHORA y no vuelva a insertarlo aquí. Colóquelo directamente en el hardware de destino.</translation>
     </message>
     <message>
+        <source>The combined image ended early.</source>
+        <translation>La imagen combinada terminó antes de tiempo.</translation>
+    </message>
+    <message>
+        <source>Sector %1 of %2 is not what was written.</source>
+        <translation>El sector %1 de %2 no es lo que se escribió.</translation>
+    </message>
+    <message>
+        <source>%1 holds more than the combined image, or does not end cleanly.</source>
+        <translation>%1 contiene más que la imagen combinada, o no termina limpiamente.</translation>
+    </message>
+    <message>
+        <source>Write and verify successful.</source>
+        <translation>Escritura y verificación correctas.</translation>
+    </message>
+    <message>
+        <source>%1 holds a %2 partition table with %3 partitions from %4 images.</source>
+        <translation>%1 contiene una tabla de particiones %2 con %3 particiones de %4 imágenes.</translation>
+    </message>
+    <message>
+        <source>Its backup GPT ends the image; &quot;Fix GPT after write&quot; moves it to the end of a larger device when the image is written.</source>
+        <translation>Su GPT de respaldo cierra la imagen; «Corregir la GPT después de escribir» la mueve al final de un dispositivo mayor cuando se escribe la imagen.</translation>
+    </message>
+    <message>
         <source>Choose Partitions</source>
-        <translation>Elegir particiones</translation>
+        <translation type="vanished">Elegir particiones</translation>
     </message>
     <message>
         <source>Skipping unpartitioned space keeps only the partitions and the partition table, plus any space a GPT reserves ahead of its partitions.
@@ -897,15 +1380,15 @@ Algunas imágenes de arranque, como las de ordenadores de placa única, guardan 
     </message>
     <message>
         <source>Partition %1 -- %2</source>
-        <translation>Partición %1 -- %2</translation>
+        <translation type="vanished">Partición %1 -- %2</translation>
     </message>
     <message>
         <source>Partition %1 -- %2 -- %3</source>
-        <translation>Partición %1 -- %2 -- %3</translation>
+        <translation type="vanished">Partición %1 -- %2 -- %3</translation>
     </message>
     <message>
         <source>At least one partition must stay checked.</source>
-        <translation>Al menos una partición debe permanecer marcada.</translation>
+        <translation type="vanished">Al menos una partición debe permanecer marcada.</translation>
     </message>
     <message>
         <source>Read Error</source>
@@ -929,11 +1412,11 @@ Algunas imágenes de arranque, como las de ordenadores de placa única, guardan 
     </message>
     <message>
         <source>No partition table was found on the device, so there is nothing to choose from. The whole device will be read.</source>
-        <translation>No se encontró ninguna tabla de particiones en el dispositivo, así que no hay nada para elegir. Se leerá el dispositivo completo.</translation>
+        <translation type="vanished">No se encontró ninguna tabla de particiones en el dispositivo, así que no hay nada para elegir. Se leerá el dispositivo completo.</translation>
     </message>
     <message>
         <source>Read canceled.</source>
-        <translation>Lectura cancelada.</translation>
+        <translation type="vanished">Lectura cancelada.</translation>
     </message>
     <message>
         <source>Disk is not large enough for the specified image.</source>
@@ -1231,8 +1714,120 @@ Error %2</translation>
         <translation>la suma de comprobación de la cabecera GPT primaria no es válida</translation>
     </message>
     <message>
+        <source>%1, no partition table</source>
+        <translation>%1, sin tabla de particiones</translation>
+    </message>
+    <message>
+        <source>unrecognized filesystem, no partition table</source>
+        <translation>sistema de archivos no reconocido, sin tabla de particiones</translation>
+    </message>
+    <message>
+        <source>the GPT header size is out of range</source>
+        <translation>el tamaño de la cabecera GPT está fuera de rango</translation>
+    </message>
+    <message>
+        <source>the GPT header checksum is invalid</source>
+        <translation>la suma de comprobación de la cabecera GPT no es válida</translation>
+    </message>
+    <message>
         <source>the GPT partition entry array is not where the header says</source>
         <translation>la matriz de entradas de partición GPT no está donde indica la cabecera</translation>
+    </message>
+    <message>
+        <source>FirstUsableLBA lies inside the partition table</source>
+        <translation>FirstUsableLBA está dentro de la tabla de particiones</translation>
+    </message>
+    <message>
+        <source>partition %1 runs past the end of the image</source>
+        <translation>la partición %1 sobrepasa el final de la imagen</translation>
+    </message>
+    <message>
+        <source>partition %1 describes an impossible range</source>
+        <translation>la partición %1 describe un intervalo imposible</translation>
+    </message>
+    <message>
+        <source>the GPT holds no partitions</source>
+        <translation>la GPT no contiene particiones</translation>
+    </message>
+    <message>
+        <source>two partitions overlap</source>
+        <translation>dos particiones se solapan</translation>
+    </message>
+    <message>
+        <source>extended, with its logical partitions (0x%1)</source>
+        <translation>extendida, con sus particiones lógicas (0x%1)</translation>
+    </message>
+    <message>
+        <source>type 0x%1</source>
+        <translation>tipo 0x%1</translation>
+    </message>
+    <message>
+        <source>the MBR holds no partitions</source>
+        <translation>el MBR no contiene particiones</translation>
+    </message>
+    <message>
+        <source>the MBR has more than one extended partition</source>
+        <translation>el MBR tiene más de una partición extendida</translation>
+    </message>
+    <message>
+        <source>the image is smaller than one sector</source>
+        <translation>la imagen es más pequeña que un sector</translation>
+    </message>
+    <message>
+        <source>the image has a protective MBR but no GPT header</source>
+        <translation>la imagen tiene un MBR de protección pero no una cabecera GPT</translation>
+    </message>
+    <message>
+        <source>an extended MBR partition cannot go on a GPT: choose the logical partitions&apos; image as the lead-in, or leave it out</source>
+        <translation>una partición MBR extendida no puede ir en una GPT: elija la imagen de las particiones lógicas como zona de arranque, o déjela fuera</translation>
+    </message>
+    <message>
+        <source>MBR partition type 0x%1 has no GPT equivalent this program knows</source>
+        <translation>el tipo de partición MBR 0x%1 no tiene un equivalente GPT que este programa conozca</translation>
+    </message>
+    <message>
+        <source>GPT partition type %1 has no MBR equivalent</source>
+        <translation>el tipo de partición GPT %1 no tiene equivalente MBR</translation>
+    </message>
+    <message>
+        <source>no partitions are chosen</source>
+        <translation>no se ha elegido ninguna partición</translation>
+    </message>
+    <message>
+        <source>a chosen partition does not exist</source>
+        <translation>una partición elegida no existe</translation>
+    </message>
+    <message>
+        <source>a partition is chosen twice</source>
+        <translation>una partición se ha elegido dos veces</translation>
+    </message>
+    <message>
+        <source>the size of an image with no partition table is not known: scan it first</source>
+        <translation>no se conoce el tamaño de una imagen sin tabla de particiones: analícela primero</translation>
+    </message>
+    <message>
+        <source>the lead-in image has no partition table</source>
+        <translation>la imagen de la zona de arranque no tiene tabla de particiones</translation>
+    </message>
+    <message>
+        <source>an MBR holds at most four partitions, and %1 are chosen</source>
+        <translation>un MBR contiene como máximo cuatro particiones, y se han elegido %1</translation>
+    </message>
+    <message>
+        <source>an MBR can hold only one extended partition</source>
+        <translation>un MBR solo puede contener una partición extendida</translation>
+    </message>
+    <message>
+        <source>the GPT has room for %1 partitions, and %2 are chosen</source>
+        <translation>la GPT tiene espacio para %1 particiones, y se han elegido %2</translation>
+    </message>
+    <message>
+        <source>the layout no longer fits a 32-bit MBR entry</source>
+        <translation>la disposición ya no cabe en una entrada MBR de 32 bits</translation>
+    </message>
+    <message>
+        <source>the partitions need %1 MB and the device has %2 MB</source>
+        <translation>las particiones necesitan %1 MB y el dispositivo tiene %2 MB</translation>
     </message>
     <message>
         <source>the GPT entry array does not fit on the device</source>
@@ -1317,6 +1912,18 @@ Error %2</translation>
     <message>
         <source>The device reports a sector size of zero.</source>
         <translation>El dispositivo indica un tamaño de sector de cero.</translation>
+    </message>
+    <message>
+        <source>Disk %1 could not be opened (error %2).</source>
+        <translation>No se pudo abrir el disco %1 (error %2).</translation>
+    </message>
+    <message>
+        <source>The size of disk %1 could not be read (error %2).</source>
+        <translation>No se pudo leer el tamaño del disco %1 (error %2).</translation>
+    </message>
+    <message>
+        <source>Disk %1 has %2-byte sectors, not %3.</source>
+        <translation>El disco %1 tiene sectores de %2 bytes, no de %3.</translation>
     </message>
     <message>
         <source>The image file could not be opened (error %1).</source>
@@ -1429,6 +2036,34 @@ Error %2</translation>
     <message>
         <source>The image file could not be flushed (error %1).</source>
         <translation>No se pudo vaciar el búfer del archivo de imagen (error %1).</translation>
+    </message>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 ends at sector %2, before the partition it is to supply there does: the image is incomplete.</source>
+        <translation>%1 termina en el sector %2, antes de que termine la partición que debe aportar ahí: la imagen está incompleta.</translation>
+    </message>
+    <message>
+        <source>Disk %1 (%2)</source>
+        <translation>Disco %1 (%2)</translation>
+    </message>
+    <message>
+        <source>Source disks will be dismounted</source>
+        <translation>Se desmontarán los discos de origen</translation>
+    </message>
+    <message>
+        <source>While they are read, the volumes on these source disks are locked and dismounted, so nothing changes them half way through:
+
+%1
+
+Programs using them lose them until the run ends. Nothing on them is changed. Continue?</source>
+        <translation>Mientras se leen, los volúmenes de estos discos de origen se bloquean y se desmontan, para que nada los modifique a mitad del proceso:
+
+%1
+
+Los programas que los usan los pierden hasta que termine la operación. No se modifica nada en ellos. ¿Continuar?</translation>
     </message>
 </context>
 </TS>
