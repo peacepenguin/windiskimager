@@ -33,6 +33,7 @@
 #include <QComboBox>
 #include <QListWidget>
 #include <QRadioButton>
+#include <QToolTip>
 #include <QTreeWidget>
 #include <QString>
 #include <QUuid>
@@ -695,6 +696,23 @@ static void caseDialog()
           && images->topLevelItem(2)->child(0)->text(1).startsWith("FAT32"),
           "the FAT32 image is one partition");
     check(!dlg.planIsValid(), "nothing ticked: nothing to write");
+
+    // Its tooltips wrapped as the main window's are: no line of one wider
+    // than the budget unless it is a single word, and the long ones broken.
+    {
+        const QFontMetrics fm(QToolTip::font());
+        bool narrow = true, anywrapped = false;
+        for (QWidget *w : dlg.findChildren<QWidget *>())
+        {
+            const QStringList lines = w->toolTip().split(QChar('\n'));
+            anywrapped = anywrapped || lines.size() > 1;
+            for (const QString &line : lines)
+            {
+                narrow = narrow && (fm.horizontalAdvance(line) <= 380 || !line.contains(QChar(' ')));
+            }
+        }
+        check(narrow && anywrapped, "its long tooltips are wrapped");
+    }
 
     // Ticked in the order wanted on the device: B's home, A's boot, the FAT
     // image, A's root.

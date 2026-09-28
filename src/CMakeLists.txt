@@ -110,6 +110,7 @@ qt_add_executable(WinDiskImager WIN32
     combine.cpp
     combinedialog.cpp
     combinereader.cpp
+    tooltips.cpp
     imagesource.cpp
     transferpipe.cpp
     main.cpp

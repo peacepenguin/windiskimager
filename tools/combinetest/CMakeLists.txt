@@ -30,6 +30,7 @@ add_executable(combinetest
     ${APPSRC}/combine.cpp
     ${APPSRC}/combinedialog.cpp
     ${APPSRC}/combinereader.cpp
+    ${APPSRC}/tooltips.cpp
     ${APPSRC}/imagesource.cpp
     ${APPSRC}/disk.cpp
     ${COMBINETEST_UI}

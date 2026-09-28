@@ -23,6 +23,7 @@
 
 #include "combinedialog.h"
 #include "imagesource.h"
+#include "tooltips.h"
 
 #include <QtWidgets>
 
@@ -190,6 +191,8 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     myDown->setEnabled(false);
     rebuildLeadIn();
     destinationChanged();
+    // As the main window's: once every tooltip is set.
+    wrapLongToolTips(this);
     resize(780, 820);
 }
 

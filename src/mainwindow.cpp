@@ -52,6 +52,7 @@
 #include "combine.h"
 #include "combinedialog.h"
 #include "combinereader.h"
+#include "tooltips.h"
 
 MainWindow* MainWindow::instance = NULL;
 
@@ -116,58 +117,6 @@ static void growProgressTotal(QProgressBar *bar, unsigned long long done,
     *total = devicetotal;
     *shift = progressShift(devicetotal);
     bar->setRange(0, (int)(devicetotal >> *shift));
-}
-
-// Qt word-wraps a tooltip only if it looks like rich text, so a long plain one
-// becomes a single line clipped at both screen edges. Break it into lines here
-// and keep it plain: an HTML wrapper needs a fixed pixel width that every long
-// tooltip gets padded to. Done at runtime so translations are wrapped too and
-// the strings translators see stay free of markup.
-static QString wrapToolTipText(const QString &tip, int maxWidthPx, const QFontMetrics &fm)
-{
-    QStringList out;
-    QString line;
-
-    const QStringList words = tip.split(QChar(' '), Qt::SkipEmptyParts);
-    for (const QString &word : words)
-    {
-        const QString candidate = line.isEmpty() ? word : line + QChar(' ') + word;
-        // A word wider than the budget gets its own line rather than a break.
-        if (!line.isEmpty() && fm.horizontalAdvance(candidate) > maxWidthPx)
-        {
-            out.append(line);
-            line = word;
-        }
-        else
-        {
-            line = candidate;
-        }
-    }
-    if (!line.isEmpty())
-    {
-        out.append(line);
-    }
-    return out.join(QChar('\n'));
-}
-
-static void wrapLongToolTips(QWidget *root)
-{
-    // A ceiling, not a width: nothing is padded out to it.
-    const int maxWidthPx = 380;
-    const QFontMetrics fm(QToolTip::font());
-
-    const QList<QWidget *> widgets = root->findChildren<QWidget *>();
-    for (QWidget *w : widgets)
-    {
-        const QString tip = w->toolTip();
-        // Leave tips that already fit, and ones already marked up.
-        if (tip.isEmpty() || Qt::mightBeRichText(tip)
-            || fm.horizontalAdvance(tip) <= maxWidthPx)
-        {
-            continue;
-        }
-        w->setToolTip(wrapToolTipText(tip, maxWidthPx, fm));
-    }
 }
 
 // Sets the bar up for a run of total sectors, starts the clocks and resets
