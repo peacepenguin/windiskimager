@@ -95,6 +95,11 @@ public:
     // What "Add images..." does with the files it is given; the harness calls
     // it directly.
     void addImageFiles(const QStringList &paths);
+    // Set up for a Read with some partitions left out -- the main window's
+    // "Choose partitions...": disk `disk` as the source, every partition of
+    // it ticked, and as its own lead-in; written to the image file `path`,
+    // compressed as given. False, having said why, if the disk cannot be read.
+    bool presetRead(int disk, const QString &path, bool compressed, ImageSink::Format format);
     QStringList imagePaths() const;
     // The disks among the sources the plan reads from, by number.
     QList<int> sourceDisks() const;
@@ -120,6 +125,10 @@ private:
         QString path;               // a file, or ImageSource::devicePath() for a disk
         int disk = -1;              // the disk's number, or -1 for a file
         QString label;              // a disk's description, as the device list has it
+        // A disk's partitions as Windows knows them, by starting sector:
+        // diskpart's partition numbers, and the drive letters mounted on them.
+        QMap<unsigned long long, int> numbers;
+        QMap<unsigned long long, QString> letters;
         QString format;             // "gzip", "raw", ...
         unsigned long long sectors; // exact when sizeKnown, else an estimate or 0
         bool sizeKnown;
@@ -139,6 +148,9 @@ private:
     void replan();
     int selectedImage() const;
     QString sourceName(int image) const;
+    // "Partition 3: boot (E:)": the number Windows gives it on a disk
+    // (diskpart's), else its table slot's, then its name and drive letter.
+    QString partitionLabel(int image, int partition) const;
     QString partitionText(int image, int partition) const;
     QString sizeText(unsigned long long sectors) const;
 

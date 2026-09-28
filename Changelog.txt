@@ -18,6 +18,10 @@ The combination can be written to a new image file instead, raw or compressed
   as a Read's can be, exactly as big as the layout
 The device is chosen in the Custom Partitioning window, so none need be selected
   in the main window first
+"Choose partitions to read" is now a "Choose partitions..." button, which opens
+  Custom Partitioning set up to read the device into the image file, every
+  partition ticked; untick the ones to leave out. Disk partitions there show
+  diskpart's numbers and their drive letters, as the old list did
 Partitions can come from disks as well as image files. A source disk's
   volumes are locked and dismounted while it is read, as for a Read
 

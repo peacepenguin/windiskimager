@@ -595,7 +595,69 @@ void CombineDialog::addDisk(int number, const QString &label)
     src.disk = number;
     src.label = label;
     src.format = tr("disk");
+    // As the Read's "Choose partitions" listed them: Windows' own partition
+    // numbers, which need not follow the table's order, and the drive
+    // letters, by where each volume starts. Without them, the table's slots.
+    {
+        QMap<unsigned long long, QString> byOffset = driveLettersByOffset((ULONG)number);
+        for (auto it = byOffset.begin(); it != byOffset.end(); ++it)
+        {
+            src.letters.insert(it.key() / mySectorSize, it.value());
+        }
+        HANDLE h = CreateFileW((LPCWSTR)ImageSource::devicePath(number).utf16(), GENERIC_READ,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+        if (h != INVALID_HANDLE_VALUE)
+        {
+            if (!diskPartitionNumbers(h, mySectorSize, &src.numbers))
+            {
+                src.numbers.clear();
+            }
+            CloseHandle(h);
+        }
+    }
     mySources.append(src);
+}
+
+bool CombineDialog::presetRead(int disk, const QString &path, bool compressed,
+                               ImageSink::Format format)
+{
+    QString label;
+    if (myListDevices)
+    {
+        for (const CombineTarget &t : myListDevices(true))
+        {
+            if (t.number == disk) label = t.description;
+        }
+    }
+    const int before = mySources.size();
+    addDisk(disk, label);
+    if (mySources.size() == before)
+    {
+        return false;
+    }
+    const int index = mySources.size() - 1;
+    for (int j = 0; j < mySources[index].layout.partitions.size(); ++j)
+    {
+        myOrder.append(CombineChoice{index, j});
+    }
+    rebuildImages();
+    rebuildOrder();
+    rebuildLeadIn();
+    // Its own lead-in, as a Read keeps what is before the first partition.
+    myRebuilding = true;
+    const int lead = myLead->findData(index);
+    if (lead >= 0) myLead->setCurrentIndex(lead);
+    myOutFile->setText(path);
+    myCompress->setChecked(compressed);
+    const int f = myFormat->findData((int)format);
+    if (f >= 0) myFormat->setCurrentIndex(f);
+    myRebuilding = false;
+    myToFile->setChecked(true);
+    // A Read has never verified; this one starts not to either, and the box
+    // is there to tick.
+    myVerify->setChecked(false);
+    destinationChanged();
+    return true;
 }
 
 void CombineDialog::removeImage()
@@ -716,6 +778,25 @@ int CombineDialog::selectedImage() const
     return item ? item->data(0, ROLE_IMAGE).toInt() : -1;
 }
 
+QString CombineDialog::partitionLabel(int image, int partition) const
+{
+    const Source &s = mySources[image];
+    const CombinePartition &p = s.layout.partitions[partition];
+    if (p.slot < 0)
+    {
+        return tr("whole image");
+    }
+    const int number = s.numbers.value(p.first, p.slot + 1);
+    QString text = p.name.isEmpty() ? tr("Partition %1").arg(number)
+                                    : tr("Partition %1: %2").arg(number).arg(p.name);
+    const QString letter = s.letters.value(p.first);
+    if (!letter.isEmpty())
+    {
+        text += QString(" (%1)").arg(letter);
+    }
+    return text;
+}
+
 QString CombineDialog::partitionText(int image, int partition) const
 {
     const Source &s = mySources[image];
@@ -725,8 +806,7 @@ QString CombineDialog::partitionText(int image, int partition) const
     {
         return file;
     }
-    return p.name.isEmpty() ? tr("%1, partition %2").arg(file).arg(p.slot + 1)
-                            : tr("%1, partition %2 (%3)").arg(file).arg(p.slot + 1).arg(p.name);
+    return tr("%1, %2").arg(file, partitionLabel(image, partition));
 }
 
 void CombineDialog::rebuildImages()
@@ -756,9 +836,7 @@ void CombineDialog::rebuildImages()
         {
             const CombinePartition &p = s.layout.partitions[j];
             QTreeWidgetItem *child = new QTreeWidgetItem(top);
-            child->setText(0, (p.slot < 0) ? tr("whole image")
-                              : p.name.isEmpty() ? tr("Partition %1").arg(p.slot + 1)
-                                                 : tr("Partition %1: %2").arg(p.slot + 1).arg(p.name));
+            child->setText(0, partitionLabel(i, j));
             child->setText(1, p.typeLabel);
             child->setText(2, p.sectors ? sizeText(p.sectors) : tr("unknown: scan the image"));
             child->setData(0, ROLE_IMAGE, i);

@@ -252,7 +252,7 @@
            </sizepolicy>
           </property>
           <property name="text">
-           <string>Check GPT</string>
+           <string>Check Device GPT</string>
           </property>
           <property name="toolTip">
            <string>Check the currently selected device for GPT corruption and offer to repair it.</string>
@@ -351,7 +351,7 @@
        </widget>
           </item>
           <item>
-       <widget class="QCheckBox" name="choosePartitionsCheckBox">
+       <widget class="QPushButton" name="bChoosePartitions">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
           <horstretch>0</horstretch>
@@ -359,10 +359,10 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>Choose partitions to read</string>
+         <string>Choose partitions...</string>
         </property>
         <property name="toolTip">
-         <string>Before reading, list the Device's partitions and choose which to include. Anything left out is removed from the image, the same as unpartitioned space -- this always skips unpartitioned space too, whether or not "Skip unpartitioned space" is also checked.</string>
+         <string>Read only some of the Device's partitions: opens Custom Partitioning with the Device as the source, every partition ticked, and the Image File as where it goes. Untick what to leave out.</string>
         </property>
        </widget>
           </item>

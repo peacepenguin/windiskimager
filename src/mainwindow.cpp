@@ -361,7 +361,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     // .img.gz, the first item, is the default; see readFormatFor().
     compressFormatComboBox->setCurrentIndex(0);
     compressFormatComboBox->setEnabled(false);
-    choosePartitionsCheckBox->setChecked(false);
     showAllDevicesCheckBox->setChecked(false);
     // After showAllDevicesCheckBox is set, which the scan reads. Deferred
     // until the window is shown: a spun-down disk can take seconds to report
@@ -458,10 +457,9 @@ void MainWindow::setOptionsEnabled(bool enabled)
     showAllDevicesCheckBox->setEnabled(enabled);
     fixGptCheckBox->setEnabled(enabled);
     compressReadCheckBox->setEnabled(enabled);
-    choosePartitionsCheckBox->setEnabled(enabled);
+    shrinkOnReadCheckBox->setEnabled(enabled);
     cboxHashType->setEnabled(enabled);
     // These have idle states of their own to come back to.
-    shrinkOnReadCheckBox->setEnabled(enabled && !choosePartitionsCheckBox->isChecked());
     compressFormatComboBox->setEnabled(enabled && compressReadCheckBox->isChecked());
     bHashCopy->setEnabled(enabled && myHashReady);
 }
@@ -480,6 +478,7 @@ void MainWindow::setReadWriteButtonState()
         bVerify->setEnabled(false);
         bCheckGpt->setEnabled(false);
         bCombine->setEnabled(false);
+        bChoosePartitions->setEnabled(false);
         // Hashing is synchronous: started from a transfer loop's
         // processEvents(), it would stall the transfer with the disk locked.
         bHashGen->setEnabled(false);
@@ -491,6 +490,8 @@ void MainWindow::setReadWriteButtonState()
     QFileInfo fi(leFile->text());
 
     bRead->setEnabled(deviceSelected && fileSelected && (fi.exists() ? fi.isWritable() : true));
+    // A Read too, through Custom Partitioning.
+    bChoosePartitions->setEnabled(bRead->isEnabled());
     bWrite->setEnabled(deviceSelected && fileSelected && fi.isReadable());
     bVerify->setEnabled(deviceSelected && fileSelected && fi.isReadable());
     // These need no image in the main window: one only looks at the device,
@@ -938,10 +939,58 @@ void MainWindow::on_bCombine_clicked()
     // here, if any. Every source is read in 512-byte sectors, as images have.
     CombineDialog dialog(this, combineTargets, combineSectorSize, selectedDeviceID(),
                          showAllDevicesCheckBox->isChecked(), 512ull, myHomeDir, myFileTypeList);
-    if (dialog.exec() != QDialog::Accepted)
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        runCombineFrom(dialog);
+    }
+}
+
+// "Choose partitions...": a Read that leaves partitions out, which is what
+// Custom Partitioning does with the device as its one source and the image
+// file as where it goes -- so it opens that, set up for it.
+void MainWindow::on_bChoosePartitions_clicked()
+{
+    if (status != STATUS_IDLE)
     {
         return;
     }
+    const int deviceID = selectedDeviceID();
+    if (deviceID < 0)
+    {
+        QMessageBox::critical(this, tr("Read Error"), tr("Please select a target device."));
+        return;
+    }
+    if (leFile->text().isEmpty())
+    {
+        QMessageBox::critical(this, tr("File Error"), tr("Please specify an image file to use."));
+        return;
+    }
+    // Relative, it goes in the image directory, as a Read's does.
+    QString file = leFile->text();
+    if (QFileInfo(file).isRelative())
+    {
+        file = QDir::toNativeSeparators(QDir(myHomeDir).filePath(file));
+    }
+    CombineDialog dialog(this, combineTargets, combineSectorSize, deviceID,
+                         showAllDevicesCheckBox->isChecked(), 512ull, myHomeDir, myFileTypeList);
+    if (!dialog.presetRead(deviceID, file, compressReadCheckBox->isChecked(),
+                           readFormatFor(compressFormatComboBox->currentIndex())))
+    {
+        return;
+    }
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        // As after a Read: the field names the file written.
+        if (dialog.toFile())
+        {
+            leFile->setText(dialog.outputPath());
+        }
+        runCombineFrom(dialog);
+    }
+}
+
+void MainWindow::runCombineFrom(const CombineDialog &dialog)
+{
     const CombinePlan plan = dialog.plan();
     const QStringList paths = dialog.imagePaths();
     const QList<int> sourcedisks = dialog.sourceDisks();
@@ -1825,86 +1874,6 @@ static QString formatDeviceSize(unsigned long long bytes)
     return QString("%1 %2").arg(value, 0, 'f', (value < 10.0) ? 1 : 0).arg(units[unit]);
 }
 
-// Lists the partitions, all checked, for the user to uncheck the ones to leave
-// out; an empty selection is refused. Returns false if the user cancels.
-bool MainWindow::choosePartitionsDialog(const QList<PartitionInfo> &partitions,
-                                        unsigned long long sectorsize, int deviceID,
-                                        QList<int> *excluded)
-{
-    QMap<unsigned long long, QString> driveLetters = driveLettersByOffset((ULONG)deviceID);
-    // Windows' own partition numbers, falling back to slot + 1.
-    QMap<unsigned long long, int> partitionNumbers;
-    bool haveRealNumbers = diskPartitionNumbers(hRawDisk, sectorsize, &partitionNumbers);
-
-    QDialog dialog(this);
-    dialog.setWindowTitle(tr("Choose Partitions"));
-    QVBoxLayout *layout = new QVBoxLayout(&dialog);
-    QLabel *label = new QLabel(
-        tr("Select partitions to include in the Image."), &dialog);
-    // Otherwise the label stretches the dialog to fit the sentence on one line.
-    label->setWordWrap(true);
-    layout->addWidget(label);
-    dialog.setMinimumWidth(300);
-
-    QListWidget *list = new QListWidget(&dialog);
-    // Rows are in disk-position order, as listGptPartitions()/listMbrPartitions()
-    // return them; the number shown is Windows' own (diskpart's) when available,
-    // which need not follow that order.
-    for (const PartitionInfo &p : partitions)
-    {
-        int number = haveRealNumbers ? partitionNumbers.value(p.firstSector, p.slot + 1)
-                                      : p.slot + 1;
-        QString sizeStr = formatDeviceSize(p.sectors * sectorsize);
-        // A drive letter identifies a partition better than its name, which
-        // is often blank (always, for MBR) or generic.
-        QString label3 = driveLetters.value(p.firstSector * sectorsize, p.name);
-        QString text = label3.isEmpty()
-            ? tr("Partition %1 -- %2").arg(number).arg(sizeStr)
-            : tr("Partition %1 -- %2 -- %3").arg(number).arg(sizeStr).arg(label3);
-        QListWidgetItem *item = new QListWidgetItem(text, list);
-        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(Qt::Checked);
-        item->setData(Qt::UserRole, p.slot);
-    }
-    layout->addWidget(list);
-
-    QDialogButtonBox *buttons = new QDialogButtonBox(
-        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-    layout->addWidget(buttons);
-    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-
-    for (;;)
-    {
-        if (dialog.exec() != QDialog::Accepted)
-        {
-            return false;
-        }
-        QList<int> excludeSlots;
-        int checkedCount = 0;
-        for (int i = 0; i < list->count(); ++i)
-        {
-            QListWidgetItem *item = list->item(i);
-            if (item->checkState() == Qt::Checked)
-            {
-                ++checkedCount;
-            }
-            else
-            {
-                excludeSlots.append(item->data(Qt::UserRole).toInt());
-            }
-        }
-        if (checkedCount == 0)
-        {
-            QMessageBox::warning(&dialog, tr("Choose Partitions"),
-                tr("At least one partition must stay checked."));
-            continue;
-        }
-        *excluded = excludeSlots;
-        return true;
-    }
-}
-
 void MainWindow::on_bRead_clicked()
 {
     // Re-entrancy guard; see on_bWrite_clicked().
@@ -2000,7 +1969,7 @@ void MainWindow::on_bRead_clicked()
         // read, silently: neither is an error.
         bool shrinkPlanned = false;
         PartitionShrinkPlan shrinkPlan;
-        if (shrinkOnReadCheckBox->isChecked() || choosePartitionsCheckBox->isChecked())
+        if (shrinkOnReadCheckBox->isChecked())
         {
             QString detail;
             unsigned long long alignsectors = (sectorsize >= 1048576ull) ? 1ull : (1048576ull / sectorsize);
@@ -2009,64 +1978,11 @@ void MainWindow::on_bRead_clicked()
                 alignsectors = 1ull;
             }
 
-            // Choosing partitions implies shrinking: only the shrink plan's
-            // exclude filter can leave a partition out.
-            QList<int> excludeSlots;
-            bool haveSelection = false;
-            bool selectionIsGpt = false;
-            if (choosePartitionsCheckBox->isChecked())
-            {
-                QList<PartitionInfo> partitions;
-                QString listdetail;
-                selectionIsGpt = listGptPartitions(hRawDisk, sectorsize, numsectors, &partitions, &listdetail);
-                if (!selectionIsGpt)
-                {
-                    listMbrPartitions(hRawDisk, sectorsize, numsectors, &partitions, &listdetail);
-                }
-                if (partitions.isEmpty())
-                {
-                    QMessageBox::information(this, tr("Choose Partitions"),
-                        tr("No partition table was found on the device, so "
-                           "there is nothing to choose from. The whole "
-                           "device will be read."));
-                }
-                else if (!choosePartitionsDialog(partitions, sectorsize, deviceID, &excludeSlots))
-                {
-                    CloseHandle(hRawDisk);
-                    hRawDisk = INVALID_HANDLE_VALUE;
-                    locked.release();
-                    endRun(tr("Read canceled."));
-                    return;
-                }
-                else
-                {
-                    haveSelection = true;
-                }
-            }
-
-            // With a selection, plan only against the table type it was
-            // listed from: excludeSlots indexes that table's slots.
-            bool planned = haveSelection
-                ? (selectionIsGpt
-                       ? planGptShrink(hRawDisk, sectorsize, numsectors, alignsectors, &shrinkPlan, &detail, &excludeSlots)
-                       : planMbrShrink(hRawDisk, sectorsize, numsectors, alignsectors, &shrinkPlan, &detail, &excludeSlots))
-                : (planGptShrink(hRawDisk, sectorsize, numsectors, alignsectors, &shrinkPlan, &detail)
-                       || planMbrShrink(hRawDisk, sectorsize, numsectors, alignsectors, &shrinkPlan, &detail));
-            if (planned)
+            if (planGptShrink(hRawDisk, sectorsize, numsectors, alignsectors, &shrinkPlan, &detail)
+                || planMbrShrink(hRawDisk, sectorsize, numsectors, alignsectors, &shrinkPlan, &detail))
             {
                 shrinkPlanned = true;
                 numsectors = shrinkPlan.totalsectors;
-            }
-            else if (haveSelection)
-            {
-                // Unlike a plain shrink, falling back to a full read would
-                // silently include partitions the user excluded.
-                CloseHandle(hRawDisk);
-                hRawDisk = INVALID_HANDLE_VALUE;
-                locked.release();
-                QMessageBox::critical(this, tr("Read Error"), detail);
-                endRun(tr("Read failed."));
-                return;
             }
         }
         ImageSink sink;
@@ -2784,23 +2700,6 @@ void MainWindow::on_showAllDevicesCheckBox_toggled(bool)
 void MainWindow::on_compressReadCheckBox_toggled(bool checked)
 {
     compressFormatComboBox->setEnabled(checked);
-}
-
-void MainWindow::on_choosePartitionsCheckBox_toggled(bool checked)
-{
-    // A partition selection needs the shrink plan, so force "Shrink image on
-    // Read" on and lock it while this is checked; unchecking puts back what
-    // the user had.
-    if (checked)
-    {
-        myShrinkBeforeChoose = shrinkOnReadCheckBox->isChecked();
-        shrinkOnReadCheckBox->setChecked(true);
-    }
-    else
-    {
-        shrinkOnReadCheckBox->setChecked(myShrinkBeforeChoose);
-    }
-    shrinkOnReadCheckBox->setEnabled(!checked);
 }
 
 // Rebuilds the device list on WM_DEVICECHANGE arrival/removal.

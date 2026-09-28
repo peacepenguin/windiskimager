@@ -29,7 +29,8 @@ corrupting the GPT of images like ARM board images. See
 - **Read** a device to an `.img`, or with **Compress during Read** to an
   `.img.gz` (the default), `.img.xz`, `.img.bz2` or `.img.zst`.
   - **Skip unpartitioned space** leaves out the space outside the partitions.
-  - **Choose partitions to read** leaves out whole partitions you pick.
+  - **Choose partitions...** leaves out whole partitions you pick, through
+    Custom Partitioning.
 - **Custom Partitioning** puts partitions from several image files and disks onto
   one device, or into a new image file, in an order you choose, under a new
   partition table.
@@ -78,14 +79,17 @@ For GPT, the backup table is rebuilt at the new end of the image. A device with
 no partition table, or nothing to remove, is read in full, and so is a GPT
 device whose GPT cannot be repacked: its MBR is never repacked in its place.
 
-**Choose partitions to read** lists the device's partitions before reading.
-Partitions are numbered as `diskpart` numbers them and show their drive letter
-if they have one. Anything you uncheck is removed from the image and from its
-partition table. This always skips unpartitioned space too; leaving out the
-first partition moves the next one to where it started. If the partitions
-cannot be repacked, the read stops rather than including the ones you left out.
+**Choose partitions...** opens Custom Partitioning (below) set up for a
+Read: the device as the source, every partition ticked, as its own lead-in,
+and the image file named in the main window, compressed as **Compress during
+Read** says, as where it goes. Untick what to leave out, and Write; **Verify
+after writing** starts off here, as a Read does not verify. Partitions
+are numbered as `diskpart` numbers them and show their drive letter if they
+have one; anything left out is removed from the image and from its partition
+table, and the unpartitioned space goes too. Leaving out the first partition
+moves the next one to where it started.
 
-Both options work together with **Compress during Read**.
+**Skip unpartitioned space** works together with **Compress during Read**.
 
 ## Custom partitioning
 

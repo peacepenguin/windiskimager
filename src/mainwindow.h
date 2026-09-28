@@ -77,7 +77,7 @@ class MainWindow : public QMainWindow, public Ui::MainWindow
         // The format dropdown only applies, and so is only enabled, while
         // compressing.
         void on_compressReadCheckBox_toggled(bool checked);
-        void on_choosePartitionsCheckBox_toggled(bool checked);
+        void on_bChoosePartitions_clicked();
 private slots:
         void on_cboxHashType_IdxChg();
         void on_bHashGen_clicked();
@@ -117,9 +117,9 @@ private:
                                    const QString &failedMessage);
         bool imageTailHasData(ImageSource &image, unsigned long long from,
                               unsigned long long to, bool *datafound);
-        bool choosePartitionsDialog(const QList<PartitionInfo> &partitions,
-                                    unsigned long long sectorsize, int deviceID,
-                                    QList<int> *excluded);
+        // What follows a Custom Partitioning dialog accepted: the confirmations
+        // and the run, to the device or the image file it names.
+        void runCombineFrom(const class CombineDialog &dialog);
         // "Custom Partitioning": writes plan to the device, from the images at
         // paths, and verifies it if asked. Runs like a Write, from locking the
         // device to ejecting it.
@@ -156,8 +156,6 @@ private:
         // Image the hash type was last defaulted for, so a hand-picked type
         // survives later editingFinished signals.
         QString myHashDefaultedFor;
-        // "Skip unpartitioned space" as it was before "Choose partitions" forced it.
-        bool myShrinkBeforeChoose = false;
         // A digest is on screen, so Copy has something to copy.
         bool myHashReady = false;
         QStringList myFileTypeList;
