@@ -96,7 +96,8 @@ moves the next one to where it started.
 **Custom Partitioning...** builds a device, or a new image file, from the
 partitions of several sources: image files, and disks. Add the sources, tick
 the partitions you want, and put them in order; the preview shows where each
-will go and how much space is left.
+will go and how much space is left. Image files dropped on the window are
+added to the sources, as many as are dropped at once.
 
 - **Add disks...** lists the disks to take partitions from, fixed ones
   included (**Show all devices** starts ticked there); the disk Windows runs

@@ -27,6 +27,9 @@
 #include "tooltips.h"
 
 #include <QtWidgets>
+#include <string>
+#include <windows.h>
+#include <shellapi.h>
 
 // What is read of each image to find its partition table: 1 MiB, which holds
 // any ordinary GPT and the superblocks the filesystem guess looks at. A GPT
@@ -177,7 +180,6 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     myShowAll->setChecked(showAll);
     myToFile = new QRadioButton(tr("An image file:"), destBox);
     myOutFile = new QLineEdit(destBox);
-    myOutFile->setPlaceholderText(tr("combined.img"));
     myBrowse = new QPushButton(tr("Browse..."), destBox);
     myCompress = new QCheckBox(tr("Compress to"), destBox);
     myFormat = new QComboBox(destBox);
@@ -251,9 +253,49 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     destinationChanged();
     // As the main window's: once every tooltip is set.
     wrapLongToolTips(this);
+    // Dropped files arrive as WM_DROPFILES, as on the main window: Windows
+    // blocks OLE drops from Explorer into an elevated window. The OLE target Qt
+    // registers is removed so OLE falls back to it, and nothing here may call
+    // setAcceptDrops, which would register one again.
+    myOutFile->setAcceptDrops(false);   // QLineEdit takes text drops by default
+    HWND hwnd = (HWND)winId();
+    RevokeDragDrop(hwnd);
+    DragAcceptFiles(hwnd, TRUE);
+    ChangeWindowMessageFilterEx(hwnd, WM_DROPFILES, MSGFLT_ALLOW, NULL);
+    ChangeWindowMessageFilterEx(hwnd, WM_COPYDATA, MSGFLT_ALLOW, NULL);
+    ChangeWindowMessageFilterEx(hwnd, 0x0049, MSGFLT_ALLOW, NULL);   // WM_COPYGLOBALDATA
     // It opens as small as it can be: everything fits there, and it can be
     // made larger from that.
     resize(minimumSizeHint());
+}
+
+bool CombineDialog::nativeEvent(const QByteArray &type, void *vMsg, qintptr *result)
+{
+    MSG *msg = (MSG*)vMsg;
+    if (msg->message != WM_DROPFILES)
+        return QDialog::nativeEvent(type, vMsg, result);
+    HDROP drop = (HDROP)msg->wParam;
+    QStringList files;
+    const UINT count = DragQueryFileW(drop, 0xFFFFFFFF, NULL, 0);
+    for (UINT i = 0; i < count; ++i)
+    {
+        const UINT len = DragQueryFileW(drop, i, NULL, 0);
+        std::wstring name(len + 1, L'\0');
+        DragQueryFileW(drop, i, &name[0], len + 1);
+        const QString file = QString::fromWCharArray(name.c_str(), (int)len);
+        // Folders are passed over; a disk is added with "Add disks...".
+        if (QFileInfo(file).isFile())
+            files.append(file);
+    }
+    DragFinish(drop);
+    // Not while a scan's progress window, or a question, is open over this one.
+    if (!files.isEmpty() && QApplication::activeModalWidget() == this)
+    {
+        activateWindow();
+        addImageFiles(files);
+    }
+    *result = 0;
+    return true;
 }
 
 QStringList CombineDialog::imagePaths() const

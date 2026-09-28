@@ -109,7 +109,7 @@
     </message>
     <message>
         <source>combined.img</source>
-        <translation>combined.img</translation>
+        <translation type="vanished">combined.img</translation>
     </message>
     <message>
         <source>Browse...</source>

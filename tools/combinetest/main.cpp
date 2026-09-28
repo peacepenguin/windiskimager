@@ -42,7 +42,11 @@
 #include <QHeaderView>
 #include <QString>
 #include <QUuid>
+#include <QDir>
+#include <QFileInfo>
 #include <windows.h>
+#include <shlobj.h>
+#include <string>
 #include <cstdio>
 #include <cstring>
 #include <zlib.h>
@@ -1081,6 +1085,85 @@ static void caseDeviceChoice()
     DeleteFileA("combinetest-dev.img");
 }
 
+// nativeEvent is protected: this makes it callable, to hand the dialog a drop.
+struct DropDialog : CombineDialog
+{
+    using CombineDialog::CombineDialog;
+    using CombineDialog::nativeEvent;
+};
+
+// An HDROP as Explorer builds one: a DROPFILES header, then each name as a
+// wide string, and an empty one to end the list. DragFinish frees it.
+static HDROP makeDrop(const QStringList &names)
+{
+    std::wstring list;
+    for (const QString &name : names)
+    {
+        list += QDir::toNativeSeparators(QFileInfo(name).absoluteFilePath()).toStdWString();
+        list += L'\0';
+    }
+    list += L'\0';
+    const SIZE_T bytes = sizeof(DROPFILES) + list.size() * sizeof(wchar_t);
+    HGLOBAL mem = GlobalAlloc(GHND, bytes);
+    DROPFILES *df = (DROPFILES *)GlobalLock(mem);
+    df->pFiles = sizeof(DROPFILES);
+    df->fWide = TRUE;
+    memcpy((char *)df + sizeof(DROPFILES), list.data(), list.size() * sizeof(wchar_t));
+    GlobalUnlock(mem);
+    return (HDROP)mem;
+}
+
+static bool sendDrop(DropDialog &dlg, const QStringList &names)
+{
+    MSG msg = {};
+    msg.message = WM_DROPFILES;
+    msg.wParam = (WPARAM)makeDrop(names);
+    qintptr result = -1;
+    return dlg.nativeEvent("windows_generic_MSG", &msg, &result) && result == 0;
+}
+
+static void caseDrop()
+{
+    printf("dropping image files on the dialog\n");
+    const QByteArray a = gptImage(9000, 34, {
+        {2048, 5000, LINUX, "D1D1D1D1-D1D1-D1D1-D1D1-D1D1D1D1D1D1", "one", 'a', 0} },
+        "DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDD1");
+    const QByteArray b = gptImage(9000, 34, {
+        {2048, 5000, LINUX, "D2D2D2D2-D2D2-D2D2-D2D2-D2D2D2D2D2D2", "two", 'b', 0} },
+        "DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDD2");
+    writeFile("combinetest-drop1.img", a);
+    writeFile("combinetest-drop2.img.gz", gzipOf(b));
+    DropDialog dlg(NULL, fakeDevices({ {90, "test device", "test device", 200000 * SEC} }),
+                   fakeSectorSize, 90, false, SEC, ".", QStringList("*.*"));
+    QLineEdit *outfile = dlg.findChild<QLineEdit *>();
+    check(outfile && outfile->placeholderText().isEmpty() && outfile->text().isEmpty(),
+          "the image file name starts blank, with no example name");
+
+    check(sendDrop(dlg, { "combinetest-drop1.img" }) && dlg.imagePaths().isEmpty(),
+          "a drop while the dialog is not the modal window on top is ignored");
+
+    dlg.setModal(true);
+    dlg.show();
+    check(sendDrop(dlg, { "combinetest-drop1.img", ".", "combinetest-drop2.img.gz" }),
+          "a drop of several files and a folder is taken");
+    const QStringList paths = dlg.imagePaths();
+    check(paths.size() == 2
+          && QFileInfo(paths.value(0)).fileName() == "combinetest-drop1.img"
+          && QFileInfo(paths.value(1)).fileName() == "combinetest-drop2.img.gz",
+          "  both image files are added as sources, in order, and the folder is not");
+    QTreeWidget *images = NULL;
+    for (QTreeWidget *t : dlg.findChildren<QTreeWidget *>())
+    {
+        if (t->headerItem()->text(0) == "Source / partition") images = t;
+    }
+    check(images && images->topLevelItemCount() == 2
+          && images->topLevelItem(1)->childCount() == 1,
+          "  and listed with their partitions");
+    dlg.hide();
+    DeleteFileA("combinetest-drop1.img");
+    DeleteFileA("combinetest-drop2.img.gz");
+}
+
 int main(int argc, char **argv)
 {
     // The dialog is created off screen: nothing is shown.
@@ -1099,6 +1182,7 @@ int main(int argc, char **argv)
     caseDuplicatePrompt(true);
     caseDiskPaths();
     caseDeviceChoice();
+    caseDrop();
     DeleteFileA(TESTFILE);
     printf("\n%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

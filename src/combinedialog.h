@@ -119,6 +119,10 @@ private slots:
     void deviceChanged();
     void confirm();
 
+protected:
+    // Image files dropped on the window are added as sources.
+    bool nativeEvent(const QByteArray &type, void *message, qintptr *result) override;
+
 private:
     struct Source
     {
