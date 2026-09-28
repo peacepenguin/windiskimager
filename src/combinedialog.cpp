@@ -133,6 +133,9 @@ CombineDialog::CombineDialog(QWidget *parent, const QString &deviceText,
     myFormat->addItem(".img.xz", (int)ImageSink::FORMAT_XZ);
     myFormat->addItem(".img.bz2", (int)ImageSink::FORMAT_BZIP2);
     myFormat->addItem(".img.zst", (int)ImageSink::FORMAT_ZSTD);
+    // The main window's Compress during Read tooltip, for a write.
+    myFormat->setToolTip(tr("The compressed format to write to: .img.zst is the fastest, "
+                            ".img.xz the smallest, and .img.gz the most widely supported"));
     destLayout->addWidget(myToDevice, 0, 0, 1, 4);
     destLayout->addWidget(myToFile, 1, 0);
     destLayout->addWidget(myOutFile, 1, 1, 1, 2);
