@@ -68,6 +68,30 @@
         <translation>아래로</translation>
     </message>
     <message>
+        <source>Free space:</source>
+        <translation>여유 공간:</translation>
+    </message>
+    <message>
+        <source> MiB</source>
+        <translation> MiB</translation>
+    </message>
+    <message>
+        <source>How much unpartitioned space to insert, or, with free space selected in the order, how much it is. The partition after it still starts on a 1 MiB boundary.</source>
+        <translation>삽입할 미할당 공간의 크기, 또는 순서에서 여유 공간을 선택한 경우 그 크기입니다. 그 뒤의 파티션은 여전히 1 MiB 경계에서 시작합니다.</translation>
+    </message>
+    <message>
+        <source>Insert</source>
+        <translation>삽입</translation>
+    </message>
+    <message>
+        <source>Leave this much unpartitioned space after the selected item of the order, or at the end.</source>
+        <translation>순서에서 선택한 항목 뒤, 또는 끝에 이만큼의 미할당 공간을 남깁니다.</translation>
+    </message>
+    <message>
+        <source>Remove free space</source>
+        <translation>여유 공간 제거</translation>
+    </message>
+    <message>
         <source>Lead-in from:</source>
         <translation>선행 영역 원본:</translation>
     </message>
@@ -102,6 +126,14 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>고정 디스크도 함께 표시합니다. 내장 PCIe 카드 리더는 카드를 분리 불가능한 장치로 표시하는 경우가 많아, 그렇지 않으면 목록에 나타나지 않습니다. Windows가 실행 중인 디스크는 절대 표시되지 않습니다.</translation>
+    </message>
+    <message>
+        <source>Keep the device&apos;s partitions</source>
+        <translation>장치의 파티션 유지</translation>
+    </message>
+    <message>
+        <source>Add to what the device holds instead of replacing it: its partitions stay where they are, untouched, and the new ones go into its free space, where the order puts them. Untick one of them in the order to take it out of the table; its space is then free. The table keeps its kind, and its backup GPT is moved to the end of the device.</source>
+        <translation>장치의 내용을 대체하지 않고 추가합니다: 기존 파티션은 그대로의 위치에 변경 없이 남고, 새 파티션은 순서가 지정한 위치의 여유 공간에 들어갑니다. 순서에서 기존 파티션의 선택을 해제하면 테이블에서 빠지며, 그 공간은 여유 공간이 됩니다. 테이블의 종류는 유지되며, 백업 GPT는 장치의 끝으로 이동됩니다.</translation>
     </message>
     <message>
         <source>An image file:</source>
@@ -146,6 +178,14 @@
     <message>
         <source>Disk %1: %2</source>
         <translation>디스크 %1: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read: %2</source>
+        <translation>디스크 %1을(를) 읽을 수 없습니다: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 has no partition table to keep</source>
+        <translation>디스크 %1에는 유지할 파티션 테이블이 없습니다</translation>
     </message>
     <message>
         <source>Save the combined image as</source>
@@ -284,6 +324,22 @@ Scan it now?</source>
         <translation>없음: 비어 있는 새 테이블</translation>
     </message>
     <message>
+        <source>Free space: %1 MiB</source>
+        <translation>여유 공간: %1 MiB</translation>
+    </message>
+    <message>
+        <source>This device, %1</source>
+        <translation>이 장치, %1</translation>
+    </message>
+    <message>
+        <source>%1 -- taken out of the table</source>
+        <translation>%1 -- 테이블에서 제외됨</translation>
+    </message>
+    <message>
+        <source>%1 -- kept</source>
+        <translation>%1 -- 유지됨</translation>
+    </message>
+    <message>
         <source>Tick the partitions to put on the device.</source>
         <translation>장치에 넣을 파티션을 선택하십시오.</translation>
     </message>
@@ -304,12 +360,24 @@ Scan it now?</source>
         <translation>선행 영역</translation>
     </message>
     <message>
+        <source>Free space</source>
+        <translation>여유 공간</translation>
+    </message>
+    <message>
+        <source>%1, kept</source>
+        <translation>%1, 유지됨</translation>
+    </message>
+    <message>
         <source>Backup GPT</source>
         <translation>백업 GPT</translation>
     </message>
     <message>
         <source>%1, %2 partitions: an image file of %3.</source>
         <translation>%1, 파티션 %2개: %3 크기의 이미지 파일.</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions, %3 of them kept: %4 used, %5 free of %6.</source>
+        <translation>%1, 파티션 %2개 (그중 %3개 유지): %6 중 %4 사용, %5 여유.</translation>
     </message>
     <message>
         <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
@@ -1207,6 +1275,30 @@ Repair the partition table now?</source>
         <translation>%1은(는) 대상 장치에 있으므로 그 장치에 쓸 수 없습니다.</translation>
     </message>
     <message>
+        <source>Confirm write</source>
+        <translation>쓰기 확인</translation>
+    </message>
+    <message>
+        <source>The device keeps the partitions ticked in the order, and they are not written to. Anything in its free space, and in the partitions taken out of its table, may be overwritten.
+(Target Device: %1)
+Are you sure you want to continue?</source>
+        <translation>장치는 순서에서 선택한 파티션을 유지하며, 그 파티션에는 쓰지 않습니다. 여유 공간과 테이블에서 제외한 파티션에 있는 내용은 덮어쓰일 수 있습니다.
+(대상 장치: %1)
+계속하시겠습니까?</translation>
+    </message>
+    <message>
+        <source>%1 is mounted in Windows as %2.
+
+Its volumes are dismounted while it is written, and the device is ejected afterwards. The kept partitions are not changed.
+
+Write to this device anyway?</source>
+        <translation>%1이(가) Windows에서 %2(으)로 마운트되어 있습니다.
+
+쓰는 동안 볼륨이 마운트 해제되며, 쓰기가 끝나면 장치가 꺼내집니다. 유지되는 파티션은 변경되지 않습니다.
+
+그래도 이 장치에 쓸까요?</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>확인하는 동안 장치 목록이 바뀌었습니다. 대상 장치를 확인하고 다시 시도하세요.</translation>
     </message>
@@ -1227,8 +1319,16 @@ Repair the partition table now?</source>
         <translation>장치가 일부만 쓰여서 더 이상 사용할 수 있는 레이아웃이 아닙니다. 사용하기 전에 다시 쓰십시오.</translation>
     </message>
     <message>
+        <source>The device&apos;s partition table has changed since Custom Partitioning read it. Open Custom Partitioning again to plan from what the device holds now.</source>
+        <translation>사용자 지정 파티션 구성이 읽은 후 장치의 파티션 테이블이 변경되었습니다. 현재 장치의 내용을 기준으로 계획하려면 사용자 지정 파티션 구성을 다시 여십시오.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>쓰는 중…</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table has not been changed: it holds its partitions as before. Its free space may hold part of the new ones.</source>
+        <translation>장치의 파티션 테이블은 변경되지 않았습니다: 파티션은 이전과 같습니다. 여유 공간에는 새 파티션의 일부가 들어갈 수 있습니다.</translation>
     </message>
     <message>
         <source>The partition table on the device does not match what was written.</source>
@@ -1241,6 +1341,10 @@ Repair the partition table now?</source>
     <message>
         <source>MBR</source>
         <translation>MBR</translation>
+    </message>
+    <message>
+        <source>The device&apos;s %1 partition table now holds %2 partitions: %3 kept, and %4 new from %5 images.</source>
+        <translation>장치의 %1 파티션 테이블에는 이제 파티션 %2개가 있습니다: 유지 %3개, 이미지 %5개에서 새로 %4개.</translation>
     </message>
     <message>
         <source>Write and verify successful.
@@ -1774,6 +1878,26 @@ Error %2</source>
         <translation>GPT 파티션 유형 %1에 해당하는 MBR 유형이 없습니다</translation>
     </message>
     <message>
+        <source>the device has no partition table to keep</source>
+        <translation>장치에 유지할 파티션 테이블이 없습니다</translation>
+    </message>
+    <message>
+        <source>a lead-in cannot be used while the device keeps its own partitions</source>
+        <translation>장치가 자체 파티션을 유지하는 동안에는 선행 영역을 사용할 수 없습니다</translation>
+    </message>
+    <message>
+        <source>only a device can keep its own partitions</source>
+        <translation>자체 파티션을 유지할 수 있는 것은 장치뿐입니다</translation>
+    </message>
+    <message>
+        <source>a free space has no size</source>
+        <translation>여유 공간의 크기가 지정되지 않았습니다</translation>
+    </message>
+    <message>
+        <source>the device&apos;s own partitions must stay in the order they are on it</source>
+        <translation>장치 자체의 파티션은 장치에 있는 순서대로 유지해야 합니다</translation>
+    </message>
+    <message>
         <source>no partitions are chosen</source>
         <translation>선택된 파티션이 없습니다</translation>
     </message>
@@ -1804,6 +1928,10 @@ Error %2</source>
     <message>
         <source>the GPT has room for %1 partitions, and %2 are chosen</source>
         <translation>GPT에는 파티션 %1개를 넣을 공간이 있는데 %2개가 선택되었습니다</translation>
+    </message>
+    <message>
+        <source>there is %1 MB too little free space before the device&apos;s partition %2, which is kept</source>
+        <translation>유지되는 장치 파티션 %2 앞의 여유 공간이 %1 MB 부족합니다</translation>
     </message>
     <message>
         <source>the layout no longer fits a 32-bit MBR entry</source>

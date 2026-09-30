@@ -68,6 +68,30 @@
         <translation>Down</translation>
     </message>
     <message>
+        <source>Free space:</source>
+        <translation>Free space:</translation>
+    </message>
+    <message>
+        <source> MiB</source>
+        <translation> MiB</translation>
+    </message>
+    <message>
+        <source>How much unpartitioned space to insert, or, with free space selected in the order, how much it is. The partition after it still starts on a 1 MiB boundary.</source>
+        <translation>How much unpartitioned space to insert, or, with free space selected in the order, how much it is. The partition after it still starts on a 1 MiB boundary.</translation>
+    </message>
+    <message>
+        <source>Insert</source>
+        <translation>Insert</translation>
+    </message>
+    <message>
+        <source>Leave this much unpartitioned space after the selected item of the order, or at the end.</source>
+        <translation>Leave this much unpartitioned space after the selected item of the order, or at the end.</translation>
+    </message>
+    <message>
+        <source>Remove free space</source>
+        <translation>Remove free space</translation>
+    </message>
+    <message>
         <source>Lead-in from:</source>
         <translation>Lead-in from:</translation>
     </message>
@@ -102,6 +126,14 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</translation>
+    </message>
+    <message>
+        <source>Keep the device&apos;s partitions</source>
+        <translation>Keep the device&apos;s partitions</translation>
+    </message>
+    <message>
+        <source>Add to what the device holds instead of replacing it: its partitions stay where they are, untouched, and the new ones go into its free space, where the order puts them. Untick one of them in the order to take it out of the table; its space is then free. The table keeps its kind, and its backup GPT is moved to the end of the device.</source>
+        <translation>Add to what the device holds instead of replacing it: its partitions stay where they are, untouched, and the new ones go into its free space, where the order puts them. Untick one of them in the order to take it out of the table; its space is then free. The table keeps its kind, and its backup GPT is moved to the end of the device.</translation>
     </message>
     <message>
         <source>An image file:</source>
@@ -146,6 +178,14 @@
     <message>
         <source>Disk %1: %2</source>
         <translation>Disk %1: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read: %2</source>
+        <translation>disk %1 could not be read: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 has no partition table to keep</source>
+        <translation>disk %1 has no partition table to keep</translation>
     </message>
     <message>
         <source>Save the combined image as</source>
@@ -284,6 +324,22 @@ Scan it now?</translation>
         <translation>None: a new, empty table</translation>
     </message>
     <message>
+        <source>Free space: %1 MiB</source>
+        <translation>Free space: %1 MiB</translation>
+    </message>
+    <message>
+        <source>This device, %1</source>
+        <translation>This device, %1</translation>
+    </message>
+    <message>
+        <source>%1 -- taken out of the table</source>
+        <translation>%1 -- taken out of the table</translation>
+    </message>
+    <message>
+        <source>%1 -- kept</source>
+        <translation>%1 -- kept</translation>
+    </message>
+    <message>
         <source>Tick the partitions to put on the device.</source>
         <translation>Tick the partitions to put on the device.</translation>
     </message>
@@ -304,12 +360,24 @@ Scan it now?</translation>
         <translation>Lead-in</translation>
     </message>
     <message>
+        <source>Free space</source>
+        <translation>Free space</translation>
+    </message>
+    <message>
+        <source>%1, kept</source>
+        <translation>%1, kept</translation>
+    </message>
+    <message>
         <source>Backup GPT</source>
         <translation>Backup GPT</translation>
     </message>
     <message>
         <source>%1, %2 partitions: an image file of %3.</source>
         <translation>%1, %2 partitions: an image file of %3.</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions, %3 of them kept: %4 used, %5 free of %6.</source>
+        <translation>%1, %2 partitions, %3 of them kept: %4 used, %5 free of %6.</translation>
     </message>
     <message>
         <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
@@ -1195,6 +1263,30 @@ Repair the partition table now?</translation>
         <translation>%1 is on the target device, and cannot be written to it.</translation>
     </message>
     <message>
+        <source>Confirm write</source>
+        <translation>Confirm write</translation>
+    </message>
+    <message>
+        <source>The device keeps the partitions ticked in the order, and they are not written to. Anything in its free space, and in the partitions taken out of its table, may be overwritten.
+(Target Device: %1)
+Are you sure you want to continue?</source>
+        <translation>The device keeps the partitions ticked in the order, and they are not written to. Anything in its free space, and in the partitions taken out of its table, may be overwritten.
+(Target Device: %1)
+Are you sure you want to continue?</translation>
+    </message>
+    <message>
+        <source>%1 is mounted in Windows as %2.
+
+Its volumes are dismounted while it is written, and the device is ejected afterwards. The kept partitions are not changed.
+
+Write to this device anyway?</source>
+        <translation>%1 is mounted in Windows as %2.
+
+Its volumes are dismounted while it is written, and the device is ejected afterwards. The kept partitions are not changed.
+
+Write to this device anyway?</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>The device list changed while you were confirming. Check the target device and try again.</translation>
     </message>
@@ -1215,8 +1307,16 @@ Repair the partition table now?</translation>
         <translation>The device has been partially written and no longer holds a usable layout. Write it again before using it.</translation>
     </message>
     <message>
+        <source>The device&apos;s partition table has changed since Custom Partitioning read it. Open Custom Partitioning again to plan from what the device holds now.</source>
+        <translation>The device&apos;s partition table has changed since Custom Partitioning read it. Open Custom Partitioning again to plan from what the device holds now.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Writing...</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table has not been changed: it holds its partitions as before. Its free space may hold part of the new ones.</source>
+        <translation>The device&apos;s partition table has not been changed: it holds its partitions as before. Its free space may hold part of the new ones.</translation>
     </message>
     <message>
         <source>The partition table on the device does not match what was written.</source>
@@ -1229,6 +1329,10 @@ Repair the partition table now?</translation>
     <message>
         <source>MBR</source>
         <translation>MBR</translation>
+    </message>
+    <message>
+        <source>The device&apos;s %1 partition table now holds %2 partitions: %3 kept, and %4 new from %5 images.</source>
+        <translation>The device&apos;s %1 partition table now holds %2 partitions: %3 kept, and %4 new from %5 images.</translation>
     </message>
     <message>
         <source>Write and verify successful.
@@ -1802,6 +1906,26 @@ Error %2</translation>
         <translation>GPT partition type %1 has no MBR equivalent</translation>
     </message>
     <message>
+        <source>the device has no partition table to keep</source>
+        <translation>the device has no partition table to keep</translation>
+    </message>
+    <message>
+        <source>a lead-in cannot be used while the device keeps its own partitions</source>
+        <translation>a lead-in cannot be used while the device keeps its own partitions</translation>
+    </message>
+    <message>
+        <source>only a device can keep its own partitions</source>
+        <translation>only a device can keep its own partitions</translation>
+    </message>
+    <message>
+        <source>a free space has no size</source>
+        <translation>a free space has no size</translation>
+    </message>
+    <message>
+        <source>the device&apos;s own partitions must stay in the order they are on it</source>
+        <translation>the device&apos;s own partitions must stay in the order they are on it</translation>
+    </message>
+    <message>
         <source>no partitions are chosen</source>
         <translation>no partitions are chosen</translation>
     </message>
@@ -1832,6 +1956,10 @@ Error %2</translation>
     <message>
         <source>the GPT has room for %1 partitions, and %2 are chosen</source>
         <translation>the GPT has room for %1 partitions, and %2 are chosen</translation>
+    </message>
+    <message>
+        <source>there is %1 MB too little free space before the device&apos;s partition %2, which is kept</source>
+        <translation>there is %1 MB too little free space before the device&apos;s partition %2, which is kept</translation>
     </message>
     <message>
         <source>the layout no longer fits a 32-bit MBR entry</source>

@@ -76,6 +76,7 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
       myPreselect(preselect), mySectorSize(sectorsize), myStartDir(startDir),
       myFilters(fileFilters)
 {
+    myDiskPath = [](int n) { return ImageSource::devicePath(n); };
     setWindowTitle(tr("Custom Partitioning"));
     QVBoxLayout *top = new QVBoxLayout(this);
 
@@ -141,6 +142,26 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     deviceLayout->addWidget(myUp, 1, 1);
     deviceLayout->addWidget(myDown, 2, 1, Qt::AlignTop);
 
+    // Unpartitioned space, placed in the order as a partition is.
+    QHBoxLayout *freeRow = new QHBoxLayout();
+    freeRow->addWidget(new QLabel(tr("Free space:"), deviceBox));
+    myFreeSize = new QSpinBox(deviceBox);
+    myFreeSize->setRange(1, 16 * 1024 * 1024);
+    myFreeSize->setValue(100);
+    myFreeSize->setSuffix(tr(" MiB"));
+    myFreeSize->setToolTip(tr("How much unpartitioned space to insert, or, with free space "
+                              "selected in the order, how much it is. The partition after it "
+                              "still starts on a 1 MiB boundary."));
+    myAddFree = new QPushButton(tr("Insert"), deviceBox);
+    myAddFree->setToolTip(tr("Leave this much unpartitioned space after the selected item "
+                             "of the order, or at the end."));
+    myRemoveFree = new QPushButton(tr("Remove free space"), deviceBox);
+    freeRow->addWidget(myFreeSize);
+    freeRow->addWidget(myAddFree);
+    freeRow->addWidget(myRemoveFree);
+    freeRow->addStretch();
+    deviceLayout->addLayout(freeRow, 3, 0, 1, 2);
+
     QHBoxLayout *leadRow = new QHBoxLayout();
     leadRow->addWidget(new QLabel(tr("Lead-in from:"), deviceBox));
     myLead = new QComboBox(deviceBox);
@@ -150,7 +171,7 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
                           "table as this image, and the first partition starts where this "
                           "image's did."));
     leadRow->addWidget(myLead, 1);
-    deviceLayout->addLayout(leadRow, 3, 0, 1, 2);
+    deviceLayout->addLayout(leadRow, 4, 0, 1, 2);
 
     myPreview = new QTreeWidget(deviceBox);
     myPreview->setColumnCount(4);
@@ -160,11 +181,11 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     myPreview->header()->setFirstSectionMovable(true);
     // Two rows at least; it grows with the window.
     myPreview->setMinimumHeight(rowsHeight(myPreview, 2, myPreview->header()->sizeHint().height()));
-    deviceLayout->addWidget(myPreview, 4, 0, 1, 2);
+    deviceLayout->addWidget(myPreview, 5, 0, 1, 2);
     myStatus = new QLabel(deviceBox);
     // Each of its lines fits on one line at the narrowest; three at most.
     fixLines(myStatus, 3);
-    deviceLayout->addWidget(myStatus, 5, 0, 1, 2);
+    deviceLayout->addWidget(myStatus, 6, 0, 1, 2);
     top->addWidget(deviceBox, 3);
 
     // Where it goes.
@@ -178,6 +199,13 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
                              "the card as a non-removable device, which is otherwise hidden. "
                              "The disk Windows is running from is never listed."));
     myShowAll->setChecked(showAll);
+    myKeep = new QCheckBox(tr("Keep the device's partitions"), destBox);
+    myKeep->setToolTip(tr("Add to what the device holds instead of replacing it: its "
+                          "partitions stay where they are, untouched, and the new ones go "
+                          "into its free space, where the order puts them. Untick one of "
+                          "them in the order to take it out of the table; its space is then "
+                          "free. The table keeps its kind, and its backup GPT is moved to "
+                          "the end of the device."));
     myToFile = new QRadioButton(tr("An image file:"), destBox);
     myOutFile = new QLineEdit(destBox);
     myBrowse = new QPushButton(tr("Browse..."), destBox);
@@ -194,14 +222,15 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     destLayout->addWidget(myToDevice, 0, 0);
     destLayout->addWidget(myDeviceBox, 0, 1, 1, 2);
     destLayout->addWidget(myShowAll, 0, 3);
-    destLayout->addWidget(myToFile, 1, 0);
-    destLayout->addWidget(myOutFile, 1, 1, 1, 2);
-    destLayout->addWidget(myBrowse, 1, 3);
+    destLayout->addWidget(myKeep, 1, 1, 1, 3);
+    destLayout->addWidget(myToFile, 2, 0);
+    destLayout->addWidget(myOutFile, 2, 1, 1, 2);
+    destLayout->addWidget(myBrowse, 2, 3);
     QHBoxLayout *compressRow = new QHBoxLayout();
     compressRow->addWidget(myCompress);
     compressRow->addWidget(myFormat);
     compressRow->addStretch();
-    destLayout->addLayout(compressRow, 2, 1, 1, 3);
+    destLayout->addLayout(compressRow, 3, 1, 1, 3);
     destLayout->setColumnStretch(2, 1);
     top->addWidget(destBox);
     // A device when there is one to write to; refreshDevices() moves to the
@@ -229,10 +258,13 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
         // A disk's size is known; there is nothing for a scan to find.
         myScan->setEnabled(i >= 0 && mySources[i].disk < 0);
     });
-    connect(myOrderList, &QListWidget::currentRowChanged, this, [this](int row) {
-        myUp->setEnabled(row > 0);
-        myDown->setEnabled(row >= 0 && row < myOrderList->count() - 1);
-    });
+    connect(myOrderList, &QListWidget::currentRowChanged, this, &CombineDialog::orderRowChanged);
+    connect(myOrderList, &QListWidget::itemChanged, this, &CombineDialog::orderItemChanged);
+    connect(myAddFree, &QPushButton::clicked, this, &CombineDialog::addFree);
+    connect(myRemoveFree, &QPushButton::clicked, this, &CombineDialog::removeFree);
+    connect(myFreeSize, QOverload<int>::of(&QSpinBox::valueChanged), this,
+            &CombineDialog::freeSizeChanged);
+    connect(myKeep, &QCheckBox::toggled, this, &CombineDialog::keepChanged);
     connect(myLead, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             [this]() { if (!myRebuilding) replan(); });
     connect(myToDevice, &QRadioButton::toggled, this, &CombineDialog::destinationChanged);
@@ -248,6 +280,7 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     myScan->setEnabled(false);
     myUp->setEnabled(false);
     myDown->setEnabled(false);
+    myRemoveFree->setEnabled(false);
     rebuildLeadIn();
     refreshDevices();
     destinationChanged();
@@ -391,6 +424,7 @@ void CombineDialog::deviceChanged()
             myDeviceSectors = t.bytes / ss;
         }
     }
+    loadTarget();
     replan();
 }
 
@@ -429,8 +463,77 @@ void CombineDialog::destinationChanged()
     myDeviceBox->setEnabled(!file && !myTargets.isEmpty());
     myCompress->setEnabled(file);
     myFormat->setEnabled(file && myCompress->isChecked());
+    // Only a device has partitions of its own to keep.
+    myKeep->setEnabled(!file && !myTargets.isEmpty());
+    loadTarget();
     // The file is sized to the layout, the device is what it is: replanned.
     replan();
+}
+
+bool CombineDialog::keepsDevice() const
+{
+    return !toFile() && myKeep->isChecked() && myTargetLoaded;
+}
+
+void CombineDialog::keepChanged()
+{
+    loadTarget();
+    replan();
+}
+
+void CombineDialog::loadTarget()
+{
+    const bool keep = !toFile() && myKeep->isChecked() && myTargetDevice >= 0
+                      && myDeviceProblem.isEmpty();
+    if (keep && myTargetLoaded && myTarget.disk == myTargetDevice)
+    {
+        return;     // already read, and in the order
+    }
+    for (int i = myOrder.size() - 1; i >= 0; --i)
+    {
+        if (myOrder[i].image == COMBINE_KEPT)
+        {
+            myOrder.removeAt(i);
+        }
+    }
+    myRemovedKept.clear();
+    myTargetLoaded = false;
+    myTargetProblem.clear();
+    myTarget = Source();
+    if (keep)
+    {
+        Source t;
+        QString why;
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+        const bool ok = loadImage(myDiskPath(myTargetDevice), &t, &why);
+        QApplication::restoreOverrideCursor();
+        if (!ok)
+        {
+            myTargetProblem = tr("disk %1 could not be read: %2").arg(myTargetDevice).arg(why);
+        }
+        else if (t.layout.table == COMBINE_TABLE_NONE)
+        {
+            myTargetProblem = tr("disk %1 has no partition table to keep").arg(myTargetDevice);
+        }
+        else
+        {
+            t.disk = myTargetDevice;
+            numberDisk(myTargetDevice, &t);
+            myTarget = t;
+            myTargetLoaded = true;
+            // First, in the order they are on the device; what was already
+            // chosen goes after them, into the space after the last.
+            QList<CombineChoice> kept;
+            for (int j = 0; j < t.layout.partitions.size(); ++j)
+            {
+                kept.append(CombineChoice{COMBINE_KEPT, j});
+            }
+            myOrder = kept + myOrder;
+        }
+    }
+    // A kept device's own boot code and table stay; no lead-in replaces them.
+    myLead->setEnabled(!keepsDevice());
+    rebuildOrder();
 }
 
 void CombineDialog::browseOutput()
@@ -637,27 +740,30 @@ void CombineDialog::addDisk(int number, const QString &label)
     src.disk = number;
     src.label = label;
     src.format = tr("disk");
-    // As the Read's "Choose partitions" listed them: Windows' own partition
-    // numbers, which need not follow the table's order, and the drive
-    // letters, by where each volume starts. Without them, the table's slots.
-    {
-        QMap<unsigned long long, QString> byOffset = driveLettersByOffset((ULONG)number);
-        for (auto it = byOffset.begin(); it != byOffset.end(); ++it)
-        {
-            src.letters.insert(it.key() / mySectorSize, it.value());
-        }
-        HANDLE h = CreateFileW((LPCWSTR)ImageSource::devicePath(number).utf16(), GENERIC_READ,
-                               FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
-        if (h != INVALID_HANDLE_VALUE)
-        {
-            if (!diskPartitionNumbers(h, mySectorSize, &src.numbers))
-            {
-                src.numbers.clear();
-            }
-            CloseHandle(h);
-        }
-    }
+    numberDisk(number, &src);
     mySources.append(src);
+}
+
+// As the Read's "Choose partitions" listed them: Windows' own partition
+// numbers, which need not follow the table's order, and the drive letters, by
+// where each volume starts. Without them, the table's slots.
+void CombineDialog::numberDisk(int number, Source *src) const
+{
+    QMap<unsigned long long, QString> byOffset = driveLettersByOffset((ULONG)number);
+    for (auto it = byOffset.begin(); it != byOffset.end(); ++it)
+    {
+        src->letters.insert(it.key() / mySectorSize, it.value());
+    }
+    HANDLE h = CreateFileW((LPCWSTR)ImageSource::devicePath(number).utf16(), GENERIC_READ,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+    if (h != INVALID_HANDLE_VALUE)
+    {
+        if (!diskPartitionNumbers(h, mySectorSize, &src->numbers))
+        {
+            src->numbers.clear();
+        }
+        CloseHandle(h);
+    }
 }
 
 bool CombineDialog::presetRead(int disk, const QString &path, bool compressed,
@@ -822,7 +928,11 @@ int CombineDialog::selectedImage() const
 
 QString CombineDialog::partitionLabel(int image, int partition) const
 {
-    const Source &s = mySources[image];
+    return partitionLabel(mySources[image], partition);
+}
+
+QString CombineDialog::partitionLabel(const Source &s, int partition)
+{
     const CombinePartition &p = s.layout.partitions[partition];
     if (p.slot < 0)
     {
@@ -926,15 +1036,119 @@ void CombineDialog::rebuildLeadIn()
     myRebuilding = false;
 }
 
+QString CombineDialog::orderText(const CombineChoice &c) const
+{
+    if (c.image == COMBINE_FREE)
+    {
+        return tr("Free space: %1 MiB").arg(c.sectors * mySectorSize / ALIGN_BYTES);
+    }
+    if (c.image == COMBINE_KEPT)
+    {
+        const QString text = tr("This device, %1").arg(partitionLabel(myTarget, c.partition));
+        return myRemovedKept.contains(c.partition) ? tr("%1 -- taken out of the table").arg(text)
+                                                   : tr("%1 -- kept").arg(text);
+    }
+    return partitionText(c.image, c.partition);
+}
+
 void CombineDialog::rebuildOrder()
 {
+    const bool was = myRebuilding;
+    myRebuilding = true;
     const int row = myOrderList->currentRow();
     myOrderList->clear();
     for (const CombineChoice &c : myOrder)
     {
-        myOrderList->addItem(partitionText(c.image, c.partition));
+        QListWidgetItem *item = new QListWidgetItem(orderText(c), myOrderList);
+        if (c.image == COMBINE_KEPT)
+        {
+            // Ticked, it stays in the table; unticked, it is taken out.
+            item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+            item->setCheckState(myRemovedKept.contains(c.partition) ? Qt::Unchecked : Qt::Checked);
+        }
     }
     myOrderList->setCurrentRow(qMin(row, myOrderList->count() - 1));
+    myRebuilding = was;
+    orderRowChanged(myOrderList->currentRow());
+}
+
+bool CombineDialog::canSwap(int a, int b) const
+{
+    return a >= 0 && b >= 0 && a < myOrder.size() && b < myOrder.size()
+           && !(myOrder[a].image == COMBINE_KEPT && myOrder[b].image == COMBINE_KEPT);
+}
+
+void CombineDialog::orderRowChanged(int row)
+{
+    myUp->setEnabled(canSwap(row, row - 1));
+    myDown->setEnabled(canSwap(row, row + 1));
+    const bool free = row >= 0 && row < myOrder.size() && myOrder[row].image == COMBINE_FREE;
+    myRemoveFree->setEnabled(free);
+    if (free)
+    {
+        // The box shows the selected free space's size, and changes it.
+        const QSignalBlocker block(myFreeSize);
+        myFreeSize->setValue((int)(myOrder[row].sectors * mySectorSize / ALIGN_BYTES));
+    }
+}
+
+void CombineDialog::orderItemChanged(QListWidgetItem *item)
+{
+    const int row = myOrderList->row(item);
+    if (myRebuilding || row < 0 || row >= myOrder.size() || myOrder[row].image != COMBINE_KEPT)
+    {
+        return;
+    }
+    const int k = myOrder[row].partition;
+    if (item->checkState() == Qt::Checked)
+    {
+        myRemovedKept.remove(k);
+    }
+    else
+    {
+        myRemovedKept.insert(k);
+    }
+    myRebuilding = true;
+    item->setText(orderText(myOrder[row]));
+    myRebuilding = false;
+    replan();
+}
+
+void CombineDialog::addFree()
+{
+    const int row = myOrderList->currentRow();
+    const int at = (row >= 0) ? row + 1 : myOrder.size();
+    myOrder.insert(at, CombineChoice{COMBINE_FREE, -1,
+                                     (unsigned long long)myFreeSize->value() * ALIGN_BYTES / mySectorSize});
+    rebuildOrder();
+    myOrderList->setCurrentRow(at);
+    replan();
+}
+
+void CombineDialog::removeFree()
+{
+    const int row = myOrderList->currentRow();
+    if (row < 0 || row >= myOrder.size() || myOrder[row].image != COMBINE_FREE)
+    {
+        return;
+    }
+    myOrder.removeAt(row);
+    rebuildOrder();
+    replan();
+}
+
+void CombineDialog::freeSizeChanged(int mib)
+{
+    const int row = myOrderList->currentRow();
+    if (row < 0 || row >= myOrder.size() || myOrder[row].image != COMBINE_FREE)
+    {
+        return;
+    }
+    myOrder[row].sectors = (unsigned long long)mib * ALIGN_BYTES / mySectorSize;
+    myRebuilding = true;
+    myOrderList->item(row)->setText(orderText(myOrder[row]));
+    myRebuilding = false;
+    replan();
 }
 
 void CombineDialog::itemChanged(QTreeWidgetItem *item, int column)
@@ -965,7 +1179,7 @@ void CombineDialog::itemChanged(QTreeWidgetItem *item, int column)
 void CombineDialog::moveUp()
 {
     const int row = myOrderList->currentRow();
-    if (row <= 0) return;
+    if (!canSwap(row, row - 1)) return;
     myOrder.swapItemsAt(row, row - 1);
     rebuildOrder();
     myOrderList->setCurrentRow(row - 1);
@@ -975,7 +1189,7 @@ void CombineDialog::moveUp()
 void CombineDialog::moveDown()
 {
     const int row = myOrderList->currentRow();
-    if (row < 0 || row >= myOrder.size() - 1) return;
+    if (!canSwap(row, row + 1)) return;
     myOrder.swapItemsAt(row, row + 1);
     rebuildOrder();
     myOrderList->setCurrentRow(row + 1);
@@ -995,7 +1209,20 @@ void CombineDialog::replan()
     myPreview->clear();
     myPlanOk = false;
     myWrite->setEnabled(false);
-    if (myOrder.isEmpty())
+    // What is planned: the order without the device's partitions taken out
+    // of its table.
+    QList<CombineChoice> planned;
+    bool anypartition = false;
+    for (const CombineChoice &c : myOrder)
+    {
+        if (c.image == COMBINE_KEPT && myRemovedKept.contains(c.partition))
+        {
+            continue;
+        }
+        planned.append(c);
+        anypartition = anypartition || c.image != COMBINE_FREE;
+    }
+    if (!anypartition)
     {
         myStatus->setText(tr("Tick the partitions to put on the device."));
         myStatus->setStyleSheet(QString());
@@ -1006,7 +1233,8 @@ void CombineDialog::replan()
     {
         layouts.append(s.layout);
     }
-    const int lead = myLead->currentData().toInt();
+    const bool keep = keepsDevice();
+    const int lead = keep ? -1 : myLead->currentData().toInt();
     QString why;
     if (!toFile() && !myDeviceProblem.isEmpty())
     {
@@ -1014,11 +1242,18 @@ void CombineDialog::replan()
         myStatus->setStyleSheet("color: #c00000;");
         return;
     }
+    if (!toFile() && myKeep->isChecked() && !myTargetProblem.isEmpty())
+    {
+        myStatus->setText(tr("This cannot be written: %1.").arg(myTargetProblem));
+        myStatus->setStyleSheet("color: #c00000;");
+        return;
+    }
     if (!toFile())
     {
-        for (const CombineChoice &c : myOrder)
+        for (const CombineChoice &c : planned)
         {
-            if (mySources[c.image].disk >= 0 && mySources[c.image].disk == myTargetDevice)
+            if (c.image >= 0 && mySources[c.image].disk >= 0
+                && mySources[c.image].disk == myTargetDevice)
             {
                 myStatus->setText(tr("This cannot be written: %1 is the device being written "
                                      "to. Write to an image file, or choose another device.")
@@ -1029,8 +1264,9 @@ void CombineDialog::replan()
         }
     }
     // An image file has no size of its own: 0 plans it to fit the layout.
-    if (!planCombine(layouts, myOrder, lead, mySectorSize, toFile() ? 0ull : myDeviceSectors,
-                     ALIGN_BYTES / mySectorSize, myNewGuids, &myPlan, &why))
+    if (!planCombine(layouts, planned, lead, mySectorSize, toFile() ? 0ull : myDeviceSectors,
+                     ALIGN_BYTES / mySectorSize, myNewGuids, &myPlan, &why,
+                     keep ? &myTarget.layout : NULL))
     {
         myStatus->setText(tr("This cannot be written: %1.").arg(why));
         myStatus->setStyleSheet("color: #c00000;");
@@ -1047,16 +1283,35 @@ void CombineDialog::replan()
     };
     const QString table = (myPlan.table == COMBINE_TABLE_GPT) ? tr("GPT") : tr("MBR");
     row(tr("Partition table (%1)").arg(table), 0, myPlan.headersectors, QString());
-    int next = 0;
+    int copied = 0, kept = 0;
+    for (const CombinePlaced &p : myPlan.placed)
+    {
+        copied += (p.image >= 0);
+        kept += (p.image == COMBINE_KEPT);
+    }
+    // A lead-in is the one range that is not a partition's.
     if (lead >= 0 && !myPlan.ranges.isEmpty() && myPlan.ranges.first().image == lead
-        && myPlan.ranges.size() > myPlan.placed.size())
+        && myPlan.ranges.size() > copied)
     {
         const CombineRange &r = myPlan.ranges.first();
         row(tr("Lead-in"), r.dstfirst, r.length, sourceName(lead));
     }
     for (const CombinePlaced &p : myPlan.placed)
     {
-        row(tr("Partition %1").arg(++next), p.first, p.sectors, partitionText(p.image, p.partition));
+        if (p.image == COMBINE_FREE)
+        {
+            row(tr("Free space"), p.first, p.sectors, QString());
+        }
+        else if (p.image == COMBINE_KEPT)
+        {
+            row(tr("Partition %1").arg(p.slot + 1), p.first, p.sectors,
+                tr("%1, kept").arg(partitionLabel(myTarget, p.partition)));
+        }
+        else
+        {
+            row(tr("Partition %1").arg(p.slot + 1), p.first, p.sectors,
+                partitionText(p.image, p.partition));
+        }
     }
     if (myPlan.table == COMBINE_TABLE_GPT)
     {
@@ -1072,20 +1327,25 @@ void CombineDialog::replan()
     if (toFile())
     {
         text = tr("%1, %2 partitions: an image file of %3.")
-                   .arg(table).arg(myPlan.placed.size()).arg(sizeText(myPlan.totalsectors));
+                   .arg(table).arg(myPlan.partitionCount()).arg(sizeText(myPlan.totalsectors));
     }
     else
     {
         const unsigned long long free = myDeviceSectors - myPlan.usedsectors
             - (myPlan.table == COMBINE_TABLE_GPT ? myPlan.backupregion.size() / mySectorSize : 0);
-        text = tr("%1, %2 partitions: %3 used, %4 free of %5.")
-                   .arg(table).arg(myPlan.placed.size())
-                   .arg(sizeText(myPlan.usedsectors), sizeText(free), sizeText(myDeviceSectors));
+        text = keep
+            ? tr("%1, %2 partitions, %3 of them kept: %4 used, %5 free of %6.")
+                  .arg(table).arg(myPlan.partitionCount()).arg(kept)
+                  .arg(sizeText(myPlan.usedsectors), sizeText(free), sizeText(myDeviceSectors))
+            : tr("%1, %2 partitions: %3 used, %4 free of %5.")
+                  .arg(table).arg(myPlan.partitionCount())
+                  .arg(sizeText(myPlan.usedsectors), sizeText(free), sizeText(myDeviceSectors));
     }
     bool unchecked = false;
-    for (const CombineChoice &c : myOrder)
+    for (const CombineChoice &c : planned)
     {
-        unchecked = unchecked || (!mySources[c.image].sizeKnown && !mySources[c.image].scanned);
+        unchecked = unchecked || (c.image >= 0 && !mySources[c.image].sizeKnown
+                                  && !mySources[c.image].scanned);
     }
     if (unchecked)
     {

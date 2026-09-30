@@ -68,6 +68,30 @@
         <translation>下移</translation>
     </message>
     <message>
+        <source>Free space:</source>
+        <translation>剩餘空間：</translation>
+    </message>
+    <message>
+        <source> MiB</source>
+        <translation> MiB</translation>
+    </message>
+    <message>
+        <source>How much unpartitioned space to insert, or, with free space selected in the order, how much it is. The partition after it still starts on a 1 MiB boundary.</source>
+        <translation>要插入的未分割空間大小；若在順序中選取了剩餘空間，則為該空間的大小。其後的分割區仍從 1 MiB 邊界開始。</translation>
+    </message>
+    <message>
+        <source>Insert</source>
+        <translation>插入</translation>
+    </message>
+    <message>
+        <source>Leave this much unpartitioned space after the selected item of the order, or at the end.</source>
+        <translation>在順序中選取的項目之後，或在結尾，保留這麼多未分割空間。</translation>
+    </message>
+    <message>
+        <source>Remove free space</source>
+        <translation>移除剩餘空間</translation>
+    </message>
+    <message>
         <source>Lead-in from:</source>
         <translation>前導區來源：</translation>
     </message>
@@ -102,6 +126,14 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>同時列出固定式磁碟。內建 PCIe 讀卡機常將記憶卡顯示為不可卸除式裝置，否則便會被隱藏。執行 Windows 的磁碟永遠不會被列出。</translation>
+    </message>
+    <message>
+        <source>Keep the device&apos;s partitions</source>
+        <translation>保留裝置的分割區</translation>
+    </message>
+    <message>
+        <source>Add to what the device holds instead of replacing it: its partitions stay where they are, untouched, and the new ones go into its free space, where the order puts them. Untick one of them in the order to take it out of the table; its space is then free. The table keeps its kind, and its backup GPT is moved to the end of the device.</source>
+        <translation>在裝置現有內容的基礎上加入，而不是取代：其分割區維持原位、不受變動，新分割區依順序中的位置放入其剩餘空間。在順序中取消勾選其中某個分割區，即可將其移出分割表；其空間隨即成為剩餘空間。分割表維持原有類型，其備份 GPT 會移到裝置結尾。</translation>
     </message>
     <message>
         <source>An image file:</source>
@@ -146,6 +178,14 @@
     <message>
         <source>Disk %1: %2</source>
         <translation>磁碟 %1：%2</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read: %2</source>
+        <translation>無法讀取磁碟 %1：%2</translation>
+    </message>
+    <message>
+        <source>disk %1 has no partition table to keep</source>
+        <translation>磁碟 %1 沒有可保留的分割表</translation>
     </message>
     <message>
         <source>Save the combined image as</source>
@@ -284,6 +324,22 @@ Scan it now?</source>
         <translation>無：新的空白分割表</translation>
     </message>
     <message>
+        <source>Free space: %1 MiB</source>
+        <translation>剩餘空間：%1 MiB</translation>
+    </message>
+    <message>
+        <source>This device, %1</source>
+        <translation>此裝置，%1</translation>
+    </message>
+    <message>
+        <source>%1 -- taken out of the table</source>
+        <translation>%1 -- 已移出分割表</translation>
+    </message>
+    <message>
+        <source>%1 -- kept</source>
+        <translation>%1 -- 保留</translation>
+    </message>
+    <message>
         <source>Tick the partitions to put on the device.</source>
         <translation>勾選要放到裝置上的分割區。</translation>
     </message>
@@ -304,12 +360,24 @@ Scan it now?</source>
         <translation>前導區</translation>
     </message>
     <message>
+        <source>Free space</source>
+        <translation>剩餘空間</translation>
+    </message>
+    <message>
+        <source>%1, kept</source>
+        <translation>%1，保留</translation>
+    </message>
+    <message>
         <source>Backup GPT</source>
         <translation>備份 GPT</translation>
     </message>
     <message>
         <source>%1, %2 partitions: an image file of %3.</source>
         <translation>%1，%2 個分割區：映像檔大小為 %3。</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions, %3 of them kept: %4 used, %5 free of %6.</source>
+        <translation>%1，%2 個分割區，其中保留 %3 個：已使用 %4，%6 中尚餘 %5。</translation>
     </message>
     <message>
         <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
@@ -1207,6 +1275,30 @@ Repair the partition table now?</source>
         <translation>%1 位於目標裝置上，無法寫入該裝置。</translation>
     </message>
     <message>
+        <source>Confirm write</source>
+        <translation>確認寫入</translation>
+    </message>
+    <message>
+        <source>The device keeps the partitions ticked in the order, and they are not written to. Anything in its free space, and in the partitions taken out of its table, may be overwritten.
+(Target Device: %1)
+Are you sure you want to continue?</source>
+        <translation>裝置會保留順序中勾選的分割區，且不會寫入這些分割區。其剩餘空間中以及移出其分割表的分割區中的任何內容都可能被覆寫。
+(目標裝置：%1)
+您確定要繼續嗎？</translation>
+    </message>
+    <message>
+        <source>%1 is mounted in Windows as %2.
+
+Its volumes are dismounted while it is written, and the device is ejected afterwards. The kept partitions are not changed.
+
+Write to this device anyway?</source>
+        <translation>%1 在 Windows 中掛載為 %2。
+
+寫入期間其上的磁碟區會被卸載，寫入後裝置會被退出。保留的分割區不會被變動。
+
+仍要寫入此裝置嗎？</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>確認期間裝置清單已變更。請檢查目標裝置後再試一次。</translation>
     </message>
@@ -1227,8 +1319,16 @@ Repair the partition table now?</source>
         <translation>裝置僅被部分寫入，不再包含可用的配置。請在使用前重新寫入。</translation>
     </message>
     <message>
+        <source>The device&apos;s partition table has changed since Custom Partitioning read it. Open Custom Partitioning again to plan from what the device holds now.</source>
+        <translation>自「自訂分割」讀取以來，裝置的分割表已經變更。請重新開啟「自訂分割」，依裝置目前的內容重新規劃。</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>正在寫入…</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table has not been changed: it holds its partitions as before. Its free space may hold part of the new ones.</source>
+        <translation>裝置的分割表未被變更：其分割區與先前相同。其剩餘空間中可能留有部分新分割區的內容。</translation>
     </message>
     <message>
         <source>The partition table on the device does not match what was written.</source>
@@ -1241,6 +1341,10 @@ Repair the partition table now?</source>
     <message>
         <source>MBR</source>
         <translation>MBR</translation>
+    </message>
+    <message>
+        <source>The device&apos;s %1 partition table now holds %2 partitions: %3 kept, and %4 new from %5 images.</source>
+        <translation>裝置的 %1 分割表現有 %2 個分割區：保留 %3 個，另有來自 %5 個映像檔的 %4 個新分割區。</translation>
     </message>
     <message>
         <source>Write and verify successful.
@@ -1774,6 +1878,26 @@ Error %2</source>
         <translation>GPT 分割區類型 %1 沒有 MBR 對應類型</translation>
     </message>
     <message>
+        <source>the device has no partition table to keep</source>
+        <translation>裝置沒有可保留的分割表</translation>
+    </message>
+    <message>
+        <source>a lead-in cannot be used while the device keeps its own partitions</source>
+        <translation>裝置保留自身分割區時無法使用前導區</translation>
+    </message>
+    <message>
+        <source>only a device can keep its own partitions</source>
+        <translation>只有裝置才能保留自身的分割區</translation>
+    </message>
+    <message>
+        <source>a free space has no size</source>
+        <translation>剩餘空間沒有大小</translation>
+    </message>
+    <message>
+        <source>the device&apos;s own partitions must stay in the order they are on it</source>
+        <translation>裝置自身的分割區必須維持其在裝置上的順序</translation>
+    </message>
+    <message>
         <source>no partitions are chosen</source>
         <translation>未選擇任何分割區</translation>
     </message>
@@ -1804,6 +1928,10 @@ Error %2</source>
     <message>
         <source>the GPT has room for %1 partitions, and %2 are chosen</source>
         <translation>GPT 可容納 %1 個分割區，而已選擇 %2 個</translation>
+    </message>
+    <message>
+        <source>there is %1 MB too little free space before the device&apos;s partition %2, which is kept</source>
+        <translation>在保留的裝置分割區 %2 之前，剩餘空間少了 %1 MB</translation>
     </message>
     <message>
         <source>the layout no longer fits a 32-bit MBR entry</source>

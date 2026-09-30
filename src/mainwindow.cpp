@@ -1027,15 +1027,42 @@ void MainWindow::runCombineFrom(const CombineDialog &dialog)
         }
     }
 
-    if (QMessageBox::warning(this, tr("Confirm overwrite"), tr("All files and data on this device will be deleted.\n"
-                                                               "(Target Device: %1)\n"
-                                                               "Are you sure you want to continue?").arg(targetText),
-                             QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No)
+    if (plan.keepsTarget)
+    {
+        // Nothing kept is written to; what is taken out of the table, and
+        // the free space the new partitions go into, may be.
+        if (QMessageBox::warning(this, tr("Confirm write"),
+                tr("The device keeps the partitions ticked in the order, and they are not "
+                   "written to. Anything in its free space, and in the partitions taken out "
+                   "of its table, may be overwritten.\n(Target Device: %1)\n"
+                   "Are you sure you want to continue?").arg(targetText),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No)
+        {
+            return;
+        }
+    }
+    else if (QMessageBox::warning(this, tr("Confirm overwrite"), tr("All files and data on this device will be deleted.\n"
+                                                                    "(Target Device: %1)\n"
+                                                                    "Are you sure you want to continue?").arg(targetText),
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No)
     {
         return;
     }
     const QString targetletters = driveLettersOnDevice((ULONG)deviceID);
-    if (!targetletters.isEmpty())
+    if (!targetletters.isEmpty() && plan.keepsTarget)
+    {
+        if (QMessageBox::warning(this, tr("Device has mounted volumes"),
+                tr("%1 is mounted in Windows as %2.\n\n"
+                   "Its volumes are dismounted while it is written, and the device is ejected "
+                   "afterwards. The kept partitions are not changed.\n\n"
+                   "Write to this device anyway?")
+                    .arg(targetText).arg(targetletters),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::No)
+        {
+            return;
+        }
+    }
+    else if (!targetletters.isEmpty())
     {
         if (QMessageBox::warning(this, tr("Device has mounted volumes"),
                 tr("%1 is mounted in Windows as %2.\n\n"
@@ -1224,14 +1251,35 @@ void MainWindow::runCombine(int deviceID, const QString &targetText,
         return;
     }
 
-    statusbar->showMessage(tr("Clearing old partition tables..."));
-    QCoreApplication::processEvents();
-    if (!wipePartitionTables(hRawDisk, sectorsize, devicesectors))
+    if (plan.keepsTarget)
     {
-        QMessageBox::critical(this, tr("Write Error"),
-            tr("Could not clear the existing partition tables on the device.") + "\n\n" + partial);
-        stop(tr("Write failed."));
-        return;
+        // Its partitions stay, so its tables are not cleared; and the plan
+        // was made from its table as it was when the dialog read it.
+        const unsigned long long regionsectors =
+            (unsigned long long)plan.targetregion.size() / sectorsize;
+        std::vector<char> now((size_t)(regionsectors * sectorsize));
+        if (regionsectors == 0
+            || !readSectorsInto(hRawDisk, now.data(), 0ull, regionsectors, sectorsize)
+            || memcmp(now.data(), plan.targetregion.constData(), now.size()) != 0)
+        {
+            QMessageBox::critical(this, tr("Write Error"),
+                tr("The device's partition table has changed since Custom Partitioning read "
+                   "it. Open Custom Partitioning again to plan from what the device holds now."));
+            stop(tr("Write failed."));
+            return;
+        }
+    }
+    else
+    {
+        statusbar->showMessage(tr("Clearing old partition tables..."));
+        QCoreApplication::processEvents();
+        if (!wipePartitionTables(hRawDisk, sectorsize, devicesectors))
+        {
+            QMessageBox::critical(this, tr("Write Error"),
+                tr("Could not clear the existing partition tables on the device.") + "\n\n" + partial);
+            stop(tr("Write failed."));
+            return;
+        }
     }
 
     unsigned long long total = 0ull;
@@ -1243,6 +1291,8 @@ void MainWindow::runCombine(int deviceID, const QString &targetText,
     int shift = beginProgress(total, &lasti);
     statusbar->showMessage(tr("Writing..."));
     int result = transferCombined(plan, paths, false, total, shift, &done, &lasti);
+    // Until the tables are written, a kept device's table is as it was.
+    const bool tableuntouched = plan.keepsTarget && result != 0;
     // The tables last, backup first: until the primary is written, nothing
     // points at a layout only partly on the device.
     if (result == 0)
@@ -1261,9 +1311,12 @@ void MainWindow::runCombine(int deviceID, const QString &targetText,
     flushDevice(hRawDisk);
     if (result != 0)
     {
-        if (result == 1)
+        if (result == 1 || (result == 2 && tableuntouched))
         {
-            QMessageBox::warning(this, tr("Write Error"), partial);
+            QMessageBox::warning(this, tr("Write Error"), tableuntouched
+                ? tr("The device's partition table has not been changed: it holds its "
+                     "partitions as before. Its free space may hold part of the new ones.")
+                : partial);
         }
         stop(result == 2 ? tr("Write cancelled.") : tr("Write failed."));
         return;
@@ -1316,16 +1369,30 @@ void MainWindow::runCombine(int deviceID, const QString &targetText,
     sourcelocks.clear();
 
     QSet<int> images;
+    int kept = 0;
     for (const CombinePlaced &p : plan.placed)
     {
-        images.insert(p.image);
+        if (p.image >= 0) images.insert(p.image);
+        kept += (p.image == COMBINE_KEPT);
     }
     const QString table = (plan.table == COMBINE_TABLE_GPT) ? tr("GPT") : tr("MBR");
-    QString msg = verify
-        ? tr("Write and verify successful.\n\nThe device holds a new %1 partition table with "
-             "%2 partitions from %3 images.").arg(table).arg(plan.placed.size()).arg(images.size())
-        : tr("Write successful.\n\nThe device holds a new %1 partition table with %2 "
-             "partitions from %3 images.").arg(table).arg(plan.placed.size()).arg(images.size());
+    QString msg;
+    if (plan.keepsTarget)
+    {
+        msg = (verify ? tr("Write and verify successful.") : tr("Write successful."))
+            + "\n\n" + tr("The device's %1 partition table now holds %2 partitions: %3 kept, "
+                           "and %4 new from %5 images.")
+                            .arg(table).arg(plan.partitionCount()).arg(kept)
+                            .arg(plan.partitionCount() - kept).arg(images.size());
+    }
+    else
+    {
+        msg = verify
+            ? tr("Write and verify successful.\n\nThe device holds a new %1 partition table with "
+                 "%2 partitions from %3 images.").arg(table).arg(plan.partitionCount()).arg(images.size())
+            : tr("Write successful.\n\nThe device holds a new %1 partition table with %2 "
+                 "partitions from %3 images.").arg(table).arg(plan.partitionCount()).arg(images.size());
+    }
     if (plan.table == COMBINE_TABLE_GPT)
     {
         msg += " " + tr("Its backup is already at the end of the device, so Windows has "
@@ -3007,12 +3074,12 @@ void MainWindow::runCombineToFile(const CombinePlan &plan, const QStringList &pa
     QSet<int> images;
     for (const CombinePlaced &p : plan.placed)
     {
-        images.insert(p.image);
+        if (p.image >= 0) images.insert(p.image);
     }
     const QString table = (plan.table == COMBINE_TABLE_GPT) ? tr("GPT") : tr("MBR");
     QString msg = (verify ? tr("Write and verify successful.") : tr("Write successful."))
         + "\n\n" + tr("%1 holds a %2 partition table with %3 partitions from %4 images.")
-              .arg(QDir::toNativeSeparators(path), table).arg(plan.placed.size()).arg(images.size());
+              .arg(QDir::toNativeSeparators(path), table).arg(plan.partitionCount()).arg(images.size());
     if (plan.table == COMBINE_TABLE_GPT)
     {
         msg += " " + tr("Its backup GPT ends the image; \"Fix GPT after write\" moves it to the "

@@ -553,23 +553,81 @@ static bool typeOnTable(const ImageLayout &img, const CombinePartition &p, Combi
     return true;
 }
 
+int CombinePlan::partitionCount() const
+{
+    int n = 0;
+    for (const CombinePlaced &p : placed)
+    {
+        n += (p.image != COMBINE_FREE);
+    }
+    return n;
+}
+
 bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &choices,
                  int leadimage, unsigned long long ss,
                  unsigned long long devicesectors, unsigned long long alignsectors,
-                 bool newguids, CombinePlan *plan, QString *detail)
+                 bool newguids, CombinePlan *plan, QString *detail,
+                 const ImageLayout *target)
 {
     auto fail = [&](const QString &why) { if (detail) *detail = why; return false; };
     if (ss < 512 || alignsectors == 0)
     {
         return fail(QObject::tr("the device geometry is not usable"));
     }
-    if (choices.isEmpty())
+    if (target)
     {
-        return fail(QObject::tr("no partitions are chosen"));
+        if (target->table == COMBINE_TABLE_NONE)
+        {
+            return fail(QObject::tr("the device has no partition table to keep"));
+        }
+        if (leadimage >= 0)
+        {
+            return fail(QObject::tr("a lead-in cannot be used while the device keeps its "
+                                    "own partitions"));
+        }
+        if (devicesectors == 0)
+        {
+            return fail(QObject::tr("only a device can keep its own partitions"));
+        }
     }
+    // The partitions among the choices, new and kept; free space is neither.
+    int newcount = 0, keptcount = 0;
     QSet<QPair<int, int>> seen;
+    QSet<int> keptseen;
+    bool anykept = false;
+    unsigned long long lastkept = 0;
     for (const CombineChoice &c : choices)
     {
+        if (c.image == COMBINE_FREE)
+        {
+            if (c.sectors == 0)
+            {
+                return fail(QObject::tr("a free space has no size"));
+            }
+            continue;
+        }
+        if (c.image == COMBINE_KEPT)
+        {
+            if (!target || c.partition < 0 || c.partition >= target->partitions.size())
+            {
+                return fail(QObject::tr("a chosen partition does not exist"));
+            }
+            if (keptseen.contains(c.partition))
+            {
+                return fail(QObject::tr("a partition is chosen twice"));
+            }
+            keptseen.insert(c.partition);
+            const unsigned long long first = target->partitions[c.partition].first;
+            if (anykept && first < lastkept)
+            {
+                return fail(QObject::tr("the device's own partitions must stay in the order "
+                                        "they are on it"));
+            }
+            anykept = true;
+            lastkept = first;
+            ++keptcount;
+            continue;
+        }
         if (c.image < 0 || c.image >= images.size() || c.partition < 0
             || c.partition >= images[c.image].partitions.size())
         {
@@ -585,6 +643,11 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
             return fail(QObject::tr("the size of an image with no partition table is not "
                                     "known: scan it first"));
         }
+        ++newcount;
+    }
+    if (newcount + keptcount == 0)
+    {
+        return fail(QObject::tr("no partitions are chosen"));
     }
     const ImageLayout *lead = NULL;
     if (leadimage >= 0)
@@ -595,44 +658,55 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
         }
         lead = &images[leadimage];
     }
+    // Where the table's geometry, disk GUID and boot code come from.
+    const ImageLayout *base = target ? target : lead;
 
     // The kind of table.
     CombineTable table;
-    if (lead)
+    if (base)
     {
-        table = lead->table;
+        table = base->table;
     }
     else
     {
-        bool allmbr = choices.size() <= 4;
+        bool allmbr = newcount <= 4;
         for (const CombineChoice &c : choices)
         {
-            allmbr = allmbr && images[c.image].table != COMBINE_TABLE_GPT;
+            allmbr = allmbr && (c.image < 0 || images[c.image].table != COMBINE_TABLE_GPT);
         }
         table = allmbr ? COMBINE_TABLE_MBR : COMBINE_TABLE_GPT;
     }
-    if (table == COMBINE_TABLE_MBR && choices.size() > 4)
+    const int partcount = newcount + keptcount;
+    if (table == COMBINE_TABLE_MBR && partcount > 4)
     {
         return fail(QObject::tr("an MBR holds at most four partitions, and %1 are chosen")
-                        .arg(choices.size()));
+                        .arg(partcount));
     }
 
-    // Each choice's type on that table, before anything is laid out.
+    // Each new partition's type on that table, before anything is laid out;
+    // one entry per choice.
     QList<unsigned char> mbrtypes;
     QList<QByteArray> gpttypes;
     int extendedcount = 0;
     for (const CombineChoice &c : choices)
     {
-        const ImageLayout &img = images[c.image];
-        const CombinePartition &p = img.partitions[c.partition];
         unsigned char mt = 0;
         QByteArray gt;
-        QString why;
-        if (!typeOnTable(img, p, table, &mt, &gt, &why))
+        if (c.image >= 0)
         {
-            return fail(why);
+            const ImageLayout &img = images[c.image];
+            QString why;
+            if (!typeOnTable(img, img.partitions[c.partition], table, &mt, &gt, &why))
+            {
+                return fail(why);
+            }
         }
-        if (table == COMBINE_TABLE_MBR && isExtended(mt) && ++extendedcount > 1)
+        else if (c.image == COMBINE_KEPT && table == COMBINE_TABLE_MBR)
+        {
+            mt = target->partitions[c.partition].mbrType;
+        }
+        if (table == COMBINE_TABLE_MBR && c.image != COMBINE_FREE && isExtended(mt)
+            && ++extendedcount > 1)
         {
             return fail(QObject::tr("an MBR can hold only one extended partition"));
         }
@@ -640,22 +714,23 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
         gpttypes.append(gt);
     }
 
-    // The table's geometry: the lead-in image's, so its lead-in stays where
-    // it was; otherwise the usual 128 entries at LBA 2.
+    // The table's geometry: the kept device's, or the lead-in image's, so
+    // its lead-in stays where it was; otherwise the usual 128 entries at
+    // LBA 2.
     unsigned long long entrylba = 0, numentries = 0, entrysize = 0, entrysectors = 0;
     unsigned long long tableend, firstusable;
     if (table == COMBINE_TABLE_GPT)
     {
-        entrylba = lead ? lead->entryLba : 2;
-        numentries = lead ? lead->numEntries : 128;
-        entrysize = lead ? lead->entrySize : E_SIZE;
+        entrylba = base ? base->entryLba : 2;
+        numentries = base ? base->numEntries : 128;
+        entrysize = base ? base->entrySize : E_SIZE;
         entrysectors = (numentries * entrysize + ss - 1) / ss;
         tableend = entrylba + entrysectors;
-        firstusable = lead ? lead->firstUsable : tableend;
-        if ((unsigned long long)choices.size() > numentries)
+        firstusable = base ? base->firstUsable : tableend;
+        if ((unsigned long long)partcount > numentries)
         {
             return fail(QObject::tr("the GPT has room for %1 partitions, and %2 are chosen")
-                            .arg(numentries).arg(choices.size()));
+                            .arg(numentries).arg(partcount));
         }
     }
     else
@@ -664,9 +739,45 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
         firstusable = 1;
     }
 
-    // The lead-in, and where packing starts.
+    // Entry slots: a kept partition keeps its own, so the device's partitions
+    // keep their numbers; the new ones take the lowest free slots, in order.
+    QList<int> entryslot;
+    {
+        QSet<int> taken;
+        for (const CombineChoice &c : choices)
+        {
+            if (c.image == COMBINE_KEPT)
+            {
+                taken.insert(target->partitions[c.partition].slot);
+            }
+        }
+        int next = 0;
+        for (const CombineChoice &c : choices)
+        {
+            if (c.image == COMBINE_KEPT)
+            {
+                entryslot.append(target->partitions[c.partition].slot);
+            }
+            else if (c.image == COMBINE_FREE)
+            {
+                entryslot.append(-1);
+            }
+            else
+            {
+                while (taken.contains(next))
+                {
+                    ++next;
+                }
+                entryslot.append(next++);
+            }
+        }
+    }
+
+    // The lead-in, where the layout starts, and the lowest a new partition
+    // may go. A kept device keeps the space before its first partition as a
+    // lead-in's is kept, since a bootloader may be stored there.
     QList<CombineRange> ranges;
-    unsigned long long cursor;
+    unsigned long long cursor, floor;
     if (lead)
     {
         const unsigned long long keepend = leadingKeepEnd(lead->tableEnd, lead->leadEnd,
@@ -677,28 +788,61 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
                                        keepend - lead->tableEnd});
         }
         cursor = keepend;
+        floor = keepend;
     }
     else
     {
-        cursor = alignUp(qMax(tableend, firstusable), alignsectors);
+        cursor = tableend;
+        floor = alignUp(qMax(tableend, firstusable), alignsectors);
+        if (target)
+        {
+            floor = qMax(floor, leadingKeepEnd(target->tableEnd, target->leadEnd,
+                                               target->firstUsable, ss, alignsectors));
+        }
     }
 
-    // The partitions, in the order chosen.
+    // The layout, in the order chosen.
     QList<CombinePlaced> placed;
+    bool atleadend = (lead != NULL);
     for (int i = 0; i < choices.size(); ++i)
     {
         const CombineChoice &c = choices[i];
-        const CombinePartition &p = images[c.image].partitions[c.partition];
-        // With a lead-in the first goes right where it ends, aligned or not,
-        // as its own image had it; the rest on alignsectors boundaries.
-        const unsigned long long first = (i == 0 && lead) ? cursor : alignUp(cursor, alignsectors);
-        if (table == COMBINE_TABLE_MBR && (first > 0xFFFFFFFFull || p.sectors > 0xFFFFFFFFull))
+        if (c.image == COMBINE_KEPT)
         {
-            return fail(QObject::tr("the layout no longer fits a 32-bit MBR entry"));
+            const CombinePartition &p = target->partitions[c.partition];
+            if (p.first < cursor)
+            {
+                return fail(QObject::tr("there is %1 MB too little free space before the "
+                                        "device's partition %2, which is kept")
+                                .arg((cursor - p.first) * ss / 1000000ull + 1)
+                                .arg(p.slot + 1));
+            }
+            placed.append(CombinePlaced{COMBINE_KEPT, c.partition, entryslot[i], p.first, p.sectors});
+            cursor = p.first + p.sectors;
         }
-        ranges.append(CombineRange{c.image, p.first, first, p.sectors});
-        placed.append(CombinePlaced{c.image, c.partition, i, first, p.sectors});
-        cursor = first + p.sectors;
+        else if (c.image == COMBINE_FREE)
+        {
+            const unsigned long long first = qMax(cursor, floor);
+            placed.append(CombinePlaced{COMBINE_FREE, -1, -1, first, c.sectors});
+            cursor = first + c.sectors;
+        }
+        else
+        {
+            const CombinePartition &p = images[c.image].partitions[c.partition];
+            // Right after a lead-in, the first goes where it ends, aligned or
+            // not, as its own image had it; the rest on alignsectors
+            // boundaries.
+            const unsigned long long first = atleadend ? cursor
+                                                       : alignUp(qMax(cursor, floor), alignsectors);
+            if (table == COMBINE_TABLE_MBR && (first > 0xFFFFFFFFull || p.sectors > 0xFFFFFFFFull))
+            {
+                return fail(QObject::tr("the layout no longer fits a 32-bit MBR entry"));
+            }
+            ranges.append(CombineRange{c.image, p.first, first, p.sectors});
+            placed.append(CombinePlaced{c.image, c.partition, entryslot[i], first, p.sectors});
+            cursor = first + p.sectors;
+        }
+        atleadend = false;
     }
 
     // Does it fit? A GPT keeps its backup entry array and header at the end.
@@ -715,18 +859,25 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
                         .arg(devicesectors * ss / 1000000ull));
     }
 
-    // Duplicate unique GUIDs among the chosen GPT partitions.
+    // Duplicate unique GUIDs among the chosen GPT partitions. The kept ones
+    // come first: a copy of one of them is the one to give a new GUID.
     QStringList duplicates;
     QList<QByteArray> uniques;
     {
         QSet<QByteArray> have, reported;
         for (const CombineChoice &c : choices)
         {
-            const ImageLayout &img = images[c.image];
-            QByteArray u;
-            if (img.table == COMBINE_TABLE_GPT)
+            if (c.image == COMBINE_KEPT && table == COMBINE_TABLE_GPT)
             {
-                u = img.partitions[c.partition].entry.mid(E_UNIQUE, 16);
+                have.insert(target->partitions[c.partition].entry.mid(E_UNIQUE, 16));
+            }
+        }
+        for (const CombineChoice &c : choices)
+        {
+            QByteArray u;
+            if (c.image >= 0 && images[c.image].table == COMBINE_TABLE_GPT)
+            {
+                u = images[c.image].partitions[c.partition].entry.mid(E_UNIQUE, 16);
                 if (have.contains(u))
                 {
                     if (!reported.contains(u))
@@ -754,13 +905,18 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
     out.duplicateGuids = newguids ? QStringList() : duplicates;
     out.ranges = ranges;
     out.backupfirst = 0;
+    out.keepsTarget = (target != NULL);
+    if (target)
+    {
+        out.targetregion = target->tableRegion;
+    }
 
     if (table == COMBINE_TABLE_MBR)
     {
-        QByteArray region(lead ? lead->tableRegion.left((int)ss) : QByteArray((int)ss, 0));
+        QByteArray region(base ? base->tableRegion.left((int)ss) : QByteArray((int)ss, 0));
         region.resize((int)ss);
         unsigned char *m = (unsigned char *)region.data();
-        if (!lead)
+        if (!base)
         {
             // A disk signature of its own; Linux names MBR partitions by it
             // (PARTUUID=<signature>-<number>).
@@ -770,9 +926,20 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
         memset(m + M_TABLE, 0, 4 * M_SIZE);
         for (int i = 0; i < choices.size(); ++i)
         {
-            const ImageLayout &img = images[choices[i].image];
-            const CombinePartition &p = img.partitions[choices[i].partition];
-            unsigned char *e = m + M_TABLE + i * M_SIZE;
+            const CombineChoice &c = choices[i];
+            if (c.image == COMBINE_FREE)
+            {
+                continue;
+            }
+            unsigned char *e = m + M_TABLE + entryslot[i] * M_SIZE;
+            if (c.image == COMBINE_KEPT)
+            {
+                // As the device has it, CHS and all.
+                memcpy(e, target->partitions[c.partition].entry.constData(), M_SIZE);
+                continue;
+            }
+            const ImageLayout &img = images[c.image];
+            const CombinePartition &p = img.partitions[c.partition];
             bool boot = false;
             if (img.table == COMBINE_TABLE_MBR)
             {
@@ -801,17 +968,17 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
         const unsigned long long backupentries = lastlba - entrysectors;
         const unsigned long long lastusable = backupentries - 1;
 
-        QByteArray region = lead ? lead->tableRegion : QByteArray();
+        QByteArray region = base ? base->tableRegion : QByteArray();
         region.resize((int)(tableend * ss));
-        if (!lead)
+        if (!base)
         {
             region.fill(0);
         }
         unsigned char *r = (unsigned char *)region.data();
 
-        // Protective MBR: the lead-in's boot code and disk signature, one 0xEE
-        // entry over the whole device. Any hybrid entries the lead-in's MBR
-        // had described its own layout and are not kept.
+        // Protective MBR: the device's or the lead-in's boot code and disk
+        // signature, one 0xEE entry over the whole device. Any hybrid entries
+        // its MBR had described the old layout and are not kept.
         memset(r + M_TABLE, 0, 4 * M_SIZE);
         unsigned char *pe = r + M_TABLE;
         pe[1] = 0x00; pe[2] = 0x02; pe[3] = 0x00;
@@ -822,13 +989,24 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
         r[510] = 0x55;
         r[511] = 0xAA;
 
-        // Entries, in device order.
+        // Entries, each in its slot.
         QByteArray entries((int)(entrysectors * ss), 0);
         for (int i = 0; i < choices.size(); ++i)
         {
-            const ImageLayout &img = images[choices[i].image];
-            const CombinePartition &p = img.partitions[choices[i].partition];
-            unsigned char *e = (unsigned char *)entries.data() + i * entrysize;
+            const CombineChoice &c = choices[i];
+            if (c.image == COMBINE_FREE)
+            {
+                continue;
+            }
+            unsigned char *e = (unsigned char *)entries.data() + entryslot[i] * entrysize;
+            if (c.image == COMBINE_KEPT)
+            {
+                // As the device has it: type, GUID, range, attributes, name.
+                memcpy(e, target->partitions[c.partition].entry.constData(), E_SIZE);
+                continue;
+            }
+            const ImageLayout &img = images[c.image];
+            const CombinePartition &p = img.partitions[c.partition];
             if (img.table == COMBINE_TABLE_GPT)
             {
                 memcpy(e, p.entry.constData(), E_SIZE);
@@ -849,7 +1027,9 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
                                           (size_t)(numentries * entrysize));
 
         // Primary header, from scratch: nothing of an image's header but its
-        // disk GUID and entry geometry applies to a new device.
+        // disk GUID and entry geometry applies to a new device. A kept
+        // device's is rebuilt the same way, so its LastUsableLBA and backup
+        // are where its size puts them.
         QByteArray header((int)ss, 0);
         unsigned char *h = (unsigned char *)header.data();
         memcpy(h, "EFI PART", 8);
@@ -859,7 +1039,7 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
         wr64(h, H_ALTLBA, lastlba);
         wr64(h, H_FIRSTUSABLE, firstusable);
         wr64(h, H_LASTUSABLE, lastusable);
-        const QByteArray diskguid = (lead && lead->diskGuid.size() == 16) ? lead->diskGuid : newGuid();
+        const QByteArray diskguid = (base && base->diskGuid.size() == 16) ? base->diskGuid : newGuid();
         memcpy(h + H_DISKGUID, diskguid.constData(), 16);
         wr64(h, H_ENTRYLBA, entrylba);
         wr32(h, H_NUMENTRIES, numentries);

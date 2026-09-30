@@ -68,6 +68,30 @@
         <translation>Giù</translation>
     </message>
     <message>
+        <source>Free space:</source>
+        <translation>Spazio libero:</translation>
+    </message>
+    <message>
+        <source> MiB</source>
+        <translation> MiB</translation>
+    </message>
+    <message>
+        <source>How much unpartitioned space to insert, or, with free space selected in the order, how much it is. The partition after it still starts on a 1 MiB boundary.</source>
+        <translation>Quanto spazio non partizionato inserire oppure, se nell&apos;ordine è selezionato uno spazio libero, quanto è grande. La partizione successiva inizia comunque su un limite di 1 MiB.</translation>
+    </message>
+    <message>
+        <source>Insert</source>
+        <translation>Inserisci</translation>
+    </message>
+    <message>
+        <source>Leave this much unpartitioned space after the selected item of the order, or at the end.</source>
+        <translation>Lascia questo spazio non partizionato dopo l&apos;elemento selezionato dell&apos;ordine, oppure alla fine.</translation>
+    </message>
+    <message>
+        <source>Remove free space</source>
+        <translation>Rimuovi spazio libero</translation>
+    </message>
+    <message>
         <source>Lead-in from:</source>
         <translation>Area iniziale da:</translation>
     </message>
@@ -102,6 +126,14 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>Elenca anche i dischi fissi. I lettori di schede PCIe interni spesso presentano la scheda come dispositivo non rimovibile, che altrimenti resta nascosto. Il disco da cui è in esecuzione Windows non viene mai elencato.</translation>
+    </message>
+    <message>
+        <source>Keep the device&apos;s partitions</source>
+        <translation>Mantieni le partizioni del dispositivo</translation>
+    </message>
+    <message>
+        <source>Add to what the device holds instead of replacing it: its partitions stay where they are, untouched, and the new ones go into its free space, where the order puts them. Untick one of them in the order to take it out of the table; its space is then free. The table keeps its kind, and its backup GPT is moved to the end of the device.</source>
+        <translation>Aggiunge a ciò che il dispositivo contiene invece di sostituirlo: le sue partizioni restano dove sono, intatte, e quelle nuove vanno nel suo spazio libero, dove le colloca l&apos;ordine. Deseleziona una di esse nell&apos;ordine per toglierla dalla tabella; il suo spazio diventa così libero. La tabella mantiene il suo tipo e la sua GPT di riserva viene spostata alla fine del dispositivo.</translation>
     </message>
     <message>
         <source>An image file:</source>
@@ -146,6 +178,14 @@
     <message>
         <source>Disk %1: %2</source>
         <translation>Disco %1: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read: %2</source>
+        <translation>non è stato possibile leggere il disco %1: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 has no partition table to keep</source>
+        <translation>il disco %1 non ha una tabella delle partizioni da mantenere</translation>
     </message>
     <message>
         <source>Save the combined image as</source>
@@ -284,6 +324,22 @@ Eseguire ora la scansione?</translation>
         <translation>Nessuna: una nuova tabella vuota</translation>
     </message>
     <message>
+        <source>Free space: %1 MiB</source>
+        <translation>Spazio libero: %1 MiB</translation>
+    </message>
+    <message>
+        <source>This device, %1</source>
+        <translation>Questo dispositivo, %1</translation>
+    </message>
+    <message>
+        <source>%1 -- taken out of the table</source>
+        <translation>%1 -- tolta dalla tabella</translation>
+    </message>
+    <message>
+        <source>%1 -- kept</source>
+        <translation>%1 -- mantenuta</translation>
+    </message>
+    <message>
         <source>Tick the partitions to put on the device.</source>
         <translation>Seleziona le partizioni da mettere sul dispositivo.</translation>
     </message>
@@ -304,12 +360,24 @@ Eseguire ora la scansione?</translation>
         <translation>Area iniziale</translation>
     </message>
     <message>
+        <source>Free space</source>
+        <translation>Spazio libero</translation>
+    </message>
+    <message>
+        <source>%1, kept</source>
+        <translation>%1, mantenuta</translation>
+    </message>
+    <message>
         <source>Backup GPT</source>
         <translation>GPT di riserva</translation>
     </message>
     <message>
         <source>%1, %2 partitions: an image file of %3.</source>
         <translation>%1, %2 partizioni: un file immagine di %3.</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions, %3 of them kept: %4 used, %5 free of %6.</source>
+        <translation>%1, %2 partizioni, di cui %3 mantenute: %4 usati, %5 liberi su %6.</translation>
     </message>
     <message>
         <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
@@ -1267,6 +1335,30 @@ Riparare adesso la tabella delle partizioni?</translation>
         <translation>%1 si trova sul dispositivo di destinazione e non può esservi scritto.</translation>
     </message>
     <message>
+        <source>Confirm write</source>
+        <translation>Conferma la scrittura</translation>
+    </message>
+    <message>
+        <source>The device keeps the partitions ticked in the order, and they are not written to. Anything in its free space, and in the partitions taken out of its table, may be overwritten.
+(Target Device: %1)
+Are you sure you want to continue?</source>
+        <translation>Il dispositivo mantiene le partizioni selezionate nell&apos;ordine, che non vengono scritte. Tutto ciò che si trova nel suo spazio libero e nelle partizioni tolte dalla sua tabella potrebbe essere sovrascritto.
+(Dispositivo di destinazione: %1)
+Vuoi davvero continuare?</translation>
+    </message>
+    <message>
+        <source>%1 is mounted in Windows as %2.
+
+Its volumes are dismounted while it is written, and the device is ejected afterwards. The kept partitions are not changed.
+
+Write to this device anyway?</source>
+        <translation>%1 è montato in Windows come %2.
+
+I suoi volumi vengono smontati durante la scrittura e il dispositivo viene espulso al termine. Le partizioni mantenute non vengono modificate.
+
+Scrivere comunque su questo dispositivo?</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>L&apos;elenco dei dispositivi è cambiato durante la conferma. Controlla il dispositivo di destinazione e riprova.</translation>
     </message>
@@ -1287,6 +1379,14 @@ Riparare adesso la tabella delle partizioni?</translation>
         <translation>Il dispositivo è stato scritto parzialmente e non contiene più un layout utilizzabile. Scrivilo di nuovo prima di usarlo.</translation>
     </message>
     <message>
+        <source>The device&apos;s partition table has changed since Custom Partitioning read it. Open Custom Partitioning again to plan from what the device holds now.</source>
+        <translation>La tabella delle partizioni del dispositivo è cambiata da quando «Partizionamento personalizzato» l&apos;ha letta. Apri di nuovo «Partizionamento personalizzato» per pianificare in base a ciò che il dispositivo contiene ora.</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table has not been changed: it holds its partitions as before. Its free space may hold part of the new ones.</source>
+        <translation>La tabella delle partizioni del dispositivo non è stata modificata: contiene le stesse partizioni di prima. Il suo spazio libero potrebbe contenere parte di quelle nuove.</translation>
+    </message>
+    <message>
         <source>The partition table on the device does not match what was written.</source>
         <translation>La tabella delle partizioni sul dispositivo non corrisponde a quanto scritto.</translation>
     </message>
@@ -1297,6 +1397,10 @@ Riparare adesso la tabella delle partizioni?</translation>
     <message>
         <source>MBR</source>
         <translation>MBR</translation>
+    </message>
+    <message>
+        <source>The device&apos;s %1 partition table now holds %2 partitions: %3 kept, and %4 new from %5 images.</source>
+        <translation>La tabella delle partizioni %1 del dispositivo ora contiene %2 partizioni: %3 mantenute e %4 nuove da %5 immagini.</translation>
     </message>
     <message>
         <source>Write and verify successful.
@@ -1732,6 +1836,26 @@ Errore %2</translation>
         <translation>il tipo di partizione GPT %1 non ha un equivalente MBR</translation>
     </message>
     <message>
+        <source>the device has no partition table to keep</source>
+        <translation>il dispositivo non ha una tabella delle partizioni da mantenere</translation>
+    </message>
+    <message>
+        <source>a lead-in cannot be used while the device keeps its own partitions</source>
+        <translation>non è possibile usare un&apos;area iniziale se il dispositivo mantiene le proprie partizioni</translation>
+    </message>
+    <message>
+        <source>only a device can keep its own partitions</source>
+        <translation>solo un dispositivo può mantenere le proprie partizioni</translation>
+    </message>
+    <message>
+        <source>a free space has no size</source>
+        <translation>uno spazio libero non ha dimensione</translation>
+    </message>
+    <message>
+        <source>the device&apos;s own partitions must stay in the order they are on it</source>
+        <translation>le partizioni del dispositivo devono restare nell&apos;ordine in cui si trovano su di esso</translation>
+    </message>
+    <message>
         <source>no partitions are chosen</source>
         <translation>non è stata scelta alcuna partizione</translation>
     </message>
@@ -1762,6 +1886,10 @@ Errore %2</translation>
     <message>
         <source>the GPT has room for %1 partitions, and %2 are chosen</source>
         <translation>la GPT ha spazio per %1 partizioni, e ne sono state scelte %2</translation>
+    </message>
+    <message>
+        <source>there is %1 MB too little free space before the device&apos;s partition %2, which is kept</source>
+        <translation>mancano %1 MB di spazio libero prima della partizione %2 del dispositivo, che viene mantenuta</translation>
     </message>
     <message>
         <source>the layout no longer fits a 32-bit MBR entry</source>

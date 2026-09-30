@@ -92,12 +92,22 @@ bool parseImageLayout(const QByteArray &head, unsigned long long sectorsize,
                       unsigned long long imagesectors, ImageLayout *layout,
                       unsigned long long *needsectors, QString *detail);
 
-// One partition chosen for the device: partition index into
-// images[image].partitions.
+// What a CombineChoice's image is when it is not an image.
+enum
+{
+    COMBINE_FREE = -2,              // unpartitioned space, `sectors` of it
+    COMBINE_KEPT = -3               // one of the target device's own partitions
+};
+
+// One item of the layout, in order: a partition chosen for the device,
+// partition index into images[image].partitions; unpartitioned space; or,
+// when the target keeps its partitions, one of them, partition index into
+// the target's.
 struct CombineChoice
 {
     int image;
     int partition;
+    unsigned long long sectors = 0; // COMBINE_FREE: how much
 };
 
 // A run of sectors to copy: [srcfirst, srcfirst + length) of image `image`
@@ -110,12 +120,12 @@ struct CombineRange
     unsigned long long length;
 };
 
-// One partition as the device will have it, for the preview.
+// One item of the layout as the device will have it, for the preview.
 struct CombinePlaced
 {
-    int image;                      // -1 for the lead-in
+    int image;                      // or COMBINE_FREE, or COMBINE_KEPT, as chosen
     int partition;
-    int slot;                       // entry index on the device
+    int slot;                       // entry index on the device; -1 for free space
     unsigned long long first;
     unsigned long long sectors;
 };
@@ -141,9 +151,17 @@ struct CombinePlan
     // usedsectors, then the backup GPT if there is one.
     unsigned long long totalsectors;
     QList<CombinePlaced> placed;
+    // How many of placed are partitions: the new ones and the kept ones.
+    int partitionCount() const;
     // Unique partition GUIDs that two or more chosen GPT partitions share,
     // as text, each once. Empty after planning with newguids set.
     QStringList duplicateGuids;
+    // Planned with a target to keep: the device already holds the kept
+    // partitions, and must not be cleared before the new ones are written.
+    // targetregion is its table region as planned from, to check it has not
+    // changed since.
+    bool keepsTarget = false;
+    QByteArray targetregion;
 };
 
 // Plans the device: the chosen partitions in the order given, each aligned to
@@ -165,12 +183,25 @@ struct CombinePlan
 // devicesectors 0 plans an image file instead of a device: exactly as big as
 // the layout, its backup GPT, if any, in its last sectors.
 //
+// Free space (COMBINE_FREE) pushes what follows it along by at least its
+// size; the next partition is still aligned.
+//
+// target, when given, is the device's own layout, which the plan adds to
+// rather than replaces: its partitions chosen as COMBINE_KEPT stay exactly
+// where they are, in their entry slots, and are never written; the rest of
+// its entries are dropped, their space free. The new partitions go between
+// them, where the order puts them, and must fit. The table keeps the
+// device's kind, geometry, disk GUID and boot code, and gets its backup at
+// the end of the device. A lead-in cannot be used with it; the space before
+// the device's first partition is kept as a lead-in's is.
+//
 // Returns false, with *detail saying why, when the choices cannot be laid out
 // or do not fit devicesectors.
 bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &choices,
                  int leadimage, unsigned long long sectorsize,
                  unsigned long long devicesectors, unsigned long long alignsectors,
-                 bool newguids, CombinePlan *plan, QString *detail);
+                 bool newguids, CombinePlan *plan, QString *detail,
+                 const ImageLayout *target = NULL);
 
 // A GPT GUID (16 bytes, mixed-endian) as text, as the tools print it.
 QString gptGuidText(const QByteArray &guid);

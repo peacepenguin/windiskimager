@@ -68,6 +68,30 @@
         <translation>下へ</translation>
     </message>
     <message>
+        <source>Free space:</source>
+        <translation>空き領域:</translation>
+    </message>
+    <message>
+        <source> MiB</source>
+        <translation> MiB</translation>
+    </message>
+    <message>
+        <source>How much unpartitioned space to insert, or, with free space selected in the order, how much it is. The partition after it still starts on a 1 MiB boundary.</source>
+        <translation>挿入する未割り当て領域のサイズ、または順番で空き領域を選択している場合はそのサイズです。その後のパーティションは、それでも 1 MiB 境界から始まります。</translation>
+    </message>
+    <message>
+        <source>Insert</source>
+        <translation>挿入</translation>
+    </message>
+    <message>
+        <source>Leave this much unpartitioned space after the selected item of the order, or at the end.</source>
+        <translation>順番で選択した項目の後、または末尾に、このサイズの未割り当て領域を残します。</translation>
+    </message>
+    <message>
+        <source>Remove free space</source>
+        <translation>空き領域を削除</translation>
+    </message>
+    <message>
         <source>Lead-in from:</source>
         <translation>先頭領域の取得元:</translation>
     </message>
@@ -102,6 +126,14 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>固定ディスクも一覧に表示します。内蔵 PCIe カードリーダーはカードをリムーバブルでないデバイスとして見せることが多く、その場合は通常表示されません。Windows が起動しているディスクが一覧に出ることはありません。</translation>
+    </message>
+    <message>
+        <source>Keep the device&apos;s partitions</source>
+        <translation>デバイスのパーティションを保持</translation>
+    </message>
+    <message>
+        <source>Add to what the device holds instead of replacing it: its partitions stay where they are, untouched, and the new ones go into its free space, where the order puts them. Untick one of them in the order to take it out of the table; its space is then free. The table keeps its kind, and its backup GPT is moved to the end of the device.</source>
+        <translation>デバイスの内容を置き換えずに追加します: 既存のパーティションはそのままの位置に変更されずに残り、新しいパーティションは順番で指定された位置の空き領域に配置されます。順番で既存のパーティションのチェックを外すと、テーブルから外され、その領域は空きになります。テーブルの種類は変わらず、バックアップ GPT はデバイスの末尾に移動されます。</translation>
     </message>
     <message>
         <source>An image file:</source>
@@ -146,6 +178,14 @@
     <message>
         <source>Disk %1: %2</source>
         <translation>ディスク %1: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read: %2</source>
+        <translation>ディスク %1 を読み取れませんでした: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 has no partition table to keep</source>
+        <translation>ディスク %1 には保持するパーティションテーブルがありません</translation>
     </message>
     <message>
         <source>Save the combined image as</source>
@@ -284,6 +324,22 @@ Scan it now?</source>
         <translation>無し: 新しい空のテーブル</translation>
     </message>
     <message>
+        <source>Free space: %1 MiB</source>
+        <translation>空き領域: %1 MiB</translation>
+    </message>
+    <message>
+        <source>This device, %1</source>
+        <translation>このデバイス、%1</translation>
+    </message>
+    <message>
+        <source>%1 -- taken out of the table</source>
+        <translation>%1 -- テーブルから除外</translation>
+    </message>
+    <message>
+        <source>%1 -- kept</source>
+        <translation>%1 -- 保持</translation>
+    </message>
+    <message>
         <source>Tick the partitions to put on the device.</source>
         <translation>デバイスに配置するパーティションにチェックを付けてください。</translation>
     </message>
@@ -304,12 +360,24 @@ Scan it now?</source>
         <translation>先頭領域</translation>
     </message>
     <message>
+        <source>Free space</source>
+        <translation>空き領域</translation>
+    </message>
+    <message>
+        <source>%1, kept</source>
+        <translation>%1、保持</translation>
+    </message>
+    <message>
         <source>Backup GPT</source>
         <translation>バックアップ GPT</translation>
     </message>
     <message>
         <source>%1, %2 partitions: an image file of %3.</source>
         <translation>%1、%2 個のパーティション: %3 のイメージファイル。</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions, %3 of them kept: %4 used, %5 free of %6.</source>
+        <translation>%1、%2 個のパーティション (うち %3 個を保持): %6 のうち %4 使用、%5 空き。</translation>
     </message>
     <message>
         <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
@@ -1207,6 +1275,30 @@ Repair the partition table now?</source>
         <translation>%1 は書き込み先のデバイス上にあるため、そのデバイスに書き込むことはできません。</translation>
     </message>
     <message>
+        <source>Confirm write</source>
+        <translation>書き込みの確認</translation>
+    </message>
+    <message>
+        <source>The device keeps the partitions ticked in the order, and they are not written to. Anything in its free space, and in the partitions taken out of its table, may be overwritten.
+(Target Device: %1)
+Are you sure you want to continue?</source>
+        <translation>デバイスは順番でチェックを付けたパーティションを保持し、それらには書き込みません。空き領域と、テーブルから外したパーティションにあるものは上書きされる可能性があります。
+(書き込み先デバイス: %1)
+本当に続行してもよろしいですか？</translation>
+    </message>
+    <message>
+        <source>%1 is mounted in Windows as %2.
+
+Its volumes are dismounted while it is written, and the device is ejected afterwards. The kept partitions are not changed.
+
+Write to this device anyway?</source>
+        <translation>%1 は Windows で %2 としてマウントされています。
+
+書き込み中はボリュームがマウント解除され、書き込み後にデバイスは取り出されます。保持するパーティションは変更されません。
+
+それでもこのデバイスに書き込みますか？</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>確認中にデバイスの一覧が変わりました。書き込み先のデバイスを確認して、もう一度お試しください。</translation>
     </message>
@@ -1227,8 +1319,16 @@ Repair the partition table now?</source>
         <translation>デバイスは途中まで書き込まれており、使用可能なレイアウトではなくなっています。使用する前にもう一度書き込んでください。</translation>
     </message>
     <message>
+        <source>The device&apos;s partition table has changed since Custom Partitioning read it. Open Custom Partitioning again to plan from what the device holds now.</source>
+        <translation>「カスタムパーティション」が読み取った後に、デバイスのパーティションテーブルが変更されました。現在のデバイスの内容に基づいて計画するには、「カスタムパーティション」を開き直してください。</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>書き込み中…</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table has not been changed: it holds its partitions as before. Its free space may hold part of the new ones.</source>
+        <translation>デバイスのパーティションテーブルは変更されていません: パーティションは以前のままです。空き領域には新しいパーティションの一部が含まれている可能性があります。</translation>
     </message>
     <message>
         <source>The partition table on the device does not match what was written.</source>
@@ -1241,6 +1341,10 @@ Repair the partition table now?</source>
     <message>
         <source>MBR</source>
         <translation>MBR</translation>
+    </message>
+    <message>
+        <source>The device&apos;s %1 partition table now holds %2 partitions: %3 kept, and %4 new from %5 images.</source>
+        <translation>デバイスの %1 パーティションテーブルには現在 %2 個のパーティションがあります: 保持 %3 個、%5 個のイメージからの新規 %4 個。</translation>
     </message>
     <message>
         <source>Write and verify successful.
@@ -1774,6 +1878,26 @@ Error %2</source>
         <translation>GPT パーティションの種類 %1 には対応する MBR の種類がありません</translation>
     </message>
     <message>
+        <source>the device has no partition table to keep</source>
+        <translation>デバイスには保持するパーティションテーブルがありません</translation>
+    </message>
+    <message>
+        <source>a lead-in cannot be used while the device keeps its own partitions</source>
+        <translation>デバイスが自身のパーティションを保持している間は先頭領域を使用できません</translation>
+    </message>
+    <message>
+        <source>only a device can keep its own partitions</source>
+        <translation>自身のパーティションを保持できるのはデバイスだけです</translation>
+    </message>
+    <message>
+        <source>a free space has no size</source>
+        <translation>空き領域のサイズが指定されていません</translation>
+    </message>
+    <message>
+        <source>the device&apos;s own partitions must stay in the order they are on it</source>
+        <translation>デバイス自身のパーティションは、デバイス上と同じ順番のままにする必要があります</translation>
+    </message>
+    <message>
         <source>no partitions are chosen</source>
         <translation>パーティションが選択されていません</translation>
     </message>
@@ -1804,6 +1928,10 @@ Error %2</source>
     <message>
         <source>the GPT has room for %1 partitions, and %2 are chosen</source>
         <translation>GPT に入るパーティションは %1 個までですが、%2 個選択されています</translation>
+    </message>
+    <message>
+        <source>there is %1 MB too little free space before the device&apos;s partition %2, which is kept</source>
+        <translation>保持するデバイスのパーティション %2 の前の空き領域が %1 MB 不足しています</translation>
     </message>
     <message>
         <source>the layout no longer fits a 32-bit MBR entry</source>

@@ -68,6 +68,30 @@
         <translation>W dół</translation>
     </message>
     <message>
+        <source>Free space:</source>
+        <translation>Wolne miejsce:</translation>
+    </message>
+    <message>
+        <source> MiB</source>
+        <translation> MiB</translation>
+    </message>
+    <message>
+        <source>How much unpartitioned space to insert, or, with free space selected in the order, how much it is. The partition after it still starts on a 1 MiB boundary.</source>
+        <translation>Ile niepartycjonowanego miejsca wstawić lub, gdy w kolejności zaznaczone jest wolne miejsce, ile go jest. Następna partycja i tak zaczyna się na granicy 1 MiB.</translation>
+    </message>
+    <message>
+        <source>Insert</source>
+        <translation>Wstaw</translation>
+    </message>
+    <message>
+        <source>Leave this much unpartitioned space after the selected item of the order, or at the end.</source>
+        <translation>Zostaw tyle niepartycjonowanego miejsca za zaznaczonym elementem kolejności albo na końcu.</translation>
+    </message>
+    <message>
+        <source>Remove free space</source>
+        <translation>Usuń wolne miejsce</translation>
+    </message>
+    <message>
         <source>Lead-in from:</source>
         <translation>Obszar początkowy z:</translation>
     </message>
@@ -102,6 +126,14 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>Wyświetlaj także dyski stałe. Wewnętrzne czytniki kart PCIe często przedstawiają kartę jako urządzenie niewymienne, które w przeciwnym razie jest ukryte. Dysk, z którego uruchomiony jest Windows, nigdy nie jest wyświetlany.</translation>
+    </message>
+    <message>
+        <source>Keep the device&apos;s partitions</source>
+        <translation>Zachowaj partycje urządzenia</translation>
+    </message>
+    <message>
+        <source>Add to what the device holds instead of replacing it: its partitions stay where they are, untouched, and the new ones go into its free space, where the order puts them. Untick one of them in the order to take it out of the table; its space is then free. The table keeps its kind, and its backup GPT is moved to the end of the device.</source>
+        <translation>Dodaje do tego, co jest na urządzeniu, zamiast to zastępować: jego partycje zostają tam, gdzie są, nietknięte, a nowe trafiają do jego wolnego miejsca, tam gdzie umieszcza je kolejność. Odznacz jedną z nich w kolejności, aby usunąć ją z tablicy; jej miejsce staje się wtedy wolne. Tablica zachowuje swój typ, a jej zapasowy GPT zostaje przeniesiony na koniec urządzenia.</translation>
     </message>
     <message>
         <source>An image file:</source>
@@ -146,6 +178,14 @@
     <message>
         <source>Disk %1: %2</source>
         <translation>Dysk %1: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read: %2</source>
+        <translation>nie udało się odczytać dysku %1: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 has no partition table to keep</source>
+        <translation>dysk %1 nie ma tablicy partycji do zachowania</translation>
     </message>
     <message>
         <source>Save the combined image as</source>
@@ -284,6 +324,22 @@ Zeskanować teraz?</translation>
         <translation>Brak: nowa, pusta tablica</translation>
     </message>
     <message>
+        <source>Free space: %1 MiB</source>
+        <translation>Wolne miejsce: %1 MiB</translation>
+    </message>
+    <message>
+        <source>This device, %1</source>
+        <translation>To urządzenie, %1</translation>
+    </message>
+    <message>
+        <source>%1 -- taken out of the table</source>
+        <translation>%1 -- usunięta z tablicy</translation>
+    </message>
+    <message>
+        <source>%1 -- kept</source>
+        <translation>%1 -- zachowana</translation>
+    </message>
+    <message>
         <source>Tick the partitions to put on the device.</source>
         <translation>Zaznacz partycje, które mają trafić na urządzenie.</translation>
     </message>
@@ -304,12 +360,24 @@ Zeskanować teraz?</translation>
         <translation>Obszar początkowy</translation>
     </message>
     <message>
+        <source>Free space</source>
+        <translation>Wolne miejsce</translation>
+    </message>
+    <message>
+        <source>%1, kept</source>
+        <translation>%1, zachowana</translation>
+    </message>
+    <message>
         <source>Backup GPT</source>
         <translation>Zapasowy GPT</translation>
     </message>
     <message>
         <source>%1, %2 partitions: an image file of %3.</source>
         <translation>%1, partycje: %2; plik obrazu o rozmiarze %3.</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions, %3 of them kept: %4 used, %5 free of %6.</source>
+        <translation>%1, partycje: %2, zachowane: %3; zajęte %4, wolne %5 z %6.</translation>
     </message>
     <message>
         <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
@@ -1208,6 +1276,30 @@ Naprawić tablicę partycji teraz?</translation>
         <translation>%1 znajduje się na urządzeniu docelowym i nie może zostać na nie zapisany.</translation>
     </message>
     <message>
+        <source>Confirm write</source>
+        <translation>Potwierdź zapis</translation>
+    </message>
+    <message>
+        <source>The device keeps the partitions ticked in the order, and they are not written to. Anything in its free space, and in the partitions taken out of its table, may be overwritten.
+(Target Device: %1)
+Are you sure you want to continue?</source>
+        <translation>Urządzenie zachowuje partycje zaznaczone w kolejności i nic nie jest na nie zapisywane. Wszystko, co znajduje się w jego wolnym miejscu oraz w partycjach usuniętych z jego tablicy, może zostać nadpisane.
+(Urządzenie docelowe: %1)
+Czy na pewno chcesz kontynuować?</translation>
+    </message>
+    <message>
+        <source>%1 is mounted in Windows as %2.
+
+Its volumes are dismounted while it is written, and the device is ejected afterwards. The kept partitions are not changed.
+
+Write to this device anyway?</source>
+        <translation>%1 jest zamontowane w systemie Windows jako %2.
+
+Na czas zapisu jego woluminy zostaną odmontowane, a po zakończeniu urządzenie zostanie wysunięte. Zachowane partycje nie zostaną zmienione.
+
+Zapisać mimo to na tym urządzeniu?</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>Lista urządzeń zmieniła się podczas potwierdzania. Sprawdź urządzenie docelowe i spróbuj ponownie.</translation>
     </message>
@@ -1228,8 +1320,16 @@ Naprawić tablicę partycji teraz?</translation>
         <translation>Urządzenie zostało zapisane częściowo i nie zawiera już użytecznego układu. Zapisz je ponownie przed użyciem.</translation>
     </message>
     <message>
+        <source>The device&apos;s partition table has changed since Custom Partitioning read it. Open Custom Partitioning again to plan from what the device holds now.</source>
+        <translation>Tablica partycji urządzenia zmieniła się od czasu, gdy odczytało ją okno &quot;Partycjonowanie niestandardowe&quot;. Otwórz ponownie &quot;Partycjonowanie niestandardowe&quot;, aby zaplanować układ na podstawie tego, co jest teraz na urządzeniu.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Zapisywanie…</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table has not been changed: it holds its partitions as before. Its free space may hold part of the new ones.</source>
+        <translation>Tablica partycji urządzenia nie została zmieniona: zawiera te same partycje co wcześniej. Jego wolne miejsce może zawierać część nowych.</translation>
     </message>
     <message>
         <source>The partition table on the device does not match what was written.</source>
@@ -1242,6 +1342,10 @@ Naprawić tablicę partycji teraz?</translation>
     <message>
         <source>MBR</source>
         <translation>MBR</translation>
+    </message>
+    <message>
+        <source>The device&apos;s %1 partition table now holds %2 partitions: %3 kept, and %4 new from %5 images.</source>
+        <translation>Tablica partycji %1 urządzenia zawiera teraz partycje: %2; zachowane: %3, nowe: %4 (obrazy: %5).</translation>
     </message>
     <message>
         <source>Write and verify successful.
@@ -1777,6 +1881,26 @@ Błąd %2</translation>
         <translation>typ partycji GPT %1 nie ma odpowiednika MBR</translation>
     </message>
     <message>
+        <source>the device has no partition table to keep</source>
+        <translation>urządzenie nie ma tablicy partycji do zachowania</translation>
+    </message>
+    <message>
+        <source>a lead-in cannot be used while the device keeps its own partitions</source>
+        <translation>nie można użyć obszaru początkowego, gdy urządzenie zachowuje własne partycje</translation>
+    </message>
+    <message>
+        <source>only a device can keep its own partitions</source>
+        <translation>tylko urządzenie może zachować własne partycje</translation>
+    </message>
+    <message>
+        <source>a free space has no size</source>
+        <translation>wolne miejsce nie ma rozmiaru</translation>
+    </message>
+    <message>
+        <source>the device&apos;s own partitions must stay in the order they are on it</source>
+        <translation>własne partycje urządzenia muszą pozostać w takiej kolejności, w jakiej są na nim</translation>
+    </message>
+    <message>
         <source>no partitions are chosen</source>
         <translation>nie wybrano żadnych partycji</translation>
     </message>
@@ -1807,6 +1931,10 @@ Błąd %2</translation>
     <message>
         <source>the GPT has room for %1 partitions, and %2 are chosen</source>
         <translation>GPT ma miejsce na %1 partycji, a wybrano: %2</translation>
+    </message>
+    <message>
+        <source>there is %1 MB too little free space before the device&apos;s partition %2, which is kept</source>
+        <translation>przed partycją %2 urządzenia, która jest zachowywana, brakuje %1 MB wolnego miejsca</translation>
     </message>
     <message>
         <source>the layout no longer fits a 32-bit MBR entry</source>

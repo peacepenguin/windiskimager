@@ -22,6 +22,7 @@
 
 #include <QDialog>
 #include <QMap>
+#include <QSet>
 #include <QStringList>
 #include <functional>
 #include "combine.h"
@@ -45,8 +46,10 @@ class QComboBox;
 class QLabel;
 class QLineEdit;
 class QListWidget;
+class QListWidgetItem;
 class QPushButton;
 class QRadioButton;
+class QSpinBox;
 class QTreeWidget;
 class QTreeWidgetItem;
 
@@ -104,6 +107,12 @@ public:
     // The disks among the sources the plan reads from, by number.
     QList<int> sourceDisks() const;
     bool verifyAfter() const;
+    // Whether the device keeps its own partitions: plan() adds to its table
+    // rather than replacing it.
+    bool keepsDevice() const;
+    // Where disk n is read from to keep its partitions:
+    // ImageSource::devicePath(n), unless the harness stands a file in for it.
+    void setDiskPath(std::function<QString(int n)> path) { myDiskPath = path; }
 
 private slots:
     void addImages();
@@ -112,6 +121,12 @@ private slots:
     void scanImage();
     void moveUp();
     void moveDown();
+    void addFree();
+    void removeFree();
+    void freeSizeChanged(int mib);
+    void orderItemChanged(QListWidgetItem *item);
+    void orderRowChanged(int row);
+    void keepChanged();
     void itemChanged(QTreeWidgetItem *item, int column);
     void browseOutput();
     void destinationChanged();
@@ -141,6 +156,11 @@ private:
     };
 
     bool loadImage(const QString &path, Source *src, QString *why);
+    // Windows' partition numbers and drive letters for disk `number`.
+    void numberDisk(int number, Source *src) const;
+    // Reads the chosen device's table into myTarget and puts its partitions
+    // in the order, when keeping it; takes them out when not.
+    void loadTarget();
     // Adds disk `number` as a source; reports if it cannot be read.
     void addDisk(int number, const QString &label);
     // Reads the whole image, to learn its exact size and that it decompresses.
@@ -155,7 +175,13 @@ private:
     // "Partition 3: boot (E:)": the number Windows gives it on a disk
     // (diskpart's), else its table slot's, then its name and drive letter.
     QString partitionLabel(int image, int partition) const;
+    static QString partitionLabel(const Source &s, int partition);
     QString partitionText(int image, int partition) const;
+    // How an item of the order is listed.
+    QString orderText(const CombineChoice &c) const;
+    // Whether rows a and b of the order may trade places: two of the
+    // device's own partitions cannot, since neither moves.
+    bool canSwap(int a, int b) const;
     QString sizeText(unsigned long long sectors) const;
 
     CombineDeviceLister myListDevices;
@@ -171,7 +197,15 @@ private:
     QStringList myFilters;
 
     QList<Source> mySources;
+    // The layout, in order. With the device kept, its partitions are in it
+    // as COMBINE_KEPT, those unticked in myRemovedKept and left out of the
+    // plan.
     QList<CombineChoice> myOrder;
+    Source myTarget;
+    bool myTargetLoaded = false;
+    QString myTargetProblem;        // why the device's partitions cannot be kept
+    QSet<int> myRemovedKept;
+    std::function<QString(int)> myDiskPath;
     CombinePlan myPlan;
     bool myPlanOk = false;
     bool myNewGuids = false;
@@ -182,6 +216,9 @@ private:
     QPushButton *myRemove, *myScan;
     QListWidget *myOrderList;
     QPushButton *myUp, *myDown;
+    QSpinBox *myFreeSize;
+    QPushButton *myAddFree, *myRemoveFree;
+    QCheckBox *myKeep;
     QComboBox *myLead;
     QTreeWidget *myPreview;
     QLabel *myStatus;

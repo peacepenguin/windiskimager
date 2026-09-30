@@ -32,8 +32,9 @@ corrupting the GPT of images like ARM board images. See
   - **Choose Partitions to Read** leaves out whole partitions you pick, through
     Custom Partitioning.
 - **Custom Partitioning** puts partitions from several image files and disks onto
-  one device, or into a new image file, in an order you choose, under a new
-  partition table.
+  one device, or into a new image file, in an order you choose, with free
+  space wherever you want it, under a new partition table. It can also add
+  partitions into a device's free space, keeping the partitions it has.
 - **Verify** a device against an image byte for byte, compressed images
   included. It also checks the partition table and can repair one that
   Windows has broken.
@@ -115,6 +116,22 @@ added to the sources, as many as are dropped at once.
 - Partitions keep their size and contents, and are placed on 1 MiB
   boundaries. GPT partitions keep their type, unique GUID, attributes and
   name; MBR partitions their type and boot flag.
+- **Free space** puts unpartitioned space into the order, as many MiB of it
+  as you set, wherever you move it: select an item and **Insert** leaves the
+  space after it. Selected, its size can be changed. The partition after it
+  still starts on a 1 MiB boundary.
+- **Keep the device's partitions**, under **Write to**, adds to what the device
+  already holds instead of replacing it. Its partitions join the order, first
+  and ticked; they stay exactly where they are, keep their entries and numbers,
+  and are never written to. Move the new partitions between them, into the
+  device's free space, and untick any of the device's own to take it out of
+  the table, which frees its space. The table stays the kind it was, with the
+  device's disk GUID and boot code, and its backup GPT is moved to the end of
+  the device, so a device larger than its table is fixed up too. The first
+  32 MB before the device's first partition stays free, as for Skip
+  unpartitioned space on Read, and no lead-in is copied. If anything fails
+  before the table is written, the device still holds its partitions as
+  before; the table is checked again just before writing, in case it changed.
 - **Lead-in from** one of the images copies that image's boot code and the
   space before its first partition, where a board's bootloader may be stored
   (up to 32 MB, as for Skip unpartitioned space on Read). The device then gets the

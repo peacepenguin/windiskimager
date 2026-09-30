@@ -30,6 +30,16 @@ Partitions can come from disks as well as image files. A source disk's
 Image files dropped on the Custom Partitioning window are added to its
   sources, several at a time; its image file name starts blank, with no
   example name in it
+Custom Partitioning places free space: "Insert" puts unpartitioned space of
+  the size set, in MiB, after the selected item of the order, and it moves
+  like a partition; the partition after it stays on a 1 MiB boundary
+"Keep the device's partitions" adds partitions to a device instead of
+  replacing its table. Its partitions stay where they are, in their own
+  entries, and are never written; the new ones go into its free space, where
+  the order puts them, and any of its own can be unticked to take it out of
+  the table. The table keeps its kind, disk GUID and boot code, and its backup
+  GPT is moved to the device's end. The table is checked again before writing,
+  and is written last, so a failed write leaves the device as it was
 Every language is translated all the way through again: the 150 new and
   changed strings, most of them Custom Partitioning's, are machine
   translations, so corrections are welcome

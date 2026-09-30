@@ -68,6 +68,30 @@
         <translation>கீழே</translation>
     </message>
     <message>
+        <source>Free space:</source>
+        <translation>காலி இடம்:</translation>
+    </message>
+    <message>
+        <source> MiB</source>
+        <translation> MiB</translation>
+    </message>
+    <message>
+        <source>How much unpartitioned space to insert, or, with free space selected in the order, how much it is. The partition after it still starts on a 1 MiB boundary.</source>
+        <translation>செருக வேண்டிய பகிர்வில்லாத இடத்தின் அளவு; அல்லது, வரிசையில் காலி இடம் தேர்ந்தெடுக்கப்பட்டிருந்தால், அதன் அளவு. அதற்குப் பின் வரும் பகிர்வு அப்போதும் 1 MiB எல்லையிலேயே தொடங்கும்.</translation>
+    </message>
+    <message>
+        <source>Insert</source>
+        <translation>செருகு</translation>
+    </message>
+    <message>
+        <source>Leave this much unpartitioned space after the selected item of the order, or at the end.</source>
+        <translation>வரிசையில் தேர்ந்தெடுக்கப்பட்ட உருப்படிக்குப் பின், அல்லது இறுதியில், இவ்வளவு பகிர்வில்லாத இடத்தை விடும்.</translation>
+    </message>
+    <message>
+        <source>Remove free space</source>
+        <translation>காலி இடத்தை அகற்று</translation>
+    </message>
+    <message>
         <source>Lead-in from:</source>
         <translation>முன்பகுதி இதிலிருந்து:</translation>
     </message>
@@ -102,6 +126,14 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>நிலையான வட்டுகளையும் பட்டியலிடும். உள்ளக PCIe அட்டை வாசிப்பான்கள் பெரும்பாலும் அட்டையை அகற்ற முடியாத சாதனமாகக் காட்டுகின்றன; இல்லையெனில் அது மறைக்கப்பட்டிருக்கும். Windows இயங்கிக்கொண்டிருக்கும் வட்டு ஒருபோதும் பட்டியலிடப்படாது.</translation>
+    </message>
+    <message>
+        <source>Keep the device&apos;s partitions</source>
+        <translation>சாதனத்தின் பகிர்வுகளைத் தக்கவை</translation>
+    </message>
+    <message>
+        <source>Add to what the device holds instead of replacing it: its partitions stay where they are, untouched, and the new ones go into its free space, where the order puts them. Untick one of them in the order to take it out of the table; its space is then free. The table keeps its kind, and its backup GPT is moved to the end of the device.</source>
+        <translation>சாதனத்தில் உள்ளதை மாற்றுவதற்குப் பதிலாக அதனுடன் சேர்க்கும்: அதன் பகிர்வுகள் மாற்றப்படாமல் அவை உள்ள இடத்திலேயே இருக்கும்; புதியவை, வரிசை அவற்றை வைக்கும் இடத்தில், அதன் காலி இடத்தில் செல்லும். அவற்றில் ஒன்றை அட்டவணையிலிருந்து நீக்க, வரிசையில் அதன் குறியை நீக்கவும்; அதன் இடம் பின்னர் காலியாகும். அட்டவணை அதன் வகையைத் தக்கவைக்கும்; அதன் காப்பு GPT சாதனத்தின் இறுதிக்கு நகர்த்தப்படும்.</translation>
     </message>
     <message>
         <source>An image file:</source>
@@ -146,6 +178,14 @@
     <message>
         <source>Disk %1: %2</source>
         <translation>வட்டு %1: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read: %2</source>
+        <translation>வட்டு %1-ஐப் படிக்க முடியவில்லை: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 has no partition table to keep</source>
+        <translation>வட்டு %1-இல் தக்கவைக்க வேண்டிய பகிர்வு அட்டவணை இல்லை</translation>
     </message>
     <message>
         <source>Save the combined image as</source>
@@ -284,6 +324,22 @@ Scan it now?</source>
         <translation>ஏதுமில்லை: புதிய, வெற்று அட்டவணை</translation>
     </message>
     <message>
+        <source>Free space: %1 MiB</source>
+        <translation>காலி இடம்: %1 MiB</translation>
+    </message>
+    <message>
+        <source>This device, %1</source>
+        <translation>இந்தச் சாதனம், %1</translation>
+    </message>
+    <message>
+        <source>%1 -- taken out of the table</source>
+        <translation>%1 -- அட்டவணையிலிருந்து நீக்கப்பட்டது</translation>
+    </message>
+    <message>
+        <source>%1 -- kept</source>
+        <translation>%1 -- தக்கவைக்கப்பட்டது</translation>
+    </message>
+    <message>
         <source>Tick the partitions to put on the device.</source>
         <translation>சாதனத்தில் வைக்க வேண்டிய பகிர்வுகளைக் குறியிடவும்.</translation>
     </message>
@@ -304,12 +360,24 @@ Scan it now?</source>
         <translation>முன்பகுதி</translation>
     </message>
     <message>
+        <source>Free space</source>
+        <translation>காலி இடம்</translation>
+    </message>
+    <message>
+        <source>%1, kept</source>
+        <translation>%1, தக்கவைக்கப்பட்டது</translation>
+    </message>
+    <message>
         <source>Backup GPT</source>
         <translation>காப்பு GPT</translation>
     </message>
     <message>
         <source>%1, %2 partitions: an image file of %3.</source>
         <translation>%1, %2 பகிர்வுகள்: %3 அளவுள்ள படிமக் கோப்பு.</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions, %3 of them kept: %4 used, %5 free of %6.</source>
+        <translation>%1, %2 பகிர்வுகள், அவற்றில் %3 தக்கவைக்கப்பட்டவை: %6-இல் %4 பயன்பாட்டில், %5 காலி.</translation>
     </message>
     <message>
         <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
@@ -964,6 +1032,30 @@ Repair the partition table now?</source>
         <translation>%1 இலக்குச் சாதனத்தில் உள்ளது; அதை அந்தச் சாதனத்தில் எழுத முடியாது.</translation>
     </message>
     <message>
+        <source>Confirm write</source>
+        <translation>எழுதுவதை உறுதிசெய்</translation>
+    </message>
+    <message>
+        <source>The device keeps the partitions ticked in the order, and they are not written to. Anything in its free space, and in the partitions taken out of its table, may be overwritten.
+(Target Device: %1)
+Are you sure you want to continue?</source>
+        <translation>வரிசையில் குறியிடப்பட்ட பகிர்வுகளைச் சாதனம் தக்கவைக்கும்; அவற்றில் எழுதப்படாது. அதன் காலி இடத்திலும், அதன் அட்டவணையிலிருந்து நீக்கப்பட்ட பகிர்வுகளிலும் உள்ள எதுவும் மேலெழுதப்படலாம்.
+(இலக்குச் சாதனம்: %1)
+நிச்சயமாகத் தொடர வேண்டுமா?</translation>
+    </message>
+    <message>
+        <source>%1 is mounted in Windows as %2.
+
+Its volumes are dismounted while it is written, and the device is ejected afterwards. The kept partitions are not changed.
+
+Write to this device anyway?</source>
+        <translation>%1 என்பது Windows-இல் %2 ஆக ஏற்றப்பட்டுள்ளது.
+
+எழுதப்படும்போது அதன் தொகுதிகள் இறக்கப்படும்; அதன் பிறகு சாதனம் வெளியேற்றப்படும். தக்கவைக்கப்பட்ட பகிர்வுகள் மாற்றப்படாது.
+
+இருப்பினும் இந்தச் சாதனத்தில் எழுதவா?</translation>
+    </message>
+    <message>
         <source>%1: %2</source>
         <translation>%1: %2</translation>
     </message>
@@ -980,6 +1072,14 @@ Repair the partition table now?</source>
         <translation>சாதனத்தில் ஒரு பகுதி மட்டுமே எழுதப்பட்டுள்ளது; இனி அதில் பயன்படுத்தக்கூடிய அமைப்பு இல்லை. பயன்படுத்தும் முன் மீண்டும் எழுதவும்.</translation>
     </message>
     <message>
+        <source>The device&apos;s partition table has changed since Custom Partitioning read it. Open Custom Partitioning again to plan from what the device holds now.</source>
+        <translation>தனிப்பயன் பகிர்வாக்கம் படித்த பிறகு சாதனத்தின் பகிர்வு அட்டவணை மாறியுள்ளது. சாதனத்தில் இப்போது உள்ளதிலிருந்து திட்டமிட, தனிப்பயன் பகிர்வாக்கத்தை மீண்டும் திறக்கவும்.</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table has not been changed: it holds its partitions as before. Its free space may hold part of the new ones.</source>
+        <translation>சாதனத்தின் பகிர்வு அட்டவணை மாற்றப்படவில்லை: அதன் பகிர்வுகள் முன்பு போலவே உள்ளன. அதன் காலி இடத்தில் புதியவற்றின் ஒரு பகுதி இருக்கலாம்.</translation>
+    </message>
+    <message>
         <source>The partition table on the device does not match what was written.</source>
         <translation>சாதனத்தில் உள்ள பகிர்வு அட்டவணை எழுதப்பட்டதுடன் பொருந்தவில்லை.</translation>
     </message>
@@ -990,6 +1090,10 @@ Repair the partition table now?</source>
     <message>
         <source>MBR</source>
         <translation>MBR</translation>
+    </message>
+    <message>
+        <source>The device&apos;s %1 partition table now holds %2 partitions: %3 kept, and %4 new from %5 images.</source>
+        <translation>சாதனத்தின் %1 பகிர்வு அட்டவணையில் இப்போது %2 பகிர்வுகள் உள்ளன: %3 தக்கவைக்கப்பட்டவை, %5 படிமங்களிலிருந்து %4 புதியவை.</translation>
     </message>
     <message>
         <source>Write and verify successful.
@@ -1640,6 +1744,26 @@ Error %2</source>
         <translation>GPT பகிர்வு வகை %1-க்கு MBR இணை இல்லை</translation>
     </message>
     <message>
+        <source>the device has no partition table to keep</source>
+        <translation>சாதனத்தில் தக்கவைக்க வேண்டிய பகிர்வு அட்டவணை இல்லை</translation>
+    </message>
+    <message>
+        <source>a lead-in cannot be used while the device keeps its own partitions</source>
+        <translation>சாதனம் தன் சொந்தப் பகிர்வுகளைத் தக்கவைக்கும்போது முன்பகுதியைப் பயன்படுத்த முடியாது</translation>
+    </message>
+    <message>
+        <source>only a device can keep its own partitions</source>
+        <translation>ஒரு சாதனம் மட்டுமே தன் சொந்தப் பகிர்வுகளைத் தக்கவைக்க முடியும்</translation>
+    </message>
+    <message>
+        <source>a free space has no size</source>
+        <translation>காலி இடத்துக்கு அளவு இல்லை</translation>
+    </message>
+    <message>
+        <source>the device&apos;s own partitions must stay in the order they are on it</source>
+        <translation>சாதனத்தின் சொந்தப் பகிர்வுகள் அதில் உள்ள வரிசையிலேயே இருக்க வேண்டும்</translation>
+    </message>
+    <message>
         <source>no partitions are chosen</source>
         <translation>பகிர்வுகள் எதுவும் தேர்ந்தெடுக்கப்படவில்லை</translation>
     </message>
@@ -1670,6 +1794,10 @@ Error %2</source>
     <message>
         <source>the GPT has room for %1 partitions, and %2 are chosen</source>
         <translation>GPT-இல் %1 பகிர்வுகளுக்கே இடம் உள்ளது, ஆனால் %2 தேர்ந்தெடுக்கப்பட்டுள்ளன</translation>
+    </message>
+    <message>
+        <source>there is %1 MB too little free space before the device&apos;s partition %2, which is kept</source>
+        <translation>தக்கவைக்கப்படும் சாதனப் பகிர்வு %2-க்கு முன் காலி இடம் %1 MB குறைவாக உள்ளது</translation>
     </message>
     <message>
         <source>the layout no longer fits a 32-bit MBR entry</source>

@@ -30,11 +30,13 @@
 
 #include <QApplication>
 #include <QByteArray>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QListWidget>
 #include <QRadioButton>
 #include <QToolTip>
 #include <QLineEdit>
+#include <QSpinBox>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTimer>
@@ -266,6 +268,27 @@ static QByteArray apply(const CombinePlan &plan, const QList<QByteArray> &imgs,
                         unsigned long long devicesectors)
 {
     QByteArray dev((int)(devicesectors * SEC), 0);
+    for (const CombineRange &r : plan.ranges)
+    {
+        memcpy(dev.data() + r.dstfirst * SEC, imgs[r.image].constData() + r.srcfirst * SEC,
+               (size_t)(r.length * SEC));
+    }
+    if (!plan.backupregion.isEmpty())
+    {
+        memcpy(dev.data() + plan.backupfirst * SEC, plan.backupregion.constData(),
+               (size_t)plan.backupregion.size());
+    }
+    memcpy(dev.data(), plan.headerregion.constData(), (size_t)plan.headerregion.size());
+    return dev;
+}
+
+// As apply(), onto a device that already holds `device`, as a plan that keeps
+// the target is written: nothing cleared first.
+static QByteArray applyOnto(const CombinePlan &plan, const QList<QByteArray> &imgs,
+                            QByteArray device)
+{
+    QByteArray dev = device;
+    dev.resize((int)(plan.totalsectors * SEC));
     for (const CombineRange &r : plan.ranges)
     {
         memcpy(dev.data() + r.dstfirst * SEC, imgs[r.image].constData() + r.srcfirst * SEC,
@@ -946,6 +969,16 @@ static void caseImageFile()
     DeleteFileA("combinetest-b.img.gz");
 }
 
+// The image file name field: the one line edit that is not a spin box's.
+static QLineEdit *outFileEdit(QWidget &dlg)
+{
+    for (QLineEdit *e : dlg.findChildren<QLineEdit *>())
+    {
+        if (!qobject_cast<QAbstractSpinBox *>(e->parentWidget())) return e;
+    }
+    return NULL;
+}
+
 // Presses Write in the dialog, answering whatever message boxes come up with
 // the button named `answer` (or the first), and returns their titles in order.
 static QStringList pressWrite(CombineDialog &dlg, const QString &answer)
@@ -1002,7 +1035,7 @@ static void caseDuplicatePrompt(bool tofile)
     images->topLevelItem(1)->child(0)->setCheckState(0, Qt::Checked);
     if (tofile)
     {
-        dlg.findChild<QLineEdit *>()->setText("combinetest-dupout.img");
+        outFileEdit(dlg)->setText("combinetest-dupout.img");
     }
     check(dlg.toFile() == tofile && dlg.planIsValid() && dlg.plan().duplicateGuids.size() == 1,
           "the shared GUID is found");
@@ -1085,6 +1118,295 @@ static void caseDeviceChoice()
     DeleteFileA("combinetest-dev.img");
 }
 
+static void caseFreeSpace()
+{
+    printf("free space in the layout\n");
+    const QByteArray a = gptImage(9000, 34, {
+        {2048, 5000, LINUX, "F1F1F1F1-F1F1-F1F1-F1F1-F1F1F1F1F1F1", "fa", 'a', 0} },
+        "F0F0F0F0-F0F0-F0F0-F0F0-F0F0F0F0F0F0");
+    const QByteArray b = gptImage(9000, 34, {
+        {2048, 6000, LINUX, "F2F2F2F2-F2F2-F2F2-F2F2-F2F2F2F2F2F2", "fb", 'b', 0} },
+        "F9F9F9F9-F9F9-F9F9-F9F9-F9F9F9F9F9F9");
+    QList<ImageLayout> ls(2);
+    layoutOf(a, &ls[0]);
+    layoutOf(b, &ls[1]);
+    const unsigned long long device = 100000;
+    CombinePlan plan;
+    QString why;
+    bool ok = planCombine(ls, { {0, 0}, {COMBINE_FREE, -1, 4096}, {1, 0} }, -1, SEC, device,
+                          ALIGN, false, &plan, &why);
+    check(ok && plan.placed.size() == 3 && plan.partitionCount() == 2, "free space between two partitions");
+    if (!ok) { printf("    (%s)\n", why.toLocal8Bit().constData()); return; }
+    check(plan.placed[1].image == COMBINE_FREE && plan.placed[1].first == 5001
+          && plan.placed[1].sectors == 4096 && plan.placed[1].slot == -1,
+          "  it starts where the partition before it ends");
+    check(plan.placed[2].first == 10240 && plan.placed[2].slot == 1,
+          "  and the next partition comes after it, aligned, in the next slot");
+    QByteArray dev = apply(plan, {a, b}, device);
+    check(rd64(gptEntry(dev, 1), 32) == 10240 && sameSectors(dev, 10240, b, 2048, 3953),
+          "  the table and the copy agree");
+
+    ok = planCombine(ls, { {COMBINE_FREE, -1, 6144}, {0, 0} }, -1, SEC, device, ALIGN, false,
+                     &plan, &why);
+    check(ok && plan.placed[0].first == 2048 && plan.placed[1].first == 8192,
+          "free space first: the first partition moves up past it");
+    ok = planCombine(ls, { {0, 0}, {COMBINE_FREE, -1, 2048} }, -1, SEC, 0, ALIGN, false,
+                     &plan, &why);
+    check(ok && plan.usedsectors == 5001 + 2048 && plan.totalsectors == 5001 + 2048 + 33,
+          "free space last makes an image file that much bigger");
+    check(!planCombine(ls, { {0, 0}, {COMBINE_FREE, -1, 0} }, -1, SEC, device, ALIGN, false,
+                       &plan, &why), "free space of no size is refused");
+    check(!planCombine(ls, { {COMBINE_FREE, -1, 2048} }, -1, SEC, device, ALIGN, false,
+                       &plan, &why), "  and free space alone is no layout");
+    // After a lead-in, free space puts the first partition on a boundary,
+    // not where the lead-in ends.
+    ok = planCombine(ls, { {COMBINE_FREE, -1, 2048}, {0, 0} }, 0, SEC, device, ALIGN, false,
+                     &plan, &why);
+    check(ok && plan.placed[0].first == 2048 && plan.placed[1].first == 4096,
+          "after a lead-in, free space goes where it ends, and the partition after it");
+}
+
+// A device holding two partitions with space between and after them.
+static QByteArray keptGptDevice(unsigned long long sectors)
+{
+    return gptImage(sectors, 34, {
+        {2048, 6143, BASIC, "C1C1C1C1-C1C1-C1C1-C1C1-C1C1C1C1C1C1", "keep1", 'p', 0},
+        {20480, 24575, LINUX, "C2C2C2C2-C2C2-C2C2-C2C2-C2C2C2C2C2C2", "keep2", 'q', 0} },
+        "DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD");
+}
+
+static void caseKeepGpt()
+{
+    printf("adding to a GPT device, keeping its partitions\n");
+    const unsigned long long device = 40000;
+    const QByteArray t = keptGptDevice(device);
+    ImageLayout tl;
+    layoutOf(t, &tl);
+    const QByteArray a = gptImage(9000, 34, {
+        {2048, 5000, LINUX, "A7A7A7A7-A7A7-A7A7-A7A7-A7A7A7A7A7A7", "new1", 'a', 0} },
+        "A0A0A0A0-A0A0-A0A0-A0A0-A0A0A0A0A0A0");
+    const QByteArray b = gptImage(20000, 34, {
+        {2048, 14000, LINUX, "B7B7B7B7-B7B7-B7B7-B7B7-B7B7B7B7B7B7", "new2", 'b', 0} },
+        "B0B0B0B0-B0B0-B0B0-B0B0-B0B0B0B0B0B0");
+    QList<ImageLayout> ls(2);
+    layoutOf(a, &ls[0]);
+    layoutOf(b, &ls[1]);
+    CombinePlan plan;
+    QString why;
+    bool ok = planCombine(ls, { {COMBINE_KEPT, 0}, {0, 0}, {COMBINE_KEPT, 1}, {1, 0} }, -1, SEC,
+                          device, ALIGN, false, &plan, &why, &tl);
+    check(ok, "planned");
+    if (!ok) { printf("    (%s)\n", why.toLocal8Bit().constData()); return; }
+    check(plan.table == COMBINE_TABLE_GPT && plan.keepsTarget && plan.targetregion == tl.tableRegion
+          && plan.partitionCount() == 4 && plan.ranges.size() == 2,
+          "four partitions, two of them kept and not copied");
+    check(plan.placed[0].image == COMBINE_KEPT && plan.placed[0].first == 2048 && plan.placed[0].slot == 0
+          && plan.placed[2].image == COMBINE_KEPT && plan.placed[2].first == 20480 && plan.placed[2].slot == 1,
+          "  the kept ones where they are, in their own slots");
+    check(plan.placed[1].first == 6144 && plan.placed[1].slot == 2
+          && plan.placed[3].first == 24576 && plan.placed[3].slot == 3,
+          "  the new ones in the free space between and after, in the free slots");
+    const QByteArray dev = applyOnto(plan, {a, b}, t);
+    check(sameSectors(dev, 2048, t, 2048, 4096) && sameSectors(dev, 20480, t, 20480, 4096),
+          "the kept partitions' data is untouched");
+    check(sameSectors(dev, 6144, a, 2048, 2953) && sameSectors(dev, 24576, b, 2048, 11953),
+          "  the new ones are copied whole");
+    check(memcmp(gptEntry(dev, 0), t.constData() + 2 * SEC, 128) == 0
+          && memcmp(gptEntry(dev, 1), t.constData() + 2 * SEC + 128, 128) == 0,
+          "  the kept entries are as they were, byte for byte");
+    check(rd64(gptEntry(dev, 2), 32) == 6144 && rd64(gptEntry(dev, 3), 32) == 24576,
+          "  and the new entries say where the new partitions are");
+    const unsigned char *h = (const unsigned char *)dev.constData() + SEC;
+    check(memcmp(h + 56, guid("DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD").constData(), 16) == 0
+          && memcmp(dev.constData(), t.constData(), 440) == 0,
+          "the device keeps its disk GUID and boot code");
+    HANDLE hd = openAsDevice(dev);
+    check(gptPrimaryState(hd, SEC, device) == GPT_PRIMARY_OK, "the table checks out");
+    CloseHandle(hd);
+    check(backupAtEnd(dev, device), "  its backup at the end of the device");
+
+    // The device is bigger than its table says: the table is fixed up.
+    const unsigned long long grown = 60000;
+    ok = planCombine(ls, { {COMBINE_KEPT, 0}, {COMBINE_KEPT, 1}, {0, 0} }, -1, SEC, grown, ALIGN,
+                     false, &plan, &why, &tl);
+    const QByteArray big = applyOnto(plan, {a, b}, t);
+    check(ok && backupAtEnd(big, grown), "a device grown past its table gets its backup at its new end");
+
+    ok = planCombine(ls, { {COMBINE_KEPT, 0}, {0, 0}, {1, 0}, {COMBINE_KEPT, 1} }, -1, SEC,
+                     device, ALIGN, false, &plan, &why, &tl);
+    check(!ok && why.contains("too little free space") && why.contains("partition 2"),
+          "new partitions that do not fit before a kept one are refused, naming it");
+    ok = planCombine(ls, { {0, 0}, {COMBINE_KEPT, 1} }, -1, SEC, device, ALIGN, false,
+                     &plan, &why, &tl);
+    check(ok && plan.placed[0].first == 2048 && plan.placed[0].slot == 0 && plan.placed[1].slot == 1,
+          "a partition taken out of the table frees its space and its slot");
+    check(!planCombine(ls, { {COMBINE_KEPT, 1}, {COMBINE_KEPT, 0} }, -1, SEC, device, ALIGN,
+                       false, &plan, &why, &tl), "kept partitions cannot change places");
+    check(!planCombine(ls, { {COMBINE_KEPT, 0}, {0, 0} }, 0, SEC, device, ALIGN, false,
+                       &plan, &why, &tl), "  nor come with a lead-in");
+    check(!planCombine(ls, { {COMBINE_KEPT, 0}, {0, 0} }, -1, SEC, 0, ALIGN, false,
+                       &plan, &why, &tl), "  nor go in an image file");
+    check(!planCombine(ls, { {COMBINE_KEPT, 0}, {0, 0} }, -1, SEC, device, ALIGN, false,
+                       &plan, &why), "  nor be planned without the device's layout");
+
+    // A copy of a kept partition: the copy gets the new GUID.
+    const QByteArray d = gptImage(9000, 34, {
+        {2048, 5000, LINUX, "C1C1C1C1-C1C1-C1C1-C1C1-C1C1C1C1C1C1", "copy", 'd', 0} },
+        "D0D0D0D0-D0D0-D0D0-D0D0-D0D0D0D0D0D0");
+    QList<ImageLayout> ld(1);
+    layoutOf(d, &ld[0]);
+    ok = planCombine(ld, { {COMBINE_KEPT, 0}, {0, 0}, {COMBINE_KEPT, 1} }, -1, SEC, device, ALIGN,
+                     false, &plan, &why, &tl);
+    check(ok && plan.duplicateGuids.size() == 1, "a new partition sharing a kept one's GUID is found");
+    ok = planCombine(ld, { {COMBINE_KEPT, 0}, {0, 0}, {COMBINE_KEPT, 1} }, -1, SEC, device, ALIGN,
+                     true, &plan, &why, &tl);
+    const QByteArray dd = applyOnto(plan, {d}, t);
+    const QByteArray c1 = guid("C1C1C1C1-C1C1-C1C1-C1C1-C1C1C1C1C1C1");
+    check(ok && memcmp(gptEntry(dd, 0) + 16, c1.constData(), 16) == 0
+          && memcmp(gptEntry(dd, 2) + 16, c1.constData(), 16) != 0,
+          "  and given a new one, the kept partition keeping its own");
+
+    // More than 32 MiB before the device's first partition: a bootloader may
+    // be there, so 32 MiB of it is kept free.
+    const QByteArray distant = gptImage(120000, 34, {
+        {81920, 90000, LINUX, "C3C3C3C3-C3C3-C3C3-C3C3-C3C3C3C3C3C3", "far", 'r', 0} },
+        "EEEEEEEE-EEEE-EEEE-EEEE-EEEEEEEEEEEE");
+    ImageLayout fl;
+    layoutOf(distant, &fl);
+    ok = planCombine(ls, { {0, 0}, {COMBINE_KEPT, 0} }, -1, SEC, 120000, ALIGN, false,
+                     &plan, &why, &fl);
+    check(ok && plan.placed[0].first == ((34 + 65536 + ALIGN - 1) / ALIGN) * ALIGN,
+          "the first 32 MiB before a kept device's first partition stay free");
+}
+
+static void caseKeepMbr()
+{
+    printf("adding to an MBR device, keeping its partitions\n");
+    const unsigned long long device = 30000;
+    const QByteArray t = mbrImage(device, {
+        {0, 2048, 4096, 0x0C, true, 'p'}, {2, 16384, 4096, 0x83, false, 'q'} }, 0x5555AAAAu);
+    ImageLayout tl;
+    layoutOf(t, &tl);
+    const QByteArray a = mbrImage(8192, { {0, 2048, 3000, 0x83, false, 'a'} }, 1);
+    const QByteArray c = mbrImage(20000, {
+        {0, 2048, 1000, 0x83, false, 'e'}, {1, 4096, 1000, 0x83, false, 'f'},
+        {2, 6144, 1000, 0x83, false, 'g'} }, 2);
+    QList<ImageLayout> ls(2);
+    layoutOf(a, &ls[0]);
+    layoutOf(c, &ls[1]);
+    CombinePlan plan;
+    QString why;
+    const bool ok = planCombine(ls, { {COMBINE_KEPT, 0}, {0, 0}, {COMBINE_KEPT, 1} }, -1, SEC,
+                                device, ALIGN, false, &plan, &why, &tl);
+    check(ok && plan.table == COMBINE_TABLE_MBR, "planned, on the device's MBR");
+    if (!ok) { printf("    (%s)\n", why.toLocal8Bit().constData()); return; }
+    const QByteArray dev = applyOnto(plan, {a, c}, t);
+    const unsigned char *m = (const unsigned char *)dev.constData();
+    check(memcmp(m + 446, t.constData() + 446, 16) == 0 && memcmp(m + 478, t.constData() + 478, 16) == 0,
+          "the kept entries stay in their slots, as they were");
+    check(m[462 + 4] == 0x83 && rd32(m + 462, 8) == 6144 && rd32(m + 462, 12) == 3000,
+          "  the new one takes the free slot, in the space between");
+    check(rd32(m, 440) == 0x5555AAAAu && memcmp(m, t.constData(), 440) == 0,
+          "  the boot code and disk signature are kept");
+    check(sameSectors(dev, 2048, t, 2048, 4096) && sameSectors(dev, 16384, t, 16384, 4096)
+          && sameSectors(dev, 6144, a, 2048, 3000), "  the kept data untouched, the new copied");
+    check(!planCombine(ls, { {COMBINE_KEPT, 0}, {1, 0}, {1, 1}, {1, 2}, {COMBINE_KEPT, 1} }, -1,
+                       SEC, device, ALIGN, false, &plan, &why, &tl),
+          "more than four partitions in all are refused");
+}
+
+static void caseKeepDialog()
+{
+    printf("keeping the device's partitions, in the dialog\n");
+    const unsigned long long device = 40000;
+    writeFile("combinetest-keep.img", keptGptDevice(device));
+    writeFile("combinetest-keepa.img", gptImage(9000, 34, {
+        {2048, 5000, LINUX, "A8A8A8A8-A8A8-A8A8-A8A8-A8A8A8A8A8A8", "new", 'a', 0} },
+        "A9A9A9A9-A9A9-A9A9-A9A9-A9A9A9A9A9A9"));
+    writeFile("combinetest-keepbare.img", fat32Image(device, 'z'));
+    CombineDialog dlg(NULL, fakeDevices({ {94, "[Disk 94] keep", "keep", device * SEC} }),
+                      fakeSectorSize, 94, false, SEC, ".", QStringList("*.*"));
+    QString standin = "combinetest-keep.img";
+    dlg.setDiskPath([&](int n) { return n == 94 ? standin : QString(); });
+    dlg.addImageFiles({ "combinetest-keepa.img" });
+    QTreeWidget *images = NULL;
+    for (QTreeWidget *t : dlg.findChildren<QTreeWidget *>())
+    {
+        if (t->headerItem()->text(0) == "Source / partition") images = t;
+    }
+    images->topLevelItem(0)->child(0)->setCheckState(0, Qt::Checked);
+    QCheckBox *keep = NULL;
+    for (QCheckBox *c : dlg.findChildren<QCheckBox *>())
+    {
+        if (c->text() == "Keep the device's partitions") keep = c;
+    }
+    QListWidget *order = dlg.findChild<QListWidget *>();
+    QSpinBox *freesize = dlg.findChild<QSpinBox *>();
+    QPushButton *up = NULL, *insert = NULL, *removefree = NULL;
+    for (QPushButton *b : dlg.findChildren<QPushButton *>())
+    {
+        if (b->text() == "Up") up = b;
+        if (b->text() == "Insert") insert = b;
+        if (b->text() == "Remove free space") removefree = b;
+    }
+    check(keep && order && freesize && up && insert && removefree, "the controls are there");
+    if (!keep || !order || !freesize || !up || !insert || !removefree) return;
+    check(!dlg.keepsDevice() && dlg.planIsValid() && !dlg.plan().keepsTarget,
+          "it starts replacing the device's table");
+
+    keep->setChecked(true);
+    check(dlg.keepsDevice() && dlg.planIsValid() && dlg.plan().keepsTarget
+          && dlg.plan().partitionCount() == 3, "ticked, the device's two partitions join the new one");
+    check(order->count() == 3 && order->item(0)->text().endsWith("-- kept")
+          && order->item(1)->text().endsWith("-- kept")
+          && order->item(0)->checkState() == Qt::Checked,
+          "  listed first in the order, ticked, as kept");
+    check(dlg.plan().placed[2].first == 24576, "  the new one after them");
+    QComboBox *lead = NULL;
+    for (QComboBox *c : dlg.findChildren<QComboBox *>())
+    {
+        if (c->findData(-1) >= 0 && c->itemText(0).startsWith("None")) lead = c;
+    }
+    check(lead && !lead->isEnabled(), "  and no lead-in can be chosen");
+
+    order->setCurrentRow(1);
+    check(!up->isEnabled(), "one kept partition cannot move past another");
+    order->setCurrentRow(2);
+    check(up->isEnabled(), "  a new one can");
+    up->click();
+    check(dlg.planIsValid() && dlg.plan().placed[1].first == 6144 && dlg.plan().placed[1].image == 0,
+          "  and moved up, goes into the space between them");
+
+    order->item(0)->setCheckState(Qt::Unchecked);
+    check(order->count() == 3 && order->item(0)->text().endsWith("-- taken out of the table")
+          && dlg.plan().partitionCount() == 2, "unticked, a kept partition is taken out of the table");
+
+    order->setCurrentRow(0);
+    freesize->setValue(2);
+    insert->click();
+    check(order->count() == 4 && order->item(1)->text() == "Free space: 2 MiB"
+          && order->currentRow() == 1, "free space is inserted after the selected item");
+    check(dlg.planIsValid() && dlg.plan().placed[1].first == 6144,
+          "  2 MiB of it, then the new partition");
+    freesize->setValue(3);
+    check(order->item(1)->text() == "Free space: 3 MiB" && dlg.plan().placed[1].first == 8192,
+          "  selected, its size is changed in the box");
+    removefree->click();
+    check(order->count() == 3 && dlg.plan().placed[0].first == 2048,
+          "  and removed, the partition moves back");
+
+    keep->setChecked(false);
+    check(order->count() == 1 && !dlg.keepsDevice() && !dlg.plan().keepsTarget && lead->isEnabled(),
+          "unticked, the device's partitions leave the order");
+
+    standin = "combinetest-keepbare.img";
+    keep->setChecked(true);
+    check(!dlg.keepsDevice() && !dlg.planIsValid(), "a device with no partition table has none to keep");
+    DeleteFileA("combinetest-keep.img");
+    DeleteFileA("combinetest-keepa.img");
+    DeleteFileA("combinetest-keepbare.img");
+}
+
 // nativeEvent is protected: this makes it callable, to hand the dialog a drop.
 struct DropDialog : CombineDialog
 {
@@ -1135,7 +1457,7 @@ static void caseDrop()
     writeFile("combinetest-drop2.img.gz", gzipOf(b));
     DropDialog dlg(NULL, fakeDevices({ {90, "test device", "test device", 200000 * SEC} }),
                    fakeSectorSize, 90, false, SEC, ".", QStringList("*.*"));
-    QLineEdit *outfile = dlg.findChild<QLineEdit *>();
+    QLineEdit *outfile = outFileEdit(dlg);
     check(outfile && outfile->placeholderText().isEmpty() && outfile->text().isEmpty(),
           "the image file name starts blank, with no example name");
 
@@ -1183,6 +1505,10 @@ int main(int argc, char **argv)
     caseDiskPaths();
     caseDeviceChoice();
     caseDrop();
+    caseFreeSpace();
+    caseKeepGpt();
+    caseKeepMbr();
+    caseKeepDialog();
     DeleteFileA(TESTFILE);
     printf("\n%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

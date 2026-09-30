@@ -68,6 +68,30 @@
         <translation>Omlaag</translation>
     </message>
     <message>
+        <source>Free space:</source>
+        <translation>Vrije ruimte:</translation>
+    </message>
+    <message>
+        <source> MiB</source>
+        <translation> MiB</translation>
+    </message>
+    <message>
+        <source>How much unpartitioned space to insert, or, with free space selected in the order, how much it is. The partition after it still starts on a 1 MiB boundary.</source>
+        <translation>Hoeveel niet-gepartitioneerde ruimte moet worden ingevoegd, of, als er vrije ruimte in de volgorde is geselecteerd, hoe groot die is. De partitie erna begint nog steeds op een grens van 1 MiB.</translation>
+    </message>
+    <message>
+        <source>Insert</source>
+        <translation>Invoegen</translation>
+    </message>
+    <message>
+        <source>Leave this much unpartitioned space after the selected item of the order, or at the end.</source>
+        <translation>Laat zoveel niet-gepartitioneerde ruimte vrij na het geselecteerde item van de volgorde, of aan het einde.</translation>
+    </message>
+    <message>
+        <source>Remove free space</source>
+        <translation>Vrije ruimte verwijderen</translation>
+    </message>
+    <message>
         <source>Lead-in from:</source>
         <translation>Aanloop van:</translation>
     </message>
@@ -102,6 +126,14 @@
     <message>
         <source>Also list fixed disks. Internal PCIe card readers often present the card as a non-removable device, which is otherwise hidden. The disk Windows is running from is never listed.</source>
         <translation>Toont ook vaste schijven. Interne PCIe-kaartlezers presenteren de kaart vaak als een niet-verwisselbaar apparaat, dat anders verborgen blijft. De schijf waarvan Windows draait, wordt nooit getoond.</translation>
+    </message>
+    <message>
+        <source>Keep the device&apos;s partitions</source>
+        <translation>Partities van het apparaat behouden</translation>
+    </message>
+    <message>
+        <source>Add to what the device holds instead of replacing it: its partitions stay where they are, untouched, and the new ones go into its free space, where the order puts them. Untick one of them in the order to take it out of the table; its space is then free. The table keeps its kind, and its backup GPT is moved to the end of the device.</source>
+        <translation>Voegt toe aan wat het apparaat bevat in plaats van het te vervangen: de partities blijven onaangeroerd waar ze zijn, en de nieuwe komen in de vrije ruimte, waar de volgorde ze plaatst. Vink er een uit in de volgorde om die uit de tabel te halen; de ruimte ervan is dan vrij. De tabel behoudt haar soort, en de reserve-GPT wordt naar het einde van het apparaat verplaatst.</translation>
     </message>
     <message>
         <source>An image file:</source>
@@ -146,6 +178,14 @@
     <message>
         <source>Disk %1: %2</source>
         <translation>Schijf %1: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 could not be read: %2</source>
+        <translation>schijf %1 kon niet worden gelezen: %2</translation>
+    </message>
+    <message>
+        <source>disk %1 has no partition table to keep</source>
+        <translation>schijf %1 heeft geen partitietabel om te behouden</translation>
     </message>
     <message>
         <source>Save the combined image as</source>
@@ -284,6 +324,22 @@ Nu scannen?</translation>
         <translation>Geen: een nieuwe, lege tabel</translation>
     </message>
     <message>
+        <source>Free space: %1 MiB</source>
+        <translation>Vrije ruimte: %1 MiB</translation>
+    </message>
+    <message>
+        <source>This device, %1</source>
+        <translation>Dit apparaat, %1</translation>
+    </message>
+    <message>
+        <source>%1 -- taken out of the table</source>
+        <translation>%1 -- uit de tabel gehaald</translation>
+    </message>
+    <message>
+        <source>%1 -- kept</source>
+        <translation>%1 -- behouden</translation>
+    </message>
+    <message>
         <source>Tick the partitions to put on the device.</source>
         <translation>Vink de partities aan die op het apparaat moeten komen.</translation>
     </message>
@@ -304,12 +360,24 @@ Nu scannen?</translation>
         <translation>Aanloop</translation>
     </message>
     <message>
+        <source>Free space</source>
+        <translation>Vrije ruimte</translation>
+    </message>
+    <message>
+        <source>%1, kept</source>
+        <translation>%1, behouden</translation>
+    </message>
+    <message>
         <source>Backup GPT</source>
         <translation>Reserve-GPT</translation>
     </message>
     <message>
         <source>%1, %2 partitions: an image file of %3.</source>
         <translation>%1, %2 partities: een imagebestand van %3.</translation>
+    </message>
+    <message>
+        <source>%1, %2 partitions, %3 of them kept: %4 used, %5 free of %6.</source>
+        <translation>%1, %2 partities, waarvan %3 behouden: %4 gebruikt, %5 vrij van %6.</translation>
     </message>
     <message>
         <source>%1, %2 partitions: %3 used, %4 free of %5.</source>
@@ -1207,6 +1275,30 @@ De partitietabel nu herstellen?</translation>
         <translation>%1 staat op het doelapparaat en kan er niet naar worden geschreven.</translation>
     </message>
     <message>
+        <source>Confirm write</source>
+        <translation>Schrijven bevestigen</translation>
+    </message>
+    <message>
+        <source>The device keeps the partitions ticked in the order, and they are not written to. Anything in its free space, and in the partitions taken out of its table, may be overwritten.
+(Target Device: %1)
+Are you sure you want to continue?</source>
+        <translation>Het apparaat behoudt de partities die in de volgorde zijn aangevinkt, en daarnaar wordt niet geschreven. Alles in de vrije ruimte, en in de partities die uit de tabel zijn gehaald, kan worden overschreven.
+(Doelapparaat: %1)
+Weet u zeker dat u wilt doorgaan?</translation>
+    </message>
+    <message>
+        <source>%1 is mounted in Windows as %2.
+
+Its volumes are dismounted while it is written, and the device is ejected afterwards. The kept partitions are not changed.
+
+Write to this device anyway?</source>
+        <translation>%1 is in Windows aangekoppeld als %2.
+
+De volumes worden ontkoppeld terwijl ernaar wordt geschreven, en het apparaat wordt daarna uitgeworpen. De behouden partities worden niet gewijzigd.
+
+Toch naar dit apparaat schrijven?</translation>
+    </message>
+    <message>
         <source>The device list changed while you were confirming. Check the target device and try again.</source>
         <translation>De apparatenlijst is gewijzigd tijdens het bevestigen. Controleer het doelapparaat en probeer het opnieuw.</translation>
     </message>
@@ -1227,8 +1319,16 @@ De partitietabel nu herstellen?</translation>
         <translation>Het apparaat is gedeeltelijk beschreven en bevat geen bruikbare indeling meer. Schrijf het opnieuw voordat u het gebruikt.</translation>
     </message>
     <message>
+        <source>The device&apos;s partition table has changed since Custom Partitioning read it. Open Custom Partitioning again to plan from what the device holds now.</source>
+        <translation>De partitietabel van het apparaat is gewijzigd sinds Aangepaste partitionering die heeft gelezen. Open Aangepaste partitionering opnieuw om te plannen op basis van wat het apparaat nu bevat.</translation>
+    </message>
+    <message>
         <source>Writing...</source>
         <translation>Bezig met schrijven…</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table has not been changed: it holds its partitions as before. Its free space may hold part of the new ones.</source>
+        <translation>De partitietabel van het apparaat is niet gewijzigd: het bevat zijn partities zoals voorheen. De vrije ruimte kan een deel van de nieuwe bevatten.</translation>
     </message>
     <message>
         <source>The partition table on the device does not match what was written.</source>
@@ -1241,6 +1341,10 @@ De partitietabel nu herstellen?</translation>
     <message>
         <source>MBR</source>
         <translation>MBR</translation>
+    </message>
+    <message>
+        <source>The device&apos;s %1 partition table now holds %2 partitions: %3 kept, and %4 new from %5 images.</source>
+        <translation>De %1-partitietabel van het apparaat bevat nu %2 partities: %3 behouden en %4 nieuw uit %5 images.</translation>
     </message>
     <message>
         <source>Write and verify successful.
@@ -1777,6 +1881,26 @@ Fout %2</translation>
         <translation>GPT-partitietype %1 heeft geen MBR-equivalent</translation>
     </message>
     <message>
+        <source>the device has no partition table to keep</source>
+        <translation>het apparaat heeft geen partitietabel om te behouden</translation>
+    </message>
+    <message>
+        <source>a lead-in cannot be used while the device keeps its own partitions</source>
+        <translation>een aanloop kan niet worden gebruikt terwijl het apparaat zijn eigen partities behoudt</translation>
+    </message>
+    <message>
+        <source>only a device can keep its own partitions</source>
+        <translation>alleen een apparaat kan zijn eigen partities behouden</translation>
+    </message>
+    <message>
+        <source>a free space has no size</source>
+        <translation>een vrije ruimte heeft geen grootte</translation>
+    </message>
+    <message>
+        <source>the device&apos;s own partitions must stay in the order they are on it</source>
+        <translation>de eigen partities van het apparaat moeten in de volgorde blijven waarin ze erop staan</translation>
+    </message>
+    <message>
         <source>no partitions are chosen</source>
         <translation>er zijn geen partities gekozen</translation>
     </message>
@@ -1807,6 +1931,10 @@ Fout %2</translation>
     <message>
         <source>the GPT has room for %1 partitions, and %2 are chosen</source>
         <translation>de GPT heeft ruimte voor %1 partities, en er zijn er %2 gekozen</translation>
+    </message>
+    <message>
+        <source>there is %1 MB too little free space before the device&apos;s partition %2, which is kept</source>
+        <translation>er is %1 MB te weinig vrije ruimte vóór partitie %2 van het apparaat, die wordt behouden</translation>
     </message>
     <message>
         <source>the layout no longer fits a 32-bit MBR entry</source>
