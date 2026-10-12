@@ -1,3 +1,26 @@
+Release 2.3.0
+=============
+Check Boot, a new tool: checks that the Windows boot configuration (BCD) on
+  the selected device names the device as it is now. Windows gives a disk a
+  new disk GUID, or MBR disk signature, when it is attached where a disk with
+  the same one already is -- a Disk2vhd VHDX mounted on the machine it was
+  taken from -- and the copy's BCD then no longer finds its partitions
+It reads the BCD straight from the disk -- the EFI system partition's
+  \EFI\Microsoft\Boot\BCD, or a BIOS system partition's \Boot\BCD, FAT or
+  NTFS -- so it works on a disk Windows has taken offline, and writes nothing.
+  Every partition the BCD names, the recovery environment's included, is
+  listed as OK, WRONG (the old disk ID) or MISSING, and the disk the BCD
+  expects is named when it is on this computer
+The report gives the commands to fix the BCD and keep the disk's new ID, run
+  inside the VM from Windows setup media: diskpart to give the partitions
+  letters, bcdedit /store ... /set for each wrong entry, or bcdboot to
+  rebuild it. On the host, bcdedit would name the mounted VHDX file instead.
+  Copy puts the report on the clipboard
+Custom Partitioning: "New disk GUID" gives the result a disk GUID, or for an
+  MBR a disk signature, of its own instead of the lead-in's or the kept
+  device's; the boot code, lead-in and partition GUIDs are still copied
+The translations cover the new strings, again by machine translation
+
 Release 2.2.0
 =============
 Custom Partitioning lays out the target fully: free space can go anywhere in
