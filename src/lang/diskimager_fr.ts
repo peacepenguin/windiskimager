@@ -100,6 +100,14 @@
         <translation>Copie le code d&apos;amorçage de cette image, ainsi que l&apos;espace entre sa table de partitions et sa première partition (jusqu&apos;à 32 MiB), où peut se trouver un chargeur d&apos;amorçage. Le périphérique reçoit alors le même type de table de partitions que cette image, et la première partition commence là où commençait celle de cette image.</translation>
     </message>
     <message>
+        <source>New disk GUID</source>
+        <translation>Nouveau GUID de disque</translation>
+    </message>
+    <message>
+        <source>Give the result a disk GUID of its own, or for an MBR a disk signature, instead of the lead-in&apos;s or the device&apos;s. Windows will not have two disks with the same one online: attach a copy of a disk where the original is, and it gives the copy a new one itself. Boot entries that name the disk by its old one, such as Windows&apos; own, no longer find it either way. A table with no lead-in always gets a new one.</source>
+        <translation>Donne au résultat son propre GUID de disque, ou pour un MBR sa propre signature de disque, au lieu de celui de la zone de démarrage ou du périphérique. Windows n&apos;accepte pas deux disques en ligne avec le même : si vous branchez la copie d&apos;un disque là où se trouve l&apos;original, il en donne lui-même un nouveau à la copie. Les entrées de démarrage qui désignent le disque par l&apos;ancien, comme celles de Windows, ne le trouvent plus dans les deux cas. Une table sans zone de démarrage en reçoit toujours un nouveau.</translation>
+    </message>
+    <message>
         <source>On the device</source>
         <translation>Sur le périphérique</translation>
     </message>

@@ -220,6 +220,7 @@ private:
     QPushButton *myAddFree, *myRemoveFree;
     QCheckBox *myKeep;
     QComboBox *myLead;
+    QCheckBox *myNewDiskId;
     QTreeWidget *myPreview;
     QLabel *myStatus;
     QRadioButton *myToDevice, *myToFile;

@@ -100,6 +100,14 @@
         <translation>Copia el código de arranque de esta imagen y el espacio entre su tabla de particiones y su primera partición (hasta 32 MiB), donde puede guardarse un gestor de arranque. El dispositivo recibe entonces el mismo tipo de tabla de particiones que esta imagen, y la primera partición empieza donde empezaba la de esta imagen.</translation>
     </message>
     <message>
+        <source>New disk GUID</source>
+        <translation>GUID de disco nuevo</translation>
+    </message>
+    <message>
+        <source>Give the result a disk GUID of its own, or for an MBR a disk signature, instead of the lead-in&apos;s or the device&apos;s. Windows will not have two disks with the same one online: attach a copy of a disk where the original is, and it gives the copy a new one itself. Boot entries that name the disk by its old one, such as Windows&apos; own, no longer find it either way. A table with no lead-in always gets a new one.</source>
+        <translation>Da al resultado su propio GUID de disco, o en un MBR su propia firma de disco, en lugar del de la zona de arranque o del dispositivo. Windows no admite dos discos en línea con el mismo: si conecta la copia de un disco donde está el original, Windows le da a la copia uno nuevo por sí mismo. Las entradas de arranque que nombran el disco por el anterior, como las del propio Windows, ya no lo encuentran en ningún caso. Una tabla sin zona de arranque siempre recibe uno nuevo.</translation>
+    </message>
+    <message>
         <source>On the device</source>
         <translation>En el dispositivo</translation>
     </message>

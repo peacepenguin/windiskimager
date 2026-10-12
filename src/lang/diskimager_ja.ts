@@ -100,6 +100,14 @@
         <translation>このイメージのブートコードと、パーティションテーブルから最初のパーティションまでの領域 (最大 32 MiB) をコピーします。この領域にはブートローダーが格納されている場合があります。デバイスにはこのイメージと同じ種類のパーティションテーブルが作られ、最初のパーティションはこのイメージと同じ位置から始まります。</translation>
     </message>
     <message>
+        <source>New disk GUID</source>
+        <translation>新しいディスク GUID</translation>
+    </message>
+    <message>
+        <source>Give the result a disk GUID of its own, or for an MBR a disk signature, instead of the lead-in&apos;s or the device&apos;s. Windows will not have two disks with the same one online: attach a copy of a disk where the original is, and it gives the copy a new one itself. Boot entries that name the disk by its old one, such as Windows&apos; own, no longer find it either way. A table with no lead-in always gets a new one.</source>
+        <translation>先頭領域やデバイスのものではなく、結果に独自のディスク GUID (MBR の場合はディスク署名) を与えます。Windows は同じものを持つ 2 台のディスクを同時にオンラインにしません。元のディスクがある場所にそのコピーを接続すると、Windows がコピーに新しいものを自動で与えます。Windows 自身のものなど、古いものでディスクを指定しているブート エントリは、どちらの場合もディスクを見つけられなくなります。先頭領域のないテーブルには常に新しいものが付きます。</translation>
+    </message>
+    <message>
         <source>On the device</source>
         <translation>デバイス上</translation>
     </message>

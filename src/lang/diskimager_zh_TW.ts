@@ -100,6 +100,14 @@
         <translation>複製此映像檔的開機程式碼，以及其分割表與第一個分割區之間的空間（最多 32 MiB），開機載入程式可能存放在那裡。裝置隨後會取得與此映像檔相同類型的分割表，且第一個分割區的起始位置與此映像檔中相同。</translation>
     </message>
     <message>
+        <source>New disk GUID</source>
+        <translation>新的磁碟 GUID</translation>
+    </message>
+    <message>
+        <source>Give the result a disk GUID of its own, or for an MBR a disk signature, instead of the lead-in&apos;s or the device&apos;s. Windows will not have two disks with the same one online: attach a copy of a disk where the original is, and it gives the copy a new one itself. Boot entries that name the disk by its old one, such as Windows&apos; own, no longer find it either way. A table with no lead-in always gets a new one.</source>
+        <translation>為結果賦予自己的磁碟 GUID（MBR 則為磁碟簽章），而不沿用前導區或裝置的。Windows 不允許兩個具有相同 GUID 的磁碟同時上線：若在原磁碟所在的系統上連接其複本，Windows 會自行為複本指派新的。以舊 GUID 指定磁碟的開機項目（例如 Windows 本身的）無論如何都將找不到它。沒有前導區的分割表一律會取得新的 GUID。</translation>
+    </message>
+    <message>
         <source>On the device</source>
         <translation>在裝置上</translation>
     </message>

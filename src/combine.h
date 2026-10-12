@@ -195,13 +195,19 @@ struct CombinePlan
 // the end of the device. A lead-in cannot be used with it; the space before
 // the device's first partition is kept as a lead-in's is.
 //
+// The table's disk GUID (GPT) or disk signature (MBR) is the lead-in's, or
+// the kept device's; newdiskid gives it a new one instead, as a table
+// without either always gets. Windows will not have two disks with the same
+// one online, and changes a copy's itself when it is attached where the
+// original is.
+//
 // Returns false, with *detail saying why, when the choices cannot be laid out
 // or do not fit devicesectors.
 bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &choices,
                  int leadimage, unsigned long long sectorsize,
                  unsigned long long devicesectors, unsigned long long alignsectors,
                  bool newguids, CombinePlan *plan, QString *detail,
-                 const ImageLayout *target = NULL);
+                 const ImageLayout *target = NULL, bool newdiskid = false);
 
 // A GPT GUID (16 bytes, mixed-endian) as text, as the tools print it.
 QString gptGuidText(const QByteArray &guid);

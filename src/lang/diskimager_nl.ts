@@ -100,6 +100,14 @@
         <translation>Kopieert de opstartcode van deze image en de ruimte tussen de partitietabel en de eerste partitie (tot 32 MiB), waar een bootloader kan staan. Het apparaat krijgt dan hetzelfde soort partitietabel als deze image, en de eerste partitie begint waar die in deze image begon.</translation>
     </message>
     <message>
+        <source>New disk GUID</source>
+        <translation>Nieuwe schijf-GUID</translation>
+    </message>
+    <message>
+        <source>Give the result a disk GUID of its own, or for an MBR a disk signature, instead of the lead-in&apos;s or the device&apos;s. Windows will not have two disks with the same one online: attach a copy of a disk where the original is, and it gives the copy a new one itself. Boot entries that name the disk by its old one, such as Windows&apos; own, no longer find it either way. A table with no lead-in always gets a new one.</source>
+        <translation>Geef het resultaat een eigen schijf-GUID, of bij een MBR een eigen schijfhandtekening, in plaats van die van de aanloop of van het apparaat. Windows houdt geen twee schijven met dezelfde tegelijk online: sluit u een kopie van een schijf aan waar het origineel is, dan geeft Windows de kopie zelf een nieuwe. Opstartvermeldingen die de schijf bij de oude noemen, zoals die van Windows zelf, vinden hem hoe dan ook niet meer. Een tabel zonder aanloop krijgt altijd een nieuwe.</translation>
+    </message>
+    <message>
         <source>On the device</source>
         <translation>Op het apparaat</translation>
     </message>

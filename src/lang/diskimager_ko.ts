@@ -100,6 +100,14 @@
         <translation>이 이미지의 부트 코드와, 파티션 테이블과 첫 파티션 사이의 공간(최대 32 MiB)을 복사합니다. 이 공간에는 부트로더가 저장되어 있을 수 있습니다. 그러면 장치는 이 이미지와 같은 종류의 파티션 테이블을 가지며, 첫 파티션은 이 이미지와 같은 위치에서 시작합니다.</translation>
     </message>
     <message>
+        <source>New disk GUID</source>
+        <translation>새 디스크 GUID</translation>
+    </message>
+    <message>
+        <source>Give the result a disk GUID of its own, or for an MBR a disk signature, instead of the lead-in&apos;s or the device&apos;s. Windows will not have two disks with the same one online: attach a copy of a disk where the original is, and it gives the copy a new one itself. Boot entries that name the disk by its old one, such as Windows&apos; own, no longer find it either way. A table with no lead-in always gets a new one.</source>
+        <translation>선행 영역이나 장치의 것 대신 결과에 고유한 디스크 GUID(MBR의 경우 디스크 서명)를 부여합니다. Windows는 같은 것을 가진 두 디스크를 동시에 온라인으로 두지 않습니다. 원본이 있는 곳에 디스크의 복사본을 연결하면 Windows가 복사본에 새 것을 직접 부여합니다. Windows 자체의 항목처럼 이전 것으로 디스크를 지정하는 부팅 항목은 어느 경우든 디스크를 더 이상 찾지 못합니다. 선행 영역이 없는 테이블은 항상 새 것을 받습니다.</translation>
+    </message>
+    <message>
         <source>On the device</source>
         <translation>장치에 배치</translation>
     </message>

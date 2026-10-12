@@ -100,6 +100,14 @@
         <translation>Copia il codice di avvio di questa immagine e lo spazio tra la sua tabella delle partizioni e la sua prima partizione (fino a 32 MiB), dove può trovarsi un bootloader. Il dispositivo riceve quindi lo stesso tipo di tabella delle partizioni di questa immagine, e la prima partizione inizia dove iniziava in questa immagine.</translation>
     </message>
     <message>
+        <source>New disk GUID</source>
+        <translation>Nuovo GUID del disco</translation>
+    </message>
+    <message>
+        <source>Give the result a disk GUID of its own, or for an MBR a disk signature, instead of the lead-in&apos;s or the device&apos;s. Windows will not have two disks with the same one online: attach a copy of a disk where the original is, and it gives the copy a new one itself. Boot entries that name the disk by its old one, such as Windows&apos; own, no longer find it either way. A table with no lead-in always gets a new one.</source>
+        <translation>Dà al risultato un proprio GUID del disco, o per un MBR una propria firma del disco, invece di quello dell&apos;area iniziale o del dispositivo. Windows non tiene in linea due dischi con lo stesso: se si collega la copia di un disco dove si trova l&apos;originale, Windows ne assegna da sé uno nuovo alla copia. Le voci di avvio che indicano il disco con quello vecchio, come quelle di Windows stesso, non lo trovano più in ogni caso. Una tabella senza area iniziale ne riceve sempre uno nuovo.</translation>
+    </message>
+    <message>
         <source>On the device</source>
         <translation>Sul dispositivo</translation>
     </message>

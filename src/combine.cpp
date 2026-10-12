@@ -567,7 +567,7 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
                  int leadimage, unsigned long long ss,
                  unsigned long long devicesectors, unsigned long long alignsectors,
                  bool newguids, CombinePlan *plan, QString *detail,
-                 const ImageLayout *target)
+                 const ImageLayout *target, bool newdiskid)
 {
     auto fail = [&](const QString &why) { if (detail) *detail = why; return false; };
     if (ss < 512 || alignsectors == 0)
@@ -916,10 +916,10 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
         QByteArray region(base ? base->tableRegion.left((int)ss) : QByteArray((int)ss, 0));
         region.resize((int)ss);
         unsigned char *m = (unsigned char *)region.data();
-        if (!base)
+        if (!base || newdiskid)
         {
             // A disk signature of its own; Linux names MBR partitions by it
-            // (PARTUUID=<signature>-<number>).
+            // (PARTUUID=<signature>-<number>). The boot code is kept.
             const QByteArray g = newGuid();
             memcpy(m + 440, g.constData(), 4);
         }
@@ -1039,7 +1039,8 @@ bool planCombine(const QList<ImageLayout> &images, const QList<CombineChoice> &c
         wr64(h, H_ALTLBA, lastlba);
         wr64(h, H_FIRSTUSABLE, firstusable);
         wr64(h, H_LASTUSABLE, lastusable);
-        const QByteArray diskguid = (base && base->diskGuid.size() == 16) ? base->diskGuid : newGuid();
+        const QByteArray diskguid = (base && !newdiskid && base->diskGuid.size() == 16)
+                                    ? base->diskGuid : newGuid();
         memcpy(h + H_DISKGUID, diskguid.constData(), 16);
         wr64(h, H_ENTRYLBA, entrylba);
         wr32(h, H_NUMENTRIES, numentries);

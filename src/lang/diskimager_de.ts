@@ -100,6 +100,14 @@
         <translation>Kopiert den Bootcode dieses Images und den Bereich zwischen seiner Partitionstabelle und seiner ersten Partition (bis zu 32 MiB), in dem ein Bootloader liegen kann. Der Datenträger erhält dann dieselbe Art von Partitionstabelle wie dieses Image, und die erste Partition beginnt dort, wo sie in diesem Image begann.</translation>
     </message>
     <message>
+        <source>New disk GUID</source>
+        <translation>Neue Datenträger-GUID</translation>
+    </message>
+    <message>
+        <source>Give the result a disk GUID of its own, or for an MBR a disk signature, instead of the lead-in&apos;s or the device&apos;s. Windows will not have two disks with the same one online: attach a copy of a disk where the original is, and it gives the copy a new one itself. Boot entries that name the disk by its old one, such as Windows&apos; own, no longer find it either way. A table with no lead-in always gets a new one.</source>
+        <translation>Gibt dem Ergebnis eine eigene Datenträger-GUID, bei einem MBR eine eigene Datenträgersignatur, statt der des Vorspanns oder des Datenträgers. Windows lässt keine zwei Datenträger mit derselben gleichzeitig online: Wird die Kopie eines Datenträgers dort angeschlossen, wo das Original ist, gibt Windows der Kopie selbst eine neue. Starteinträge, die den Datenträger über die alte benennen, etwa die von Windows selbst, finden ihn so oder so nicht mehr. Eine Tabelle ohne Vorspann bekommt immer eine neue.</translation>
+    </message>
+    <message>
         <source>On the device</source>
         <translation>Auf dem Datenträger</translation>
     </message>

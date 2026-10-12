@@ -100,6 +100,14 @@
         <translation>复制此映像的引导代码，以及其分区表与第一个分区之间的空间（最多 32 MiB），引导加载程序可能存放在那里。设备随后会获得与此映像相同类型的分区表，且第一个分区的起始位置与此映像中相同。</translation>
     </message>
     <message>
+        <source>New disk GUID</source>
+        <translation>新磁盘 GUID</translation>
+    </message>
+    <message>
+        <source>Give the result a disk GUID of its own, or for an MBR a disk signature, instead of the lead-in&apos;s or the device&apos;s. Windows will not have two disks with the same one online: attach a copy of a disk where the original is, and it gives the copy a new one itself. Boot entries that name the disk by its old one, such as Windows&apos; own, no longer find it either way. A table with no lead-in always gets a new one.</source>
+        <translation>为结果赋予自己的磁盘 GUID（MBR 则为磁盘签名），而不是使用前导区或设备的。Windows 不允许两个具有相同 GUID 的磁盘同时联机：若在原磁盘所在的系统上连接其副本，Windows 会自行为副本分配新的。以旧 GUID 指定磁盘的启动项（例如 Windows 自己的）无论如何都将找不到它。没有前导区的分区表总会获得新的 GUID。</translation>
+    </message>
+    <message>
         <source>On the device</source>
         <translation>在设备上</translation>
     </message>

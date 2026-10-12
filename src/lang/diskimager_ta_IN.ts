@@ -100,6 +100,14 @@
         <translation>இந்தப் படிமத்தின் துவக்கக் குறியீட்டையும், அதன் பகிர்வு அட்டவணைக்கும் முதல் பகிர்வுக்கும் இடையிலான இடத்தையும் (32 MiB வரை) நகலெடுக்கும்; அங்கு துவக்கி சேமிக்கப்பட்டிருக்கலாம். பின்னர் சாதனத்துக்கு இந்தப் படிமத்தின் அதே வகைப் பகிர்வு அட்டவணை கிடைக்கும், முதல் பகிர்வும் இந்தப் படிமத்தில் தொடங்கிய இடத்திலேயே தொடங்கும்.</translation>
     </message>
     <message>
+        <source>New disk GUID</source>
+        <translation>புதிய வட்டு GUID</translation>
+    </message>
+    <message>
+        <source>Give the result a disk GUID of its own, or for an MBR a disk signature, instead of the lead-in&apos;s or the device&apos;s. Windows will not have two disks with the same one online: attach a copy of a disk where the original is, and it gives the copy a new one itself. Boot entries that name the disk by its old one, such as Windows&apos; own, no longer find it either way. A table with no lead-in always gets a new one.</source>
+        <translation>முன்பகுதியின் அல்லது சாதனத்தின் GUID-க்குப் பதிலாக, முடிவுக்குச் சொந்த வட்டு GUID-ஐ (MBR எனில் வட்டுக் கையொப்பத்தை) வழங்கு. ஒரே GUID கொண்ட இரண்டு வட்டுகளை Windows ஒரே நேரத்தில் இணைப்பில் வைக்காது: மூல வட்டு உள்ள கணினியில் அதன் நகலை இணைத்தால், Windows தானே நகலுக்குப் புதியதை வழங்கும். பழைய GUID மூலம் வட்டைக் குறிப்பிடும் துவக்கப் பதிவுகள் (Windows-இன் சொந்தப் பதிவுகள் போன்றவை) எப்படியும் அதைக் கண்டுபிடிக்காது. முன்பகுதி இல்லாத அட்டவணைக்கு எப்போதும் புதியது கிடைக்கும்.</translation>
+    </message>
+    <message>
         <source>On the device</source>
         <translation>சாதனத்தில்</translation>
     </message>

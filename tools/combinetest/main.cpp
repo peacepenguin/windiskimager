@@ -1407,6 +1407,89 @@ static void caseKeepDialog()
     DeleteFileA("combinetest-keepbare.img");
 }
 
+static void caseNewDiskId()
+{
+    printf("a new disk GUID or signature\n");
+    const QByteArray a = gptImage(9000, 34, {
+        {2048, 5000, LINUX, "E7E7E7E7-E7E7-E7E7-E7E7-E7E7E7E7E7E7", "a", 'a', 0} },
+        "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA");
+    QList<ImageLayout> ls(1);
+    layoutOf(a, &ls[0]);
+    const QByteArray aguid = guid("AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA");
+    const unsigned long long device = 20000;
+    CombinePlan plan;
+    QString why;
+    bool ok = planCombine(ls, { {0, 0} }, 0, SEC, device, ALIGN, false, &plan, &why, NULL, true);
+    QByteArray dev = apply(plan, {a}, device);
+    const unsigned char *h = (const unsigned char *)dev.constData() + SEC;
+    const unsigned char *bh = (const unsigned char *)dev.constData() + (device - 1) * SEC;
+    check(ok && memcmp(h + 56, aguid.constData(), 16) != 0, "with a lead-in, a new disk GUID");
+    check(memcmp(bh + 56, h + 56, 16) == 0 && backupAtEnd(dev, device),
+          "  the backup header has it too, and checks out");
+    check(memcmp(dev.constData(), a.constData(), 440) == 0 && sameSectors(dev, 34, a, 34, 2048 - 34),
+          "  the lead-in's boot code and lead-in are still copied");
+    ok = planCombine(ls, { {0, 0} }, 0, SEC, device, ALIGN, false, &plan, &why);
+    dev = apply(plan, {a}, device);
+    check(ok && memcmp(dev.constData() + SEC + 56, aguid.constData(), 16) == 0,
+          "  without it, the lead-in's own");
+
+    const QByteArray m = mbrImage(8192, { {0, 2048, 3000, 0x83, false, 'm'} }, 0x11112222u);
+    QList<ImageLayout> lm(1);
+    layoutOf(m, &lm[0]);
+    ok = planCombine(lm, { {0, 0} }, 0, SEC, device, ALIGN, false, &plan, &why, NULL, true);
+    dev = apply(plan, {m}, device);
+    check(ok && rd32((const unsigned char *)dev.constData(), 440) != 0x11112222u
+          && memcmp(dev.constData(), m.constData(), 440) == 0,
+          "an MBR lead-in: a new disk signature, its boot code kept");
+
+    const QByteArray t = keptGptDevice(40000);
+    ImageLayout tl;
+    layoutOf(t, &tl);
+    ok = planCombine(ls, { {COMBINE_KEPT, 0}, {0, 0}, {COMBINE_KEPT, 1} }, -1, SEC, 40000, ALIGN,
+                     false, &plan, &why, &tl, true);
+    dev = applyOnto(plan, {a}, t);
+    check(ok && memcmp(dev.constData() + SEC + 56,
+                       guid("DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD").constData(), 16) != 0
+          && memcmp(gptEntry(dev, 0), t.constData() + 2 * SEC, 128) == 0
+          && backupAtEnd(dev, 40000),
+          "a kept device: a new disk GUID, its partitions' entries unchanged");
+
+    // The dialog: only with something to take a disk ID from.
+    writeFile("combinetest-diskid.img", a);
+    CombineDialog dlg(NULL, fakeDevices({ {96, "[Disk 96] id", "id", device * SEC} }),
+                      fakeSectorSize, 96, false, SEC, ".", QStringList("*.*"));
+    dlg.addImageFiles({ "combinetest-diskid.img" });
+    QTreeWidget *images = NULL;
+    for (QTreeWidget *tw : dlg.findChildren<QTreeWidget *>())
+    {
+        if (tw->headerItem()->text(0) == "Source / partition") images = tw;
+    }
+    images->topLevelItem(0)->child(0)->setCheckState(0, Qt::Checked);
+    QCheckBox *newid = NULL;
+    for (QCheckBox *c : dlg.findChildren<QCheckBox *>())
+    {
+        if (c->text() == "New disk GUID") newid = c;
+    }
+    QComboBox *lead = NULL;
+    for (QComboBox *c : dlg.findChildren<QComboBox *>())
+    {
+        if (c->count() && c->itemText(0).startsWith("None")) lead = c;
+    }
+    check(newid && lead && !newid->isEnabled(), "no lead-in: the box is off, a new table has its own");
+    if (!newid || !lead) return;
+    lead->setCurrentIndex(lead->findData(0));
+    check(newid->isEnabled() && dlg.planIsValid()
+          && memcmp(dlg.plan().headerregion.constData() + SEC + 56, aguid.constData(), 16) == 0,
+          "a lead-in: the box can be ticked, and unticked its disk GUID is used");
+    newid->setChecked(true);
+    check(dlg.planIsValid()
+          && memcmp(dlg.plan().headerregion.constData() + SEC + 56, aguid.constData(), 16) != 0,
+          "  ticked, the plan has a new one");
+    lead->setCurrentIndex(0);
+    check(!newid->isEnabled(), "  and with the lead-in gone, the box is off again");
+    DeleteFileA("combinetest-diskid.img");
+}
+
 // nativeEvent is protected: this makes it callable, to hand the dialog a drop.
 struct DropDialog : CombineDialog
 {
@@ -1509,6 +1592,7 @@ int main(int argc, char **argv)
     caseKeepGpt();
     caseKeepMbr();
     caseKeepDialog();
+    caseNewDiskId();
     DeleteFileA(TESTFILE);
     printf("\n%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

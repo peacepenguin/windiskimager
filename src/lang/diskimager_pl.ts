@@ -100,6 +100,14 @@
         <translation>Kopiuje kod rozruchowy tego obrazu oraz obszar między jego tablicą partycji a pierwszą partycją (do 32 MiB), w którym może znajdować się program rozruchowy. Urządzenie otrzymuje wtedy ten sam rodzaj tablicy partycji co ten obraz, a pierwsza partycja zaczyna się tam, gdzie zaczynała się w tym obrazie.</translation>
     </message>
     <message>
+        <source>New disk GUID</source>
+        <translation>Nowy GUID dysku</translation>
+    </message>
+    <message>
+        <source>Give the result a disk GUID of its own, or for an MBR a disk signature, instead of the lead-in&apos;s or the device&apos;s. Windows will not have two disks with the same one online: attach a copy of a disk where the original is, and it gives the copy a new one itself. Boot entries that name the disk by its old one, such as Windows&apos; own, no longer find it either way. A table with no lead-in always gets a new one.</source>
+        <translation>Nadaje wynikowi własny GUID dysku, a w przypadku MBR własną sygnaturę dysku, zamiast tej z obszaru początkowego lub z urządzenia. Windows nie dopuszcza dwóch dysków online z tym samym identyfikatorem: jeśli kopia dysku zostanie podłączona tam, gdzie jest oryginał, Windows sam nada kopii nowy. Wpisy rozruchowe, które wskazują dysk starym identyfikatorem, takie jak wpisy samego Windows, i tak go już nie znajdą. Tablica bez obszaru początkowego zawsze dostaje nowy.</translation>
+    </message>
+    <message>
         <source>On the device</source>
         <translation>Na urządzeniu</translation>
     </message>

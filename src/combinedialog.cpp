@@ -171,6 +171,15 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
                           "table as this image, and the first partition starts where this "
                           "image's did."));
     leadRow->addWidget(myLead, 1);
+    myNewDiskId = new QCheckBox(tr("New disk GUID"), deviceBox);
+    myNewDiskId->setToolTip(tr("Give the result a disk GUID of its own, or for an MBR a disk "
+                               "signature, instead of the lead-in's or the device's. Windows "
+                               "will not have two disks with the same one online: attach a copy "
+                               "of a disk where the original is, and it gives the copy a new one "
+                               "itself. Boot entries that name the disk by its old one, such as "
+                               "Windows' own, no longer find it either way. A table with no "
+                               "lead-in always gets a new one."));
+    leadRow->addWidget(myNewDiskId);
     deviceLayout->addLayout(leadRow, 4, 0, 1, 2);
 
     myPreview = new QTreeWidget(deviceBox);
@@ -267,6 +276,7 @@ CombineDialog::CombineDialog(QWidget *parent, CombineDeviceLister listDevices,
     connect(myKeep, &QCheckBox::toggled, this, &CombineDialog::keepChanged);
     connect(myLead, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             [this]() { if (!myRebuilding) replan(); });
+    connect(myNewDiskId, &QCheckBox::toggled, this, &CombineDialog::replan);
     connect(myToDevice, &QRadioButton::toggled, this, &CombineDialog::destinationChanged);
     connect(myShowAll, &QCheckBox::toggled, this, &CombineDialog::refreshDevices);
     connect(myDeviceBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
@@ -1206,6 +1216,10 @@ void CombineDialog::replan()
     {
         myNewGuids = false;
     }
+    // Only a disk ID taken from somewhere, the lead-in or the kept device,
+    // can be kept or replaced.
+    myNewDiskId->setEnabled(keepsDevice()
+                            || (myLead->count() > 0 && myLead->currentData().toInt() >= 0));
     myPreview->clear();
     myPlanOk = false;
     myWrite->setEnabled(false);
@@ -1266,7 +1280,8 @@ void CombineDialog::replan()
     // An image file has no size of its own: 0 plans it to fit the layout.
     if (!planCombine(layouts, planned, lead, mySectorSize, toFile() ? 0ull : myDeviceSectors,
                      ALIGN_BYTES / mySectorSize, myNewGuids, &myPlan, &why,
-                     keep ? &myTarget.layout : NULL))
+                     keep ? &myTarget.layout : NULL,
+                     myNewDiskId->isEnabled() && myNewDiskId->isChecked()))
     {
         myStatus->setText(tr("This cannot be written: %1.").arg(why));
         myStatus->setStyleSheet("color: #c00000;");

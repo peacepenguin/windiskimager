@@ -137,6 +137,13 @@ added to the sources, as many as are dropped at once.
   (up to 32 MB, as for Skip unpartitioned space on Read). The device then gets the
   same kind of partition table as that image, and the first partition starts
   where that image's did.
+- **New disk GUID**, beside the lead-in, gives the result a disk GUID (or,
+  for an MBR, a disk signature) of its own instead of the lead-in's or the
+  kept device's. Windows will not have two disks with the same one online:
+  attach a copy of a disk where the original is -- a Disk2vhd image on the
+  machine it was taken from, say -- and Windows gives the copy a new one
+  itself. Boot entries that name the disk by its old one, Windows' own
+  among them, then no longer find it, either way.
 - Without a lead-in, the device gets an MBR if every partition comes from an
   MBR image or a table-less one and there are no more than four, and a GPT
   otherwise. Partitions moving between the two have their type translated;
