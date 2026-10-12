@@ -44,6 +44,9 @@ corrupting the GPT of images like ARM board images. See
   since that is what publishers usually quote.
 - **Fix GPT after write** makes the partition table match the device, so
   Windows has nothing to rewrite.
+- **Check Boot** checks that a disk's Windows boot configuration still names
+  the disk as it is, and says how to fix it when Windows has given the disk a
+  new ID. See [Check Boot](#check-boot).
 
 ## Choosing a device
 
@@ -166,6 +169,31 @@ added to the sources, as many as are dropped at once.
 
 Whether the result boots depends on its bootloaders finding their partitions
 where they now are: something that looks for "partition 1" may find another.
+
+## Check Boot
+
+Windows will not have two disks with the same disk ID -- a GPT disk GUID, or
+an MBR disk signature -- online at once. Attach a copy of a disk where its
+original is, as when a Disk2vhd VHDX is mounted on the machine it was taken
+from, and Windows quietly gives the copy a new ID. Its boot configuration
+(BCD) still names its partitions by the old one, so the copy no longer boots.
+The [Disk2vhd page](https://learn.microsoft.com/en-us/sysinternals/downloads/disk2vhd)
+warns about this.
+
+**Check Boot** reads the selected device's BCD -- from the EFI system
+partition's `\EFI\Microsoft\Boot\BCD`, or a BIOS system partition's
+`\Boot\BCD`, FAT or NTFS -- and checks every partition it names, the
+recovery environment's included, against the disk as it is now. It only
+reads, straight from the disk, so it works on a disk Windows has taken
+offline too.
+
+When the IDs no longer match, the report lists each entry and gives the
+commands to fix it while keeping the disk's new ID: `diskpart` to give the
+partitions letters, then `bcdedit /store ... /set {entry} device
+partition=X:` for each entry, or `bcdboot` to rebuild the configuration.
+They are run inside the VM, booted from Windows setup media (Shift+F10):
+there the disk is an ordinary disk, whereas on the host `bcdedit` would name
+the mounted VHDX file instead. **Copy** puts the report on the clipboard.
 
 ## The Windows GPT problem
 

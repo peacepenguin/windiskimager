@@ -2,6 +2,205 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ta_IN">
 <context>
+    <name>BootCheck</name>
+    <message>
+        <source>its first sector could not be read</source>
+        <translation>அதன் முதல் செக்டரைப் படிக்க முடியவில்லை</translation>
+    </message>
+    <message>
+        <source>it holds no FAT filesystem</source>
+        <translation>அதில் FAT கோப்பு முறைமை இல்லை</translation>
+    </message>
+    <message>
+        <source>its allocation table could not be read</source>
+        <translation>அதன் ஒதுக்கீட்டு அட்டவணையைப் படிக்க முடியவில்லை</translation>
+    </message>
+    <message>
+        <source>its root directory could not be read</source>
+        <translation>அதன் மூலக் கோப்பகத்தைப் படிக்க முடியவில்லை</translation>
+    </message>
+    <message>
+        <source>it has no \%1</source>
+        <translation>அதில் \%1 இல்லை</translation>
+    </message>
+    <message>
+        <source>\%1 is not a file</source>
+        <translation>\%1 ஒரு கோப்பு அல்ல</translation>
+    </message>
+    <message>
+        <source>\%1 could not be read</source>
+        <translation>\%1-ஐப் படிக்க முடியவில்லை</translation>
+    </message>
+    <message>
+        <source>no file was named</source>
+        <translation>எந்தக் கோப்பும் குறிப்பிடப்படவில்லை</translation>
+    </message>
+    <message>
+        <source>it holds no NTFS filesystem</source>
+        <translation>அதில் NTFS கோப்பு முறைமை இல்லை</translation>
+    </message>
+    <message>
+        <source>its file table could not be read</source>
+        <translation>அதன் கோப்பு அட்டவணையைப் படிக்க முடியவில்லை</translation>
+    </message>
+    <message>
+        <source>it is stored in more pieces than this reads</source>
+        <translation>இது படிக்கக்கூடியதை விட அதிகத் துண்டுகளாக அது சேமிக்கப்பட்டுள்ளது</translation>
+    </message>
+    <message>
+        <source>it has no data</source>
+        <translation>அதில் தரவு இல்லை</translation>
+    </message>
+    <message>
+        <source>it is compressed or encrypted</source>
+        <translation>அது சுருக்கப்பட்டுள்ளது அல்லது மறையாக்கப்பட்டுள்ளது</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>அதைப் படிக்க முடியவில்லை</translation>
+    </message>
+    <message>
+        <source>\%1: %2</source>
+        <translation>\%1: %2</translation>
+    </message>
+    <message>
+        <source>it is not a registry hive</source>
+        <translation>அது ஒரு பதிவக ஹைவ் அல்ல</translation>
+    </message>
+    <message>
+        <source>its root key could not be read</source>
+        <translation>அதன் மூல விசையைப் படிக்க முடியவில்லை</translation>
+    </message>
+    <message>
+        <source>it holds no boot objects</source>
+        <translation>அதில் துவக்கப் பொருள்கள் இல்லை</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>The disk has no partition table, so nothing on it can be booted the way Windows boots.</source>
+        <translation>வட்டில் பகிர்வு அட்டவணை இல்லை, எனவே Windows துவங்கும் முறையில் அதிலுள்ள எதையும் துவக்க முடியாது.</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2)</source>
+        <translation>பகிர்வு %1 (%2)</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2, %3)</source>
+        <translation>பகிர்வு %1 (%2, %3)</translation>
+    </message>
+    <message>
+        <source>Disk %1: GPT, disk GUID %2.</source>
+        <translation>வட்டு %1: GPT, வட்டு GUID %2.</translation>
+    </message>
+    <message>
+        <source>Disk %1: MBR, disk signature %2.</source>
+        <translation>வட்டு %1: MBR, வட்டுக் கையொப்பம் %2.</translation>
+    </message>
+    <message>
+        <source>No Windows boot configuration was found: no partition holds \EFI\Microsoft\Boot\BCD or \Boot\BCD.</source>
+        <translation>Windows துவக்க உள்ளமைவு எதுவும் கண்டறியப்படவில்லை: எந்தப் பகிர்விலும் \EFI\Microsoft\Boot\BCD அல்லது \Boot\BCD இல்லை.</translation>
+    </message>
+    <message>
+        <source>Looked in: %1.</source>
+        <translation>தேடிய இடங்கள்: %1.</translation>
+    </message>
+    <message>
+        <source>The boot configuration on %1, %2, could not be read: %3.</source>
+        <translation>%1, %2-இல் உள்ள துவக்க உள்ளமைவைப் படிக்க முடியவில்லை: %3.</translation>
+    </message>
+    <message>
+        <source>Boot configuration: %1, %2, %3 objects.</source>
+        <translation>துவக்க உள்ளமைவு: %1, %2, %3 பொருள்கள்.</translation>
+    </message>
+    <message>
+        <source>No entry names a partition.</source>
+        <translation>எந்தப் பதிவும் ஒரு பகிர்வைக் குறிப்பிடவில்லை.</translation>
+    </message>
+    <message>
+        <source>Entries that name a partition:</source>
+        <translation>ஒரு பகிர்வைக் குறிப்பிடும் பதிவுகள்:</translation>
+    </message>
+    <message>
+        <source>MISSING</source>
+        <translation>இல்லை</translation>
+    </message>
+    <message>
+        <source>WRONG</source>
+        <translation>தவறு</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>சரி</translation>
+    </message>
+    <message>
+        <source>partition %1</source>
+        <translation>பகிர்வு %1</translation>
+    </message>
+    <message>
+        <source>the partition at byte %1</source>
+        <translation>பைட் %1-இல் உள்ள பகிர்வு</translation>
+    </message>
+    <message>
+        <source>on disk %1</source>
+        <translation>வட்டு %1-இல்</translation>
+    </message>
+    <message>
+        <source>a ramdisk on %1</source>
+        <translation>%1-இல் உள்ள RAM வட்டு</translation>
+    </message>
+    <message>
+        <source>Every entry names this disk as it is now, and a partition it has: the boot configuration matches the disk.</source>
+        <translation>ஒவ்வொரு பதிவும் இந்த வட்டை அதன் தற்போதைய நிலையிலும், அதில் உள்ள ஒரு பகிர்வையும் குறிப்பிடுகிறது: துவக்க உள்ளமைவு வட்டுடன் பொருந்துகிறது.</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by GUID %1, but the disk&apos;s own is %2.</source>
+        <translation>துவக்க உள்ளமைவு வட்டை GUID %1 மூலம் குறிப்பிடுகிறது, ஆனால் வட்டின் சொந்த GUID %2.</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by signature %1, but the disk&apos;s own is %2.</source>
+        <translation>துவக்க உள்ளமைவு வட்டைக் கையொப்பம் %1 மூலம் குறிப்பிடுகிறது, ஆனால் வட்டின் சொந்தக் கையொப்பம் %2.</translation>
+    </message>
+    <message>
+        <source>%1 on this computer has that ID: probably the disk this one was copied from, which made Windows give this one a new ID when it was attached.</source>
+        <translation>இந்தக் கணினியில் உள்ள %1-க்கு அந்த ID உள்ளது: இந்த வட்டு அதிலிருந்து நகலெடுக்கப்பட்டிருக்கலாம், அதனால்தான் இது இணைக்கப்பட்டபோது Windows இதற்குப் புதிய ID-ஐ வழங்கியது.</translation>
+    </message>
+    <message>
+        <source>Windows gives a disk a new ID when it is attached where a disk with the same one already is, as a copy is where its original is.</source>
+        <translation>அதே ID கொண்ட வட்டு ஏற்கெனவே உள்ள இடத்தில் ஒரு வட்டு இணைக்கப்படும்போது (நகல் அதன் மூல வட்டு உள்ள இடத்தில் இணைக்கப்படுவது போல), Windows அதற்குப் புதிய ID-ஐ வழங்கும்.</translation>
+    </message>
+    <message>
+        <source>%1 entries name a partition this disk does not have; bcdedit cannot point those at the right partition, but bcdboot (below) can make new ones.</source>
+        <translation>%1 பதிவுகள் இந்த வட்டில் இல்லாத ஒரு பகிர்வைக் குறிப்பிடுகின்றன; bcdedit அவற்றைச் சரியான பகிர்வுக்குச் சுட்ட முடியாது, ஆனால் bcdboot (கீழே) புதியவற்றை உருவாக்க முடியும்.</translation>
+    </message>
+    <message>
+        <source>The disk will not boot until this is fixed.</source>
+        <translation>இது சரிசெய்யப்படும் வரை வட்டு துவங்காது.</translation>
+    </message>
+    <message>
+        <source>To fix it and keep the disk&apos;s new ID, start the VM from Windows setup media, press Shift+F10 for a command prompt, and run the commands below. There the disk is an ordinary disk, so bcdedit names its partitions by the disk&apos;s GUID and their own. On this computer, with the disk attached as a VHD or VHDX, bcdedit would name the VHDX file instead, which a VM cannot find.</source>
+        <translation>இதைச் சரிசெய்து வட்டின் புதிய ID-ஐ வைத்திருக்க, Windows நிறுவல் ஊடகத்திலிருந்து VM-ஐத் தொடங்கி, கட்டளைத் தூண்டிக்கு Shift+F10 அழுத்தி, கீழே உள்ள கட்டளைகளை இயக்கவும். அங்கு வட்டு ஒரு சாதாரண வட்டு என்பதால், bcdedit அதன் பகிர்வுகளை வட்டின் GUID மற்றும் அவற்றின் சொந்த GUID மூலம் குறிப்பிடும். இந்தக் கணினியில், வட்டு VHD அல்லது VHDX ஆக இணைக்கப்பட்டிருக்கும்போது, bcdedit அதற்குப் பதிலாக VHDX கோப்பைக் குறிப்பிடும், அதை VM-ஆல் கண்டுபிடிக்க முடியாது.</translation>
+    </message>
+    <message>
+        <source>&quot;select disk 0&quot; assumes it is the VM&apos;s only disk: check &quot;list disk&quot; for one of %1. If a partition already has a letter, use that one in the commands instead.</source>
+        <translation>&quot;select disk 0&quot; என்பது அது VM-இன் ஒரே வட்டு என்று கருதுகிறது: &quot;list disk&quot;-இல் %1 அளவுள்ள வட்டைச் சரிபார்க்கவும். ஒரு பகிர்வுக்கு ஏற்கெனவே எழுத்து இருந்தால், கட்டளைகளில் அதற்குப் பதிலாக அந்த எழுத்தைப் பயன்படுத்தவும்.</translation>
+    </message>
+    <message>
+        <source>Partitions: %1.</source>
+        <translation>பகிர்வுகள்: %1.</translation>
+    </message>
+    <message>
+        <source>Or rebuild the boot files and the boot configuration from that Windows instead, which replaces the configuration&apos;s entries with new ones:</source>
+        <translation>அல்லது அதற்குப் பதிலாக அந்த Windows-இலிருந்து துவக்கக் கோப்புகளையும் துவக்க உள்ளமைவையும் மீண்டும் உருவாக்கவும், இது உள்ளமைவின் பதிவுகளைப் புதியவற்றால் மாற்றும்:</translation>
+    </message>
+</context>
+<context>
     <name>CombineDialog</name>
     <message>
         <source>Custom Partitioning</source>
@@ -571,6 +770,14 @@ New GUIDs can be generated for the later copies; the first keeps its own. Anythi
         <translation>சாதனத்தின் GPT-ஐச் சரிபார்</translation>
     </message>
     <message>
+        <source>Check Boot</source>
+        <translation>துவக்கத்தைச் சரிபார்</translation>
+    </message>
+    <message>
+        <source>Check that the Windows boot configuration on the selected device names the device as it is now. Windows gives a disk a new ID when it is attached where its original is, as a Disk2vhd VHDX on the machine it was taken from, and the copy then no longer boots. Only reads; the report says how to fix it with Windows&apos; own tools.</source>
+        <translation>தேர்ந்தெடுத்த சாதனத்தில் உள்ள Windows துவக்க உள்ளமைவு, சாதனத்தை அதன் தற்போதைய நிலையில் குறிப்பிடுகிறதா எனச் சரிபார்க்கும். ஒரு வட்டு அதன் மூல வட்டு உள்ள இடத்தில் இணைக்கப்படும்போது (எடுக்கப்பட்ட கணினியிலேயே இணைக்கப்படும் Disk2vhd VHDX போல), Windows அதற்குப் புதிய ID-ஐ வழங்குகிறது, பின்னர் அந்த நகல் துவங்காது. படிக்க மட்டுமே செய்யும்; Windows-இன் சொந்தக் கருவிகளைக் கொண்டு அதை எப்படிச் சரிசெய்வது என்பதை அறிக்கை கூறும்.</translation>
+    </message>
+    <message>
         <source>Custom Partitioning...</source>
         <translation>தனிப்பயன் பகிர்வாக்கம்...</translation>
     </message>
@@ -990,6 +1197,26 @@ Repair the partition table now?</source>
     <message>
         <source>Could not open the device.</source>
         <translation>சாதனத்தைத் திறக்க முடியவில்லை.</translation>
+    </message>
+    <message>
+        <source>Disk %1</source>
+        <translation>வட்டு %1</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table could not be read: %1.</source>
+        <translation>சாதனத்தின் பகிர்வு அட்டவணையைப் படிக்க முடியவில்லை: %1.</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>அதைப் படிக்க முடியவில்லை</translation>
+    </message>
+    <message>
+        <source>The boot configuration matches the device.</source>
+        <translation>துவக்க உள்ளமைவு சாதனத்துடன் பொருந்துகிறது.</translation>
+    </message>
+    <message>
+        <source>Check Boot found a problem.</source>
+        <translation>&quot;துவக்கத்தைச் சரிபார்&quot; ஒரு சிக்கலைக் கண்டறிந்தது.</translation>
     </message>
     <message>
         <source>This device&apos;s partition table is broken:</source>

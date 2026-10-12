@@ -2,6 +2,205 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ko">
 <context>
+    <name>BootCheck</name>
+    <message>
+        <source>its first sector could not be read</source>
+        <translation>첫 섹터를 읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>it holds no FAT filesystem</source>
+        <translation>FAT 파일 시스템이 없습니다</translation>
+    </message>
+    <message>
+        <source>its allocation table could not be read</source>
+        <translation>할당 테이블을 읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>its root directory could not be read</source>
+        <translation>루트 디렉터리를 읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>it has no \%1</source>
+        <translation>\%1이(가) 없습니다</translation>
+    </message>
+    <message>
+        <source>\%1 is not a file</source>
+        <translation>\%1은(는) 파일이 아닙니다</translation>
+    </message>
+    <message>
+        <source>\%1 could not be read</source>
+        <translation>\%1을(를) 읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>no file was named</source>
+        <translation>파일 이름이 지정되지 않았습니다</translation>
+    </message>
+    <message>
+        <source>it holds no NTFS filesystem</source>
+        <translation>NTFS 파일 시스템이 없습니다</translation>
+    </message>
+    <message>
+        <source>its file table could not be read</source>
+        <translation>파일 테이블을 읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>it is stored in more pieces than this reads</source>
+        <translation>이 기능이 읽을 수 있는 것보다 많은 조각으로 나뉘어 저장되어 있습니다</translation>
+    </message>
+    <message>
+        <source>it has no data</source>
+        <translation>데이터가 없습니다</translation>
+    </message>
+    <message>
+        <source>it is compressed or encrypted</source>
+        <translation>압축되었거나 암호화되어 있습니다</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>\%1: %2</source>
+        <translation>\%1: %2</translation>
+    </message>
+    <message>
+        <source>it is not a registry hive</source>
+        <translation>레지스트리 하이브가 아닙니다</translation>
+    </message>
+    <message>
+        <source>its root key could not be read</source>
+        <translation>루트 키를 읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>it holds no boot objects</source>
+        <translation>부팅 개체가 없습니다</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>The disk has no partition table, so nothing on it can be booted the way Windows boots.</source>
+        <translation>디스크에 파티션 테이블이 없으므로 Windows가 부팅하는 방식으로는 이 디스크의 어떤 것도 부팅할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2)</source>
+        <translation>파티션 %1 (%2)</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2, %3)</source>
+        <translation>파티션 %1 (%2, %3)</translation>
+    </message>
+    <message>
+        <source>Disk %1: GPT, disk GUID %2.</source>
+        <translation>디스크 %1: GPT, 디스크 GUID %2.</translation>
+    </message>
+    <message>
+        <source>Disk %1: MBR, disk signature %2.</source>
+        <translation>디스크 %1: MBR, 디스크 서명 %2.</translation>
+    </message>
+    <message>
+        <source>No Windows boot configuration was found: no partition holds \EFI\Microsoft\Boot\BCD or \Boot\BCD.</source>
+        <translation>Windows 부팅 구성을 찾을 수 없습니다: \EFI\Microsoft\Boot\BCD 또는 \Boot\BCD가 있는 파티션이 없습니다.</translation>
+    </message>
+    <message>
+        <source>Looked in: %1.</source>
+        <translation>검색한 위치: %1.</translation>
+    </message>
+    <message>
+        <source>The boot configuration on %1, %2, could not be read: %3.</source>
+        <translation>%1, %2의 부팅 구성을 읽을 수 없습니다: %3.</translation>
+    </message>
+    <message>
+        <source>Boot configuration: %1, %2, %3 objects.</source>
+        <translation>부팅 구성: %1, %2, 개체 %3개.</translation>
+    </message>
+    <message>
+        <source>No entry names a partition.</source>
+        <translation>파티션을 지정하는 항목이 없습니다.</translation>
+    </message>
+    <message>
+        <source>Entries that name a partition:</source>
+        <translation>파티션을 지정하는 항목:</translation>
+    </message>
+    <message>
+        <source>MISSING</source>
+        <translation>없음</translation>
+    </message>
+    <message>
+        <source>WRONG</source>
+        <translation>잘못됨</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>partition %1</source>
+        <translation>파티션 %1</translation>
+    </message>
+    <message>
+        <source>the partition at byte %1</source>
+        <translation>바이트 %1 위치의 파티션</translation>
+    </message>
+    <message>
+        <source>on disk %1</source>
+        <translation>디스크 %1에 있음</translation>
+    </message>
+    <message>
+        <source>a ramdisk on %1</source>
+        <translation>%1의 RAM 디스크</translation>
+    </message>
+    <message>
+        <source>Every entry names this disk as it is now, and a partition it has: the boot configuration matches the disk.</source>
+        <translation>모든 항목이 현재 상태의 이 디스크와 이 디스크에 있는 파티션을 지정합니다: 부팅 구성이 디스크와 일치합니다.</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by GUID %1, but the disk&apos;s own is %2.</source>
+        <translation>부팅 구성은 디스크를 GUID %1(으)로 지정하지만, 디스크 자체의 GUID는 %2입니다.</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by signature %1, but the disk&apos;s own is %2.</source>
+        <translation>부팅 구성은 디스크를 서명 %1(으)로 지정하지만, 디스크 자체의 서명은 %2입니다.</translation>
+    </message>
+    <message>
+        <source>%1 on this computer has that ID: probably the disk this one was copied from, which made Windows give this one a new ID when it was attached.</source>
+        <translation>이 컴퓨터의 %1에 그 ID가 있습니다. 아마도 이 디스크의 복사 원본 디스크이며, 그 때문에 이 디스크가 연결될 때 Windows가 새 ID를 부여했습니다.</translation>
+    </message>
+    <message>
+        <source>Windows gives a disk a new ID when it is attached where a disk with the same one already is, as a copy is where its original is.</source>
+        <translation>Windows는 같은 ID를 가진 디스크가 이미 있는 곳에 디스크가 연결되면 그 디스크에 새 ID를 부여합니다. 원본이 있는 곳에 복사본을 연결하는 경우가 이에 해당합니다.</translation>
+    </message>
+    <message>
+        <source>%1 entries name a partition this disk does not have; bcdedit cannot point those at the right partition, but bcdboot (below) can make new ones.</source>
+        <translation>항목 %1개가 이 디스크에 없는 파티션을 지정합니다. bcdedit로는 이 항목들이 올바른 파티션을 가리키게 할 수 없지만, bcdboot(아래 참조)로 새 항목을 만들 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>The disk will not boot until this is fixed.</source>
+        <translation>이 문제를 해결하기 전에는 디스크가 부팅되지 않습니다.</translation>
+    </message>
+    <message>
+        <source>To fix it and keep the disk&apos;s new ID, start the VM from Windows setup media, press Shift+F10 for a command prompt, and run the commands below. There the disk is an ordinary disk, so bcdedit names its partitions by the disk&apos;s GUID and their own. On this computer, with the disk attached as a VHD or VHDX, bcdedit would name the VHDX file instead, which a VM cannot find.</source>
+        <translation>디스크의 새 ID를 유지한 채 해결하려면 Windows 설치 미디어로 VM을 시작하고, Shift+F10을 눌러 명령 프롬프트를 연 다음 아래 명령을 실행하십시오. 그곳에서는 디스크가 일반 디스크이므로 bcdedit가 디스크의 GUID와 파티션 자체의 GUID로 파티션을 지정합니다. 이 컴퓨터에서 디스크를 VHD 또는 VHDX로 연결한 상태에서는 bcdedit가 대신 VHDX 파일을 지정하게 되며, VM은 그 파일을 찾을 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>&quot;select disk 0&quot; assumes it is the VM&apos;s only disk: check &quot;list disk&quot; for one of %1. If a partition already has a letter, use that one in the commands instead.</source>
+        <translation>&quot;select disk 0&quot;은 그 디스크가 VM의 유일한 디스크라고 가정합니다: &quot;list disk&quot;에서 %1 크기의 디스크를 확인하십시오. 파티션에 이미 드라이브 문자가 있으면 명령에서 그 문자를 대신 사용하십시오.</translation>
+    </message>
+    <message>
+        <source>Partitions: %1.</source>
+        <translation>파티션: %1.</translation>
+    </message>
+    <message>
+        <source>Or rebuild the boot files and the boot configuration from that Windows instead, which replaces the configuration&apos;s entries with new ones:</source>
+        <translation>또는 그 Windows에서 부팅 파일과 부팅 구성을 다시 만드십시오. 이렇게 하면 구성의 항목이 새 항목으로 바뀝니다:</translation>
+    </message>
+</context>
+<context>
     <name>CombineDialog</name>
     <message>
         <source>Custom Partitioning</source>
@@ -569,6 +768,14 @@ New GUIDs can be generated for the later copies; the first keeps its own. Anythi
     <message>
         <source>Check Device GPT</source>
         <translation>장치 GPT 확인</translation>
+    </message>
+    <message>
+        <source>Check Boot</source>
+        <translation>부팅 확인</translation>
+    </message>
+    <message>
+        <source>Check that the Windows boot configuration on the selected device names the device as it is now. Windows gives a disk a new ID when it is attached where its original is, as a Disk2vhd VHDX on the machine it was taken from, and the copy then no longer boots. Only reads; the report says how to fix it with Windows&apos; own tools.</source>
+        <translation>선택한 장치의 Windows 부팅 구성이 현재 상태의 장치를 지정하는지 확인합니다. Windows는 원본이 있는 곳에 디스크가 연결되면(예: Disk2vhd VHDX를 만든 컴퓨터에서 연결한 경우) 그 디스크에 새 ID를 부여하며, 그러면 복사본이 더 이상 부팅되지 않습니다. 읽기만 합니다. 보고서에 Windows 자체 도구로 해결하는 방법이 나와 있습니다.</translation>
     </message>
     <message>
         <source>Custom Partitioning...</source>
@@ -1233,6 +1440,26 @@ Repair the partition table now?</source>
     <message>
         <source>Could not open the device.</source>
         <translation>장치를 열 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>Disk %1</source>
+        <translation>디스크 %1</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table could not be read: %1.</source>
+        <translation>장치의 파티션 테이블을 읽을 수 없습니다: %1.</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>The boot configuration matches the device.</source>
+        <translation>부팅 구성이 장치와 일치합니다.</translation>
+    </message>
+    <message>
+        <source>Check Boot found a problem.</source>
+        <translation>&apos;부팅 확인&apos;에서 문제를 발견했습니다.</translation>
     </message>
     <message>
         <source>This device&apos;s partition table is broken:</source>

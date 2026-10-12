@@ -45,6 +45,7 @@
 #include <QString>
 #include <QUuid>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <windows.h>
 #include <shlobj.h>
@@ -52,6 +53,7 @@
 #include <cstdio>
 #include <cstring>
 #include <zlib.h>
+#include "bootcheck.h"
 #include "combine.h"
 #include "combinedialog.h"
 #include "combinereader.h"
@@ -1569,6 +1571,539 @@ static void caseDrop()
     DeleteFileA("combinetest-drop2.img.gz");
 }
 
+// ---------------------------------------------------------------- Check Boot ---
+
+static void put16(QByteArray &b, int o, unsigned int v)
+{
+    b[o] = (char)(v & 0xFF);
+    b[o + 1] = (char)((v >> 8) & 0xFF);
+}
+static void put32(QByteArray &b, int o, unsigned int v) { wr32((unsigned char *)b.data(), o, v); }
+static void put64(QByteArray &b, int o, unsigned long long v) { wr64((unsigned char *)b.data(), o, v); }
+static QByteArray utf16(const QString &s)
+{
+    return QByteArray((const char *)s.utf16(), s.size() * 2);
+}
+
+// A registry hive, built cell by cell: keys after their subkeys.
+struct HiveBuilder
+{
+    QByteArray bins = QByteArray(32, 0);
+
+    HiveBuilder() { memcpy(bins.data(), "hbin", 4); }
+
+    unsigned int cell(const QByteArray &data)
+    {
+        const int size = (data.size() + 4 + 7) & ~7;
+        const unsigned int off = (unsigned int)bins.size();
+        QByteArray c(size, 0);
+        put32(c, 0, (unsigned int)(-size));
+        memcpy(c.data() + 4, data.constData(), (size_t)data.size());
+        bins.append(c);
+        return off;
+    }
+    unsigned int value(const char *name, unsigned int type, const QByteArray &data)
+    {
+        QByteArray vk(0x14 + (int)strlen(name), 0);
+        memcpy(vk.data(), "vk", 2);
+        put16(vk, 2, (unsigned int)strlen(name));
+        if (data.size() <= 4)
+        {
+            put32(vk, 4, 0x80000000u | (unsigned int)data.size());
+            memcpy(vk.data() + 8, data.constData(), (size_t)data.size());
+        }
+        else
+        {
+            put32(vk, 4, (unsigned int)data.size());
+            put32(vk, 8, cell(data));
+        }
+        put32(vk, 0x0C, type);
+        put16(vk, 0x10, 1);
+        memcpy(vk.data() + 0x14, name, strlen(name));
+        return cell(vk);
+    }
+    unsigned int key(const QString &name, const QList<unsigned int> &subkeys,
+                     const QList<unsigned int> &values = {})
+    {
+        unsigned int list = 0xFFFFFFFF, vlist = 0xFFFFFFFF;
+        if (!subkeys.isEmpty())
+        {
+            QByteArray l(4 + 8 * subkeys.size(), 0);
+            memcpy(l.data(), "lf", 2);
+            put16(l, 2, (unsigned int)subkeys.size());
+            for (int i = 0; i < subkeys.size(); ++i) put32(l, 4 + 8 * i, subkeys[i]);
+            list = cell(l);
+        }
+        if (!values.isEmpty())
+        {
+            QByteArray l(4 * values.size(), 0);
+            for (int i = 0; i < values.size(); ++i) put32(l, 4 * i, values[i]);
+            vlist = cell(l);
+        }
+        const QByteArray n = name.toLatin1();
+        QByteArray nk(0x4C + n.size(), 0);
+        memcpy(nk.data(), "nk", 2);
+        put16(nk, 2, 0x20);
+        put32(nk, 0x14, (unsigned int)subkeys.size());
+        put32(nk, 0x1C, list);
+        put32(nk, 0x24, (unsigned int)values.size());
+        put32(nk, 0x28, vlist);
+        put16(nk, 0x48, (unsigned int)n.size());
+        memcpy(nk.data() + 0x4C, n.constData(), (size_t)n.size());
+        return cell(nk);
+    }
+    QByteArray hive(unsigned int root) const
+    {
+        QByteArray base(4096, 0);
+        memcpy(base.data(), "regf", 4);
+        put32(base, 0x24, root);
+        QByteArray b = bins;
+        b.resize((b.size() + 4095) & ~4095);
+        put32(base, 0x28, (unsigned int)b.size());
+        return base + b;
+    }
+};
+
+// A partition device as a BCD element holds it: the options object's GUID,
+// then the descriptor -- type 6, flags, size, reserved, the partition (GPT
+// unique GUID, or MBR offset in bytes), the disk's kind (0), the partition
+// style (0 GPT, 1 MBR), and the disk ID.
+static QByteArray partDescriptor(const QByteArray &partition, const QByteArray &disk)
+{
+    QByteArray d(0x38, 0);
+    put32(d, 0, 6);
+    put32(d, 8, 0x48);
+    memcpy(d.data() + 0x10, partition.constData(), (size_t)partition.size());
+    put32(d, 0x24, (disk.size() == 16) ? 0 : 1);
+    memcpy(d.data() + 0x28, disk.constData(), (size_t)disk.size());
+    return d;
+}
+static QByteArray partElement(const QByteArray &partition, const QByteArray &disk)
+{
+    return QByteArray(16, 0) + partDescriptor(partition, disk);
+}
+// A ramdisk: its options object's GUID, a descriptor of another kind, the
+// partition its file is on inside it, and the file.
+static QByteArray ramdiskElement(const QByteArray &options, const QByteArray &partition,
+                                 const QByteArray &disk, const QString &path)
+{
+    QByteArray outer(0x1C, 0);
+    put32(outer, 0, 3);
+    return options + outer + partDescriptor(partition, disk) + utf16(path) + QByteArray(2, 0);
+}
+
+struct BcdObject
+{
+    const char *guid;
+    unsigned int type;
+    QString description;
+    QList<QPair<unsigned int, QByteArray>> devices;
+};
+
+static QByteArray bcdHive(const QList<BcdObject> &objects)
+{
+    HiveBuilder h;
+    QList<unsigned int> objkeys;
+    for (const BcdObject &o : objects)
+    {
+        QList<unsigned int> elements;
+        if (!o.description.isEmpty())
+        {
+            elements.append(h.key("12000004", {}, { h.value("Element", 1, utf16(o.description) + QByteArray(2, 0)) }));
+        }
+        for (const auto &d : o.devices)
+        {
+            elements.append(h.key(QString("%1").arg(d.first, 8, 16, QChar('0')), {},
+                                  { h.value("Element", 3, d.second) }));
+        }
+        QByteArray type(4, 0);
+        put32(type, 0, o.type);
+        const unsigned int desc = h.key("Description", {}, { h.value("Type", 4, type) });
+        objkeys.append(h.key(o.guid, { desc, h.key("Elements", elements) }));
+    }
+    const unsigned int objs = h.key("Objects", objkeys);
+    return h.hive(h.key("NewStoreRoot", { h.key("Description", {}), objs }));
+}
+
+// A FAT32 ESP of `sectors` 512-byte sectors, a cluster each, holding
+// \EFI\Microsoft\Boot\BCD; "Microsoft" has only a long name.
+static QByteArray fat32Esp(unsigned long long sectors, const QByteArray &bcd)
+{
+    const unsigned int fatsize = (unsigned int)((sectors * 4 + 511) / 512);
+    const unsigned int firstdata = 32 + 2 * fatsize;
+    QByteArray img((int)(sectors * 512), 0);
+    QByteArray bs(512, 0);
+    bs[0] = (char)0xEB; bs[1] = 0x58; bs[2] = (char)0x90;
+    memcpy(bs.data() + 3, "MSWIN4.1", 8);
+    put16(bs, 11, 512);
+    bs[13] = 1;
+    put16(bs, 14, 32);
+    bs[16] = 2;
+    bs[21] = (char)0xF8;
+    put32(bs, 32, (unsigned int)sectors);
+    put32(bs, 36, fatsize);
+    put32(bs, 44, 2);
+    memcpy(bs.data() + 82, "FAT32   ", 8);
+    bs[510] = 0x55; bs[511] = (char)0xAA;
+    memcpy(img.data(), bs.constData(), 512);
+
+    QByteArray fat((int)(fatsize * 512), 0);
+    put32(fat, 0, 0x0FFFFFF8);
+    put32(fat, 4, 0x0FFFFFFF);
+    for (unsigned int c = 2; c <= 5; ++c) put32(fat, (int)(c * 4), 0x0FFFFFFF);
+    const unsigned int bcdclusters = (unsigned int)((bcd.size() + 511) / 512);
+    // The BCD's clusters out of order, as a file written in pieces is.
+    QList<unsigned int> chain;
+    for (unsigned int i = 0; i < bcdclusters; ++i) chain.append(6 + ((i % 2) ? i + 20 : i));
+    for (int i = 0; i < chain.size(); ++i)
+    {
+        put32(fat, (int)(chain[i] * 4), (i + 1 < chain.size()) ? chain[i + 1] : 0x0FFFFFFF);
+    }
+    for (int f = 0; f < 2; ++f) memcpy(img.data() + (32 + f * fatsize) * 512, fat.constData(), (size_t)fat.size());
+    auto cluster = [&](unsigned int c) { return img.data() + (firstdata + c - 2) * 512; };
+    auto entry = [](char *at, const char *name11, unsigned char attr, unsigned int c, unsigned int size) {
+        memcpy(at, name11, 11);
+        at[11] = (char)attr;
+        at[20] = (char)((c >> 16) & 0xFF); at[21] = (char)((c >> 24) & 0xFF);
+        at[26] = (char)(c & 0xFF); at[27] = (char)((c >> 8) & 0xFF);
+        wr32((unsigned char *)at, 28, size);
+    };
+    // Root: a volume label, a deleted entry, then EFI.
+    entry(cluster(2), "ESP        ", 0x08, 0, 0);
+    entry(cluster(2) + 32, "\xE5OLD    TXT", 0x20, 9, 10);
+    entry(cluster(2) + 64, "EFI        ", 0x10, 3, 0);
+    entry(cluster(3), ".          ", 0x10, 3, 0);
+    entry(cluster(3) + 32, "..         ", 0x10, 0, 0);
+    // "Microsoft": one long-name piece, then its short name.
+    char *lfn = cluster(3) + 64;
+    lfn[0] = 0x41;
+    lfn[11] = 0x0F;
+    const QString longname = "Microsoft";
+    static const int at[13] = { 1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30 };
+    for (int i = 0; i < 13; ++i)
+    {
+        const unsigned int ch = (i < longname.size()) ? longname[i].unicode()
+                              : (i == longname.size()) ? 0x0000 : 0xFFFF;
+        lfn[at[i]] = (char)(ch & 0xFF);
+        lfn[at[i] + 1] = (char)(ch >> 8);
+    }
+    entry(cluster(3) + 96, "MICROS~1   ", 0x10, 4, 0);
+    entry(cluster(4), "BOOT       ", 0x10, 5, 0);
+    entry(cluster(5), "BCD        ", 0x20, chain.first(), (unsigned int)bcd.size());
+    for (int i = 0; i < chain.size(); ++i)
+    {
+        memcpy(cluster(chain[i]), bcd.constData() + i * 512, (size_t)qMin(512, bcd.size() - i * 512));
+    }
+    return img;
+}
+
+// A small NTFS volume holding \Boot\BCD: 4 KiB clusters, 1 KiB file records.
+// The root's index has its entries in an allocation block, beside a stale
+// one no node points at; the BCD's data is in two pieces.
+static QByteArray ntfsVolume(unsigned long long sectors, const QByteArray &bcd)
+{
+    const int CL = 4096, REC = 1024;
+    QByteArray img((int)(sectors * 512), 0);
+    QByteArray bs(512, 0);
+    bs[0] = (char)0xEB; bs[1] = 0x52; bs[2] = (char)0x90;
+    memcpy(bs.data() + 3, "NTFS    ", 8);
+    put16(bs, 0x0B, 512);
+    bs[0x0D] = 8;
+    put64(bs, 0x28, sectors - 1);
+    put64(bs, 0x30, 4);                 // the MFT, at cluster 4
+    bs[0x40] = (char)0xF6;              // 2^10-byte records
+    bs[0x44] = 1;                       // a cluster per index block
+    bs[510] = 0x55; bs[511] = (char)0xAA;
+    memcpy(img.data(), bs.constData(), 512);
+
+    auto fixup = [](QByteArray &b, int usaoff) {
+        const int count = b.size() / 512 + 1;
+        put16(b, 4, (unsigned int)usaoff);
+        put16(b, 6, (unsigned int)count);
+        put16(b, usaoff, 7);
+        for (int i = 1; i < count; ++i)
+        {
+            b[usaoff + 2 * i] = b[i * 512 - 2];
+            b[usaoff + 2 * i + 1] = b[i * 512 - 1];
+            put16(b, i * 512 - 2, 7);
+        }
+    };
+    auto attr = [](unsigned int type, const QString &name, const QByteArray &value) {
+        const int nameoff = 0x18, valoff = (nameoff + name.size() * 2 + 7) & ~7;
+        QByteArray a((valoff + value.size() + 7) & ~7, 0);
+        put32(a, 0, type);
+        put32(a, 4, (unsigned int)a.size());
+        a[9] = (char)name.size();
+        put16(a, 0x0A, nameoff);
+        memcpy(a.data() + nameoff, name.utf16(), (size_t)name.size() * 2);
+        put32(a, 0x10, (unsigned int)value.size());
+        put16(a, 0x14, (unsigned int)valoff);
+        memcpy(a.data() + valoff, value.constData(), (size_t)value.size());
+        return a;
+    };
+    auto nonres = [](unsigned int type, const QString &name, const QByteArray &runs,
+                     unsigned long long clusters, unsigned long long size) {
+        const int nameoff = 0x40, runoff = (nameoff + name.size() * 2 + 7) & ~7;
+        QByteArray a((runoff + runs.size() + 1 + 7) & ~7, 0);
+        put32(a, 0, type);
+        put32(a, 4, (unsigned int)a.size());
+        a[8] = 1;
+        a[9] = (char)name.size();
+        put16(a, 0x0A, nameoff);
+        memcpy(a.data() + nameoff, name.utf16(), (size_t)name.size() * 2);
+        put64(a, 0x18, clusters - 1);
+        put16(a, 0x20, (unsigned int)runoff);
+        put64(a, 0x28, clusters * 4096);
+        put64(a, 0x30, size);
+        put64(a, 0x38, size);
+        memcpy(a.data() + runoff, runs.constData(), (size_t)runs.size());
+        return a;
+    };
+    auto record = [&](int n, bool dir, const QList<QByteArray> &attrs) {
+        QByteArray r(REC, 0);
+        memcpy(r.data(), "FILE", 4);
+        put16(r, 0x14, 0x38);
+        put16(r, 0x16, dir ? 3 : 1);
+        int o = 0x38;
+        for (const QByteArray &a : attrs)
+        {
+            memcpy(r.data() + o, a.constData(), (size_t)a.size());
+            o += a.size();
+        }
+        put32(r, o, 0xFFFFFFFF);
+        put32(r, 0x18, (unsigned int)o + 8);
+        put32(r, 0x1C, REC);
+        fixup(r, 0x30);
+        memcpy(img.data() + 4 * CL + n * REC, r.constData(), REC);
+    };
+    // An index entry naming `name`, record `rec`; or the end, with or
+    // without a node below.
+    auto ientry = [](const QString &name, unsigned long long rec) {
+        QByteArray key(0x42 + name.size() * 2, 0);
+        put64(key, 0, 5);
+        key[0x40] = (char)name.size();
+        key[0x41] = 1;
+        memcpy(key.data() + 0x42, name.utf16(), (size_t)name.size() * 2);
+        QByteArray e((16 + key.size() + 7) & ~7, 0);
+        put64(e, 0, rec | (1ull << 48));
+        put16(e, 8, (unsigned int)e.size());
+        put16(e, 10, (unsigned int)key.size());
+        memcpy(e.data() + 16, key.constData(), (size_t)key.size());
+        return e;
+    };
+    auto iend = [](bool child, unsigned long long vcn) {
+        QByteArray e(child ? 24 : 16, 0);
+        put16(e, 8, (unsigned int)e.size());
+        put16(e, 12, child ? 3 : 2);
+        if (child) put64(e, 16, vcn);
+        return e;
+    };
+    auto node = [](const QByteArray &entries, unsigned int flags) {
+        QByteArray h(16, 0);
+        put32(h, 0, 16);
+        put32(h, 4, 16 + (unsigned int)entries.size());
+        put32(h, 8, 16 + (unsigned int)entries.size());
+        put32(h, 12, flags);
+        return h + entries;
+    };
+    auto indexroot = [&](const QByteArray &entries, unsigned int flags) {
+        QByteArray v(16, 0);
+        put32(v, 0, 0x30);
+        put32(v, 4, 1);
+        put32(v, 8, 4096);
+        v[12] = 1;
+        return attr(0x90, "$I30", v + node(entries, flags));
+    };
+    auto indx = [&](unsigned long long lcn, unsigned long long vcn, const QByteArray &entries) {
+        QByteArray b(CL, 0);
+        memcpy(b.data(), "INDX", 4);
+        put64(b, 0x10, vcn);
+        QByteArray n = node(entries, 0);
+        put32(n, 0, 0x28);              // entries 0x28 after the node header
+        QByteArray padded = n.left(16) + QByteArray(0x18, 0) + n.mid(16);
+        put32(padded, 4, 0x28 + (unsigned int)entries.size());
+        put32(padded, 8, 0x28 + (unsigned int)entries.size());
+        memcpy(b.data() + 0x18, padded.constData(), (size_t)padded.size());
+        fixup(b, 0x28);
+        memcpy(img.data() + lcn * CL, b.constData(), CL);
+    };
+
+    // $MFT: four clusters at 4. The root: its index's one node at VCN 0
+    // (cluster 10); cluster 11 holds a stale block naming a record not used.
+    QByteArray mftruns;
+    mftruns.append((char)0x11).append((char)4).append((char)4);
+    record(0, false, { nonres(0x80, QString(), mftruns, 4, 16 * REC) });
+    QByteArray rootruns;
+    rootruns.append((char)0x11).append((char)2).append((char)10);
+    record(5, true, { indexroot(iend(true, 0), 1), nonres(0xA0, "$I30", rootruns, 2, 2 * CL) });
+    // Entries of 96, 128 and 136 bytes from 0x40 put "Boot"'s at 424, its
+    // name across bytes 510-511, which the block's fixup replaces.
+    indx(10, 0, ientry("$MFT", 0) + ientry(QString(20, 'A'), 1) + ientry(QString(24, 'B'), 2)
+                    + ientry("Boot", 11) + iend(false, 0));
+    indx(11, 1, ientry("Boot", 14) + iend(false, 0));
+    record(11, true, { indexroot(ientry("BCD", 12) + iend(false, 0), 0) });
+    // The BCD: its first cluster at 20, the rest from 30.
+    const unsigned long long clusters = (bcd.size() + CL - 1) / CL;
+    QByteArray bcdruns;
+    bcdruns.append((char)0x11).append((char)1).append((char)20);
+    bcdruns.append((char)0x11).append((char)(clusters - 1)).append((char)10);
+    record(12, false, { nonres(0x80, QString(), bcdruns, clusters, (unsigned long long)bcd.size()) });
+    memcpy(img.data() + 20 * CL, bcd.constData(), (size_t)qMin(CL, bcd.size()));
+    if (bcd.size() > CL)
+    {
+        memcpy(img.data() + 30 * CL, bcd.constData() + CL, (size_t)(bcd.size() - CL));
+    }
+    return img;
+}
+
+static BootSectorReader readerOf(const QByteArray &disk)
+{
+    return [disk](unsigned long long first, unsigned long long count, char *buf) {
+        if ((first + count) * SEC > (unsigned long long)disk.size()) return false;
+        memcpy(buf, disk.constData() + first * SEC, (size_t)(count * SEC));
+        return true;
+    };
+}
+
+static const char *BOOTMGR = "{9dea862c-5cdd-4e70-acc1-f32b344d4795}";
+static const char *LOADER = "{1d1e3a6c-0000-4000-8000-00000000c0de}";
+static const char *WINRE = "{1d1e3a6c-0000-4000-8000-00000000beef}";
+static const char *RAMOPT = "{7619dcc8-fafe-11d9-b411-000476eba25f}";
+
+static void caseBootCheck()
+{
+    printf("Check Boot\n");
+    // The filesystem readers, on their own.
+    QByteArray payload(3000, 0);
+    for (int i = 0; i < payload.size(); ++i) payload[i] = (char)(i * 7 + 3);
+    const QByteArray esp = fat32Esp(70000, payload);
+    const BootSectorReader espread = readerOf(esp);
+    QByteArray got;
+    QString why;
+    check(fatReadFile(espread, SEC, 0, 70000, { "efi", "MICROSOFT", "boot", "bcd" }, &got, &why)
+          && got == payload, "FAT32: a file found by long and short names, its clusters in pieces");
+    check(!fatReadFile(espread, SEC, 0, 70000, { "EFI", "Boot", "BCD" }, &got, &why)
+          && why.contains("EFI\\Boot"), "  a path it does not have is reported");
+    QByteArray big(9000, 0);
+    for (int i = 0; i < big.size(); ++i) big[i] = (char)(i * 13 + 1);
+    const QByteArray ntfs = ntfsVolume(800, big);
+    const BootSectorReader ntfsread = readerOf(ntfs);
+    check(ntfsReadFile(ntfsread, SEC, 0, 800, { "boot", "BCD" }, &got, &why) && got == big,
+          "NTFS: a file found through the index, its data in two runs");
+    if (got != big) printf("    (%s)\n", why.toLocal8Bit().constData());
+    check(!ntfsReadFile(ntfsread, SEC, 0, 800, { "Windows" }, &got, &why),
+          "  a name only a stale index block has is not found");
+
+    // A copy's GPT disk: its BCD names the original's disk GUID.
+    const QByteArray oldid = guid("0D0D0D0D-0000-4000-8000-0000000000AA");
+    const QByteArray newid = guid("0E0E0E0E-0000-4000-8000-0000000000BB");
+    const QByteArray espuid = guid("E5E5E5E5-0000-4000-8000-000000000001");
+    const QByteArray winuid = guid("A1A1A1A1-0000-4000-8000-000000000002");
+    const QByteArray reuid = guid("ABABABAB-0000-4000-8000-000000000003");
+    auto bcdFor = [&](const QByteArray &disk, const QByteArray &winpart) {
+        return bcdHive({
+            { BOOTMGR, 0x10100002, "Windows Boot Manager", { { 0x11000001, partElement(espuid, disk) } } },
+            { LOADER, 0x10200003, "Windows 11", { { 0x11000001, partElement(winpart, disk) },
+                                                  { 0x21000001, partElement(winpart, disk) } } },
+            { WINRE, 0x10200003, "Windows Recovery Environment",
+              { { 0x11000001, ramdiskElement(guid("7619DCC8-FAFE-11D9-B411-000476EBA25F"), reuid, disk,
+                                             "\\Recovery\\WindowsRE\\Winre.wim") } } },
+            { RAMOPT, 0x30000000, QString(), { { 0x31000003, partElement(reuid, disk) } } },
+        });
+    };
+    const unsigned long long espsectors = 70000, espfirst = 2048;
+    const unsigned long long winfirst = 73728, refirst = 77824;
+    auto gptDisk = [&](const QByteArray &bcd) {
+        QByteArray dev = gptImage(90000, 34, {
+            {espfirst, espfirst + espsectors - 1, ESP, "E5E5E5E5-0000-4000-8000-000000000001", "EFI", 'e', 0},
+            {winfirst, winfirst + 4095, BASIC, "A1A1A1A1-0000-4000-8000-000000000002", "Windows", 'w', 0},
+            {refirst, refirst + 4095, BASIC, "ABABABAB-0000-4000-8000-000000000003", "Recovery", 'r', 0} },
+            "0E0E0E0E-0000-4000-8000-0000000000BB");
+        const QByteArray fs = fat32Esp(espsectors, bcd);
+        memcpy(dev.data() + espfirst * SEC, fs.constData(), (size_t)fs.size());
+        return dev;
+    };
+    BootCheckDisk disk;
+    disk.number = 3;
+    disk.sectorsize = SEC;
+    disk.sectors = 90000;
+    disk.diskWithId = [&](const QByteArray &id) { return (id == oldid) ? QString("Disk 0") : QString(); };
+
+    QList<BcdDeviceRef> refs;
+    int objects = 0;
+    check(parseBcdHive(bcdFor(oldid, winuid), &refs, &objects, &why) && objects == 4 && refs.size() == 5,
+          "the BCD hive: four objects, five partitions named");
+    bool ramdisk = false;
+    for (const BcdDeviceRef &r : refs)
+    {
+        ramdisk = ramdisk || (r.nested && r.path == "\\Recovery\\WindowsRE\\Winre.wim"
+                              && r.options == RAMOPT && r.partition == reuid && r.disk == oldid);
+    }
+    check(ramdisk, "  the recovery ramdisk's partition, file and options found inside it");
+
+    QByteArray dev = gptDisk(bcdFor(oldid, winuid));
+    ImageLayout layout;
+    layoutOf(dev, &layout);
+    BootCheckResult r = checkBoot(layout, readerOf(dev), disk);
+    const QString &t = r.report;
+    check(r.bcdFound && !r.ok, "a copy whose disk GUID Windows changed: found, and not bootable");
+    // COMBINETEST_BOOTREPORT=file.txt saves this report, to read.
+    if (!qEnvironmentVariableIsEmpty("COMBINETEST_BOOTREPORT"))
+    {
+        QFile f(qEnvironmentVariable("COMBINETEST_BOOTREPORT"));
+        if (f.open(QIODevice::WriteOnly)) f.write(t.toUtf8());
+    }
+    check(t.contains("WRONG") && !t.contains("MISSING") && t.contains("Disk 0 on this computer"),
+          "  every entry wrong, the original named");
+    check(t.contains("select disk 0") && t.contains("select partition 1\nassign letter=S")
+          && t.contains("select partition 2\nassign letter=W")
+          && t.contains("select partition 3\nassign letter=R"),
+          "  diskpart gives the ESP, Windows and recovery partitions letters");
+    const QString store = "bcdedit /store S:\\EFI\\Microsoft\\Boot\\BCD /set ";
+    check(t.contains(store + BOOTMGR + " device partition=S:")
+          && t.contains(store + LOADER + " device partition=W:")
+          && t.contains(store + LOADER + " osdevice partition=W:")
+          && t.contains(store + RAMOPT + " ramdisksdidevice partition=R:")
+          && t.contains(store + WINRE + " device ramdisk=[R:]\\Recovery\\WindowsRE\\Winre.wim," + RAMOPT),
+          "  and bcdedit sets each entry");
+    check(t.contains("bcdboot W:\\Windows /s S: /f UEFI"), "  or bcdboot rebuilds it");
+    if (!t.contains("WRONG")) printf("%s\n", t.toLocal8Bit().constData());
+
+    dev = gptDisk(bcdFor(newid, winuid));
+    r = checkBoot(layout, readerOf(dev), disk);
+    check(r.bcdFound && r.ok && !r.report.contains("bcdedit"), "a BCD naming the disk as it is: it matches");
+
+    dev = gptDisk(bcdFor(newid, guid("99999999-0000-4000-8000-000000000009")));
+    r = checkBoot(layout, readerOf(dev), disk);
+    check(!r.ok && r.report.contains("MISSING") && r.report.contains("bcdboot"),
+          "a partition the disk does not have: missing, and bcdboot offered");
+
+    // A BIOS disk: the BCD on the active NTFS partition, by offset and signature.
+    const unsigned int oldsig = 0x11223344u, newsig = 0x55667788u;
+    auto sig = [](unsigned int s) { QByteArray b(4, 0); put32(b, 0, s); return b; };
+    auto off = [](unsigned long long o) { QByteArray b(8, 0); put64(b, 0, o); return b; };
+    auto mbrDisk = [&](unsigned int bcdsig) {
+        const QByteArray bcd = bcdHive({
+            { BOOTMGR, 0x10100002, "Windows Boot Manager", { { 0x11000001, partElement(off(2048 * SEC), sig(bcdsig)) } } },
+            { LOADER, 0x10200003, "Windows 10", { { 0x21000001, partElement(off(4096 * SEC), sig(bcdsig)) } } } });
+        QByteArray d = mbrImage(12000, { {0, 2048, 800, 0x07, true, 's'}, {1, 4096, 6000, 0x07, false, 'w'} },
+                                newsig);
+        const QByteArray fs = ntfsVolume(800, bcd);
+        memcpy(d.data() + 2048 * SEC, fs.constData(), (size_t)fs.size());
+        return d;
+    };
+    dev = mbrDisk(oldsig);
+    layoutOf(dev, &layout);
+    r = checkBoot(layout, readerOf(dev), disk);
+    check(r.bcdFound && !r.ok && r.report.contains("11223344") && r.report.contains("55667788")
+          && r.report.contains("bcdedit /store S:\\Boot\\BCD /set " + QString(LOADER) + " osdevice partition=W:")
+          && r.report.contains("/f BIOS"),
+          "an MBR disk: the BCD on its NTFS system partition names the old signature");
+    dev = mbrDisk(newsig);
+    r = checkBoot(layout, readerOf(dev), disk);
+    check(r.bcdFound && r.ok, "  and with its own, matches");
+}
+
 int main(int argc, char **argv)
 {
     // The dialog is created off screen: nothing is shown.
@@ -1593,6 +2128,18 @@ int main(int argc, char **argv)
     caseKeepMbr();
     caseKeepDialog();
     caseNewDiskId();
+    caseBootCheck();
+    // COMBINETEST_MAINSHOT=file.png saves the main window's form, as laid
+    // out at its smallest, to look at.
+    if (!qEnvironmentVariableIsEmpty("COMBINETEST_MAINSHOT"))
+    {
+        QMainWindow w;
+        Ui::MainWindow form;
+        form.setupUi(&w);
+        w.resize(w.minimumSizeHint());
+        w.show();
+        w.grab().save(qEnvironmentVariable("COMBINETEST_MAINSHOT"));
+    }
     DeleteFileA(TESTFILE);
     printf("\n%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

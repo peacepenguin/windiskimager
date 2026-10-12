@@ -2,6 +2,205 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ja_JP" sourcelanguage="en_US">
 <context>
+    <name>BootCheck</name>
+    <message>
+        <source>its first sector could not be read</source>
+        <translation>先頭セクタを読み取れませんでした</translation>
+    </message>
+    <message>
+        <source>it holds no FAT filesystem</source>
+        <translation>FAT ファイルシステムがありません</translation>
+    </message>
+    <message>
+        <source>its allocation table could not be read</source>
+        <translation>アロケーションテーブルを読み取れませんでした</translation>
+    </message>
+    <message>
+        <source>its root directory could not be read</source>
+        <translation>ルートディレクトリを読み取れませんでした</translation>
+    </message>
+    <message>
+        <source>it has no \%1</source>
+        <translation>\%1 がありません</translation>
+    </message>
+    <message>
+        <source>\%1 is not a file</source>
+        <translation>\%1 はファイルではありません</translation>
+    </message>
+    <message>
+        <source>\%1 could not be read</source>
+        <translation>\%1 を読み取れませんでした</translation>
+    </message>
+    <message>
+        <source>no file was named</source>
+        <translation>ファイル名が指定されていません</translation>
+    </message>
+    <message>
+        <source>it holds no NTFS filesystem</source>
+        <translation>NTFS ファイルシステムがありません</translation>
+    </message>
+    <message>
+        <source>its file table could not be read</source>
+        <translation>ファイルテーブルを読み取れませんでした</translation>
+    </message>
+    <message>
+        <source>it is stored in more pieces than this reads</source>
+        <translation>この機能で読み取れる数より多くの断片に分かれて格納されています</translation>
+    </message>
+    <message>
+        <source>it has no data</source>
+        <translation>データがありません</translation>
+    </message>
+    <message>
+        <source>it is compressed or encrypted</source>
+        <translation>圧縮または暗号化されています</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>読み取れませんでした</translation>
+    </message>
+    <message>
+        <source>\%1: %2</source>
+        <translation>\%1: %2</translation>
+    </message>
+    <message>
+        <source>it is not a registry hive</source>
+        <translation>レジストリハイブではありません</translation>
+    </message>
+    <message>
+        <source>its root key could not be read</source>
+        <translation>ルートキーを読み取れませんでした</translation>
+    </message>
+    <message>
+        <source>it holds no boot objects</source>
+        <translation>ブートオブジェクトがありません</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>The disk has no partition table, so nothing on it can be booted the way Windows boots.</source>
+        <translation>ディスクにパーティションテーブルがないため、Windows と同じ方法で起動できるものはありません。</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2)</source>
+        <translation>パーティション %1 (%2)</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2, %3)</source>
+        <translation>パーティション %1 (%2, %3)</translation>
+    </message>
+    <message>
+        <source>Disk %1: GPT, disk GUID %2.</source>
+        <translation>ディスク %1: GPT、ディスク GUID %2。</translation>
+    </message>
+    <message>
+        <source>Disk %1: MBR, disk signature %2.</source>
+        <translation>ディスク %1: MBR、ディスク署名 %2。</translation>
+    </message>
+    <message>
+        <source>No Windows boot configuration was found: no partition holds \EFI\Microsoft\Boot\BCD or \Boot\BCD.</source>
+        <translation>Windows のブート構成が見つかりませんでした: \EFI\Microsoft\Boot\BCD または \Boot\BCD を含むパーティションがありません。</translation>
+    </message>
+    <message>
+        <source>Looked in: %1.</source>
+        <translation>検索した場所: %1。</translation>
+    </message>
+    <message>
+        <source>The boot configuration on %1, %2, could not be read: %3.</source>
+        <translation>%1、%2 のブート構成を読み取れませんでした: %3。</translation>
+    </message>
+    <message>
+        <source>Boot configuration: %1, %2, %3 objects.</source>
+        <translation>ブート構成: %1、%2、オブジェクト数 %3。</translation>
+    </message>
+    <message>
+        <source>No entry names a partition.</source>
+        <translation>パーティションを指定しているエントリはありません。</translation>
+    </message>
+    <message>
+        <source>Entries that name a partition:</source>
+        <translation>パーティションを指定しているエントリ:</translation>
+    </message>
+    <message>
+        <source>MISSING</source>
+        <translation>欠落</translation>
+    </message>
+    <message>
+        <source>WRONG</source>
+        <translation>不一致</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>partition %1</source>
+        <translation>パーティション %1</translation>
+    </message>
+    <message>
+        <source>the partition at byte %1</source>
+        <translation>バイト %1 の位置のパーティション</translation>
+    </message>
+    <message>
+        <source>on disk %1</source>
+        <translation>ディスク %1 上</translation>
+    </message>
+    <message>
+        <source>a ramdisk on %1</source>
+        <translation>%1 上の RAM ディスク</translation>
+    </message>
+    <message>
+        <source>Every entry names this disk as it is now, and a partition it has: the boot configuration matches the disk.</source>
+        <translation>すべてのエントリが、現在のこのディスクと、このディスクにあるパーティションを指定しています: ブート構成はディスクと一致しています。</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by GUID %1, but the disk&apos;s own is %2.</source>
+        <translation>ブート構成はディスクを GUID %1 で指定していますが、ディスク自身の GUID は %2 です。</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by signature %1, but the disk&apos;s own is %2.</source>
+        <translation>ブート構成はディスクを署名 %1 で指定していますが、ディスク自身の署名は %2 です。</translation>
+    </message>
+    <message>
+        <source>%1 on this computer has that ID: probably the disk this one was copied from, which made Windows give this one a new ID when it was attached.</source>
+        <translation>このコンピューター上の %1 がその ID を持っています。おそらくこのディスクのコピー元のディスクであり、そのため接続時に Windows がこのディスクに新しい ID を割り当てました。</translation>
+    </message>
+    <message>
+        <source>Windows gives a disk a new ID when it is attached where a disk with the same one already is, as a copy is where its original is.</source>
+        <translation>Windows は、同じ ID を持つディスクがすでにある場所にディスクが接続されると、そのディスクに新しい ID を割り当てます。元のディスクがある場所にコピーを接続した場合がこれにあたります。</translation>
+    </message>
+    <message>
+        <source>%1 entries name a partition this disk does not have; bcdedit cannot point those at the right partition, but bcdboot (below) can make new ones.</source>
+        <translation>%1 個のエントリが、このディスクにないパーティションを指定しています。bcdedit ではそれらを正しいパーティションに向けることはできませんが、bcdboot (下記) で新しいエントリを作成できます。</translation>
+    </message>
+    <message>
+        <source>The disk will not boot until this is fixed.</source>
+        <translation>これを修正するまで、ディスクは起動しません。</translation>
+    </message>
+    <message>
+        <source>To fix it and keep the disk&apos;s new ID, start the VM from Windows setup media, press Shift+F10 for a command prompt, and run the commands below. There the disk is an ordinary disk, so bcdedit names its partitions by the disk&apos;s GUID and their own. On this computer, with the disk attached as a VHD or VHDX, bcdedit would name the VHDX file instead, which a VM cannot find.</source>
+        <translation>ディスクの新しい ID を維持したまま修正するには、Windows セットアップメディアから VM を起動し、Shift+F10 を押してコマンドプロンプトを開き、以下のコマンドを実行します。そこではディスクは通常のディスクなので、bcdedit はパーティションをディスクの GUID とパーティション自身の GUID で指定します。このコンピューター上でディスクを VHD または VHDX として接続した状態では、bcdedit は代わりに VHDX ファイルを指定してしまい、VM からはそれを見つけられません。</translation>
+    </message>
+    <message>
+        <source>&quot;select disk 0&quot; assumes it is the VM&apos;s only disk: check &quot;list disk&quot; for one of %1. If a partition already has a letter, use that one in the commands instead.</source>
+        <translation>&quot;select disk 0&quot; は、それが VM の唯一のディスクであることを前提としています: &quot;list disk&quot; で %1 のディスクを確認してください。パーティションにすでにドライブ文字がある場合は、コマンドでその文字を使用してください。</translation>
+    </message>
+    <message>
+        <source>Partitions: %1.</source>
+        <translation>パーティション: %1。</translation>
+    </message>
+    <message>
+        <source>Or rebuild the boot files and the boot configuration from that Windows instead, which replaces the configuration&apos;s entries with new ones:</source>
+        <translation>または、その Windows からブートファイルとブート構成を再構築します。これにより構成のエントリは新しいものに置き換えられます:</translation>
+    </message>
+</context>
+<context>
     <name>CombineDialog</name>
     <message>
         <source>Custom Partitioning</source>
@@ -569,6 +768,14 @@ New GUIDs can be generated for the later copies; the first keeps its own. Anythi
     <message>
         <source>Check Device GPT</source>
         <translation>デバイスの GPT を確認</translation>
+    </message>
+    <message>
+        <source>Check Boot</source>
+        <translation>ブートを確認</translation>
+    </message>
+    <message>
+        <source>Check that the Windows boot configuration on the selected device names the device as it is now. Windows gives a disk a new ID when it is attached where its original is, as a Disk2vhd VHDX on the machine it was taken from, and the copy then no longer boots. Only reads; the report says how to fix it with Windows&apos; own tools.</source>
+        <translation>選択したデバイス上の Windows ブート構成が、現在のデバイスを指定しているかを確認します。Windows は、元のディスクがある場所にディスクが接続されると (たとえば Disk2vhd の VHDX を作成元のマシンで接続した場合)、そのディスクに新しい ID を割り当て、コピーは起動しなくなります。読み取りのみ行います。レポートには Windows 自身のツールで修正する方法が示されます。</translation>
     </message>
     <message>
         <source>Custom Partitioning...</source>
@@ -1233,6 +1440,26 @@ Repair the partition table now?</source>
     <message>
         <source>Could not open the device.</source>
         <translation>デバイスを開けませんでした。</translation>
+    </message>
+    <message>
+        <source>Disk %1</source>
+        <translation>ディスク %1</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table could not be read: %1.</source>
+        <translation>デバイスのパーティションテーブルを読み取れませんでした: %1。</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>読み取れませんでした</translation>
+    </message>
+    <message>
+        <source>The boot configuration matches the device.</source>
+        <translation>ブート構成はデバイスと一致しています。</translation>
+    </message>
+    <message>
+        <source>Check Boot found a problem.</source>
+        <translation>「ブートを確認」で問題が見つかりました。</translation>
     </message>
     <message>
         <source>This device&apos;s partition table is broken:</source>

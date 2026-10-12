@@ -67,6 +67,7 @@ class MainWindow : public QMainWindow, public Ui::MainWindow
         void on_tbBrowse_clicked();
         void on_bCancel_clicked();
         void on_bCheckGpt_clicked();
+        void on_bCheckBoot_clicked();
         void on_bCombine_clicked();
         void on_bWrite_clicked();
         void on_bRead_clicked();

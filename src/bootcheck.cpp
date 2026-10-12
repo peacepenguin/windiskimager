@@ -1,0 +1,1129 @@
+/**********************************************************************
+ *  This program is free software; you can redistribute it and/or     *
+ *  modify it under the terms of the GNU General Public License       *
+ *  as published by the Free Software Foundation; either version 2    *
+ *  of the License, or (at your option) any later version.            *
+ *                                                                    *
+ *  This program is distributed in the hope that it will be useful,   *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of    *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the     *
+ *  GNU General Public License for more details.                      *
+ *                                                                    *
+ *  You should have received a copy of the GNU General Public License *
+ *  along with this program; if not, see http://gnu.org/licenses/     *
+ *  ---                                                               *
+ *  Copyright (C) 2026 peacepenguin (fork not affiliated    *
+ *  with the upstream ImageWriter project)                            *
+ *  https://github.com/peacepenguin/windiskimager                   *
+ **********************************************************************/
+
+#include "bootcheck.h"
+
+#include <QCoreApplication>
+#include <QObject>
+#include <QSet>
+
+// The largest file read: a BCD is tens of KB, rarely a MB.
+static const unsigned long long MAX_FILE_BYTES = 16ull * 1024ull * 1024ull;
+
+static unsigned int u16(const QByteArray &b, qint64 o)
+{
+    if (o < 0 || o + 2 > b.size()) return 0;
+    const unsigned char *p = (const unsigned char *)b.constData() + o;
+    return p[0] | (p[1] << 8);
+}
+
+static unsigned int u32(const QByteArray &b, qint64 o)
+{
+    if (o < 0 || o + 4 > b.size()) return 0;
+    const unsigned char *p = (const unsigned char *)b.constData() + o;
+    return (unsigned int)p[0] | ((unsigned int)p[1] << 8) | ((unsigned int)p[2] << 16)
+           | ((unsigned int)p[3] << 24);
+}
+
+static unsigned long long u64(const QByteArray &b, qint64 o)
+{
+    return (unsigned long long)u32(b, o) | ((unsigned long long)u32(b, o + 4) << 32);
+}
+
+// The context the report's text is translated in.
+class BootCheck
+{
+    Q_DECLARE_TR_FUNCTIONS(BootCheck)
+};
+
+// Bytes of one partition, by offset from its start, through the disk's
+// sector reader.
+class PartitionBytes
+{
+public:
+    PartitionBytes(const BootSectorReader &read, unsigned long long sectorsize,
+                   unsigned long long first, unsigned long long sectors)
+        : myRead(read), mySectorSize(sectorsize), myFirst(first), mySectors(sectors) {}
+
+    bool read(unsigned long long offset, unsigned long long length, QByteArray *out) const
+    {
+        const unsigned long long size = mySectors * mySectorSize;
+        if (length == 0 || offset >= size || length > size - offset || length > MAX_FILE_BYTES * 4)
+        {
+            return false;
+        }
+        const unsigned long long s0 = offset / mySectorSize;
+        const unsigned long long s1 = (offset + length + mySectorSize - 1) / mySectorSize;
+        QByteArray buf((int)((s1 - s0) * mySectorSize), 0);
+        if (!myRead(myFirst + s0, s1 - s0, buf.data()))
+        {
+            return false;
+        }
+        *out = buf.mid((int)(offset - s0 * mySectorSize), (int)length);
+        return true;
+    }
+
+private:
+    BootSectorReader myRead;
+    unsigned long long mySectorSize, myFirst, mySectors;
+};
+
+// ---------------------------------------------------------------------- FAT ---
+
+bool fatReadFile(const BootSectorReader &read, unsigned long long sectorsize,
+                 unsigned long long first, unsigned long long sectors,
+                 const QStringList &path, QByteArray *data, QString *why)
+{
+    const PartitionBytes part(read, sectorsize, first, sectors);
+    QByteArray bs;
+    if (!part.read(0, 512, &bs))
+    {
+        *why = BootCheck::tr("its first sector could not be read");
+        return false;
+    }
+    const unsigned int bps = u16(bs, 11);
+    const unsigned int spc = (unsigned char)bs[13];
+    const unsigned int reserved = u16(bs, 14);
+    const unsigned int fats = (unsigned char)bs[16];
+    const unsigned int rootentries = u16(bs, 17);
+    const unsigned long long total = u16(bs, 19) ? u16(bs, 19) : u32(bs, 32);
+    const unsigned long long fatsize = u16(bs, 22) ? u16(bs, 22) : u32(bs, 36);
+    if (u16(bs, 510) != 0xAA55 || (bps != 512 && bps != 1024 && bps != 2048 && bps != 4096)
+        || spc == 0 || (spc & (spc - 1)) != 0 || reserved == 0 || fats == 0 || fatsize == 0)
+    {
+        *why = BootCheck::tr("it holds no FAT filesystem");
+        return false;
+    }
+    const unsigned long long rootsectors = (rootentries * 32ull + bps - 1) / bps;
+    const unsigned long long firstdata = reserved + fats * fatsize + rootsectors;
+    if (total <= firstdata)
+    {
+        *why = BootCheck::tr("it holds no FAT filesystem");
+        return false;
+    }
+    const unsigned long long clusters = (total - firstdata) / spc;
+    const int kind = (clusters < 4085) ? 12 : (clusters < 65525) ? 16 : 32;
+    const unsigned long long clusterbytes = (unsigned long long)spc * bps;
+
+    QByteArray fat;
+    if (fatsize * bps > 64ull * 1024 * 1024 || !part.read((unsigned long long)reserved * bps, fatsize * bps, &fat))
+    {
+        *why = BootCheck::tr("its allocation table could not be read");
+        return false;
+    }
+    auto next = [&](unsigned long long c) -> unsigned long long {
+        if (kind == 12)
+        {
+            const unsigned int v = u16(fat, (qint64)(c + c / 2));
+            const unsigned int n = (c & 1) ? (v >> 4) : (v & 0xFFF);
+            return (n >= 0xFF8) ? ~0ull : n;
+        }
+        if (kind == 16)
+        {
+            const unsigned int n = u16(fat, (qint64)(c * 2));
+            return (n >= 0xFFF8) ? ~0ull : n;
+        }
+        const unsigned int n = u32(fat, (qint64)(c * 4)) & 0x0FFFFFFF;
+        return (n >= 0x0FFFFFF8) ? ~0ull : n;
+    };
+    // A cluster chain's bytes, up to `limit`.
+    auto chain = [&](unsigned long long c, unsigned long long limit, QByteArray *out) -> bool {
+        out->clear();
+        unsigned long long steps = 0;
+        while (c != ~0ull && (unsigned long long)out->size() < limit)
+        {
+            if (c < 2 || c >= clusters + 2 || ++steps > clusters)
+            {
+                return false;
+            }
+            QByteArray piece;
+            if (!part.read((firstdata + (c - 2) * spc) * bps, clusterbytes, &piece))
+            {
+                return false;
+            }
+            out->append(piece);
+            c = next(c);
+        }
+        if ((unsigned long long)out->size() > limit)
+        {
+            out->truncate((int)limit);
+        }
+        return true;
+    };
+
+    // The root directory: a cluster chain on FAT32, a fixed area before that.
+    QByteArray dir;
+    if (kind == 32)
+    {
+        if (!chain(u32(bs, 44), MAX_FILE_BYTES, &dir))
+        {
+            *why = BootCheck::tr("its root directory could not be read");
+            return false;
+        }
+    }
+    else if (!part.read((reserved + fats * fatsize) * bps, rootentries * 32ull, &dir))
+    {
+        *why = BootCheck::tr("its root directory could not be read");
+        return false;
+    }
+
+    for (int level = 0; level < path.size(); ++level)
+    {
+        const QString &want = path[level];
+        bool found = false, isdir = false;
+        unsigned long long cluster = 0, size = 0;
+        QMap<int, QString> lfn;
+        for (int o = 0; o + 32 <= dir.size() && !found; o += 32)
+        {
+            const unsigned char *e = (const unsigned char *)dir.constData() + o;
+            if (e[0] == 0x00)
+            {
+                break;
+            }
+            if (e[0] == 0xE5)
+            {
+                lfn.clear();
+                continue;
+            }
+            const unsigned char attr = e[11];
+            if (attr == 0x0F)
+            {
+                // A long name's piece: 13 UTF-16 characters, numbered.
+                static const int at[13] = { 1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30 };
+                QString piece;
+                for (int i = 0; i < 13; ++i)
+                {
+                    const unsigned int ch = e[at[i]] | (e[at[i] + 1] << 8);
+                    if (ch == 0x0000 || ch == 0xFFFF) break;
+                    piece.append(QChar((ushort)ch));
+                }
+                lfn.insert(e[0] & 0x3F, piece);
+                continue;
+            }
+            if (attr & 0x08)
+            {
+                lfn.clear();
+                continue;
+            }
+            QString base = QString::fromLatin1((const char *)e, 8).trimmed();
+            if (!base.isEmpty() && base[0] == QChar(0x05)) base[0] = QChar(0xE5);
+            const QString ext = QString::fromLatin1((const char *)e + 8, 3).trimmed();
+            const QString shortname = ext.isEmpty() ? base : base + "." + ext;
+            QString longname;
+            for (auto it = lfn.begin(); it != lfn.end(); ++it)
+            {
+                longname += it.value();
+            }
+            lfn.clear();
+            if (want.compare(shortname, Qt::CaseInsensitive) == 0
+                || (!longname.isEmpty() && want.compare(longname, Qt::CaseInsensitive) == 0))
+            {
+                found = true;
+                isdir = (attr & 0x10) != 0;
+                cluster = ((kind == 32) ? ((unsigned long long)(e[20] | (e[21] << 8)) << 16) : 0)
+                          | (unsigned long long)(e[26] | (e[27] << 8));
+                size = (unsigned long long)e[28] | ((unsigned long long)e[29] << 8)
+                       | ((unsigned long long)e[30] << 16) | ((unsigned long long)e[31] << 24);
+            }
+        }
+        if (!found)
+        {
+            *why = BootCheck::tr("it has no \\%1").arg(path.mid(0, level + 1).join("\\"));
+            return false;
+        }
+        const bool last = (level == path.size() - 1);
+        if (last == isdir)
+        {
+            *why = BootCheck::tr("\\%1 is not a file").arg(path.join("\\"));
+            return false;
+        }
+        if (last)
+        {
+            if (size > MAX_FILE_BYTES || (size && !chain(cluster, size, data)))
+            {
+                *why = BootCheck::tr("\\%1 could not be read").arg(path.join("\\"));
+                return false;
+            }
+            if (size == 0) data->clear();
+            return true;
+        }
+        if (!chain(cluster, MAX_FILE_BYTES, &dir))
+        {
+            *why = BootCheck::tr("\\%1 could not be read").arg(path.mid(0, level + 1).join("\\"));
+            return false;
+        }
+    }
+    *why = BootCheck::tr("no file was named");
+    return false;
+}
+
+// --------------------------------------------------------------------- NTFS ---
+
+namespace {
+
+struct Run
+{
+    unsigned long long vcn, length;
+    long long lcn;                  // -1: sparse
+};
+
+class Ntfs
+{
+public:
+    Ntfs(const PartitionBytes &part) : myPart(part) {}
+
+    bool open(QString *why)
+    {
+        QByteArray bs;
+        if (!myPart.read(0, 512, &bs) || bs.mid(3, 8) != "NTFS    ")
+        {
+            *why = BootCheck::tr("it holds no NTFS filesystem");
+            return false;
+        }
+        const unsigned int bps = u16(bs, 0x0B);
+        const unsigned int spcraw = (unsigned char)bs[0x0D];
+        const unsigned long long spc = (spcraw <= 0x80) ? spcraw : (1ull << (256 - spcraw));
+        myCluster = bps * spc;
+        auto size = [&](int raw) -> unsigned long long {
+            const signed char v = (signed char)raw;
+            return (v > 0) ? (unsigned long long)v * myCluster : (1ull << (-v));
+        };
+        myRecord = size((unsigned char)bs[0x40]);
+        myIndex = size((unsigned char)bs[0x44]);
+        if (bps < 512 || bps > 4096 || myCluster == 0 || myRecord < 512 || myRecord > 65536
+            || myIndex < 512 || myIndex > 65536)
+        {
+            *why = BootCheck::tr("it holds no NTFS filesystem");
+            return false;
+        }
+        // $MFT's own record holds where the MFT lies.
+        QByteArray mft;
+        if (!myPart.read(u64(bs, 0x30) * myCluster, myRecord, &mft) || !fixup(&mft, "FILE"))
+        {
+            *why = BootCheck::tr("its file table could not be read");
+            return false;
+        }
+        const qint64 data = attribute(mft, 0x80, QString());
+        if (data < 0 || !mft[(int)data + 8] || !runs(mft, data, &myMftRuns))
+        {
+            *why = BootCheck::tr("its file table could not be read");
+            return false;
+        }
+        return true;
+    }
+
+    // File record n, fixed up; false if it is not a record in use.
+    bool record(unsigned long long n, QByteArray *rec)
+    {
+        return stream(myMftRuns, n * myRecord, myRecord, rec) && fixup(rec, "FILE")
+               && (u16(*rec, 0x16) & 1);
+    }
+
+    // The record of `name` in directory record `dir`, through its index.
+    bool lookup(const QByteArray &dir, const QString &name, unsigned long long *found)
+    {
+        const qint64 root = attribute(dir, 0x90, "$I30");
+        if (root < 0 || dir[(int)root + 8])
+        {
+            return false;
+        }
+        const qint64 value = root + u16(dir, root + 0x14);
+        QList<unsigned long long> pending;
+        if (scan(dir, value + 0x10, name, found, &pending))
+        {
+            return true;
+        }
+        const qint64 alloc = attribute(dir, 0xA0, "$I30");
+        QList<Run> allocruns;
+        if (pending.isEmpty() || alloc < 0 || !dir[(int)alloc + 8] || !runs(dir, alloc, &allocruns))
+        {
+            return false;
+        }
+        // Each node reached from the root, once; a block not in the tree may
+        // hold stale entries, and is never looked at.
+        const unsigned long long unit = (myIndex >= myCluster) ? myCluster : 512;
+        QSet<unsigned long long> seen;
+        while (!pending.isEmpty() && seen.size() < 10000)
+        {
+            const unsigned long long vcn = pending.takeFirst();
+            if (seen.contains(vcn)) continue;
+            seen.insert(vcn);
+            QByteArray block;
+            if (!stream(allocruns, vcn * unit, myIndex, &block) || !fixup(&block, "INDX"))
+            {
+                return false;
+            }
+            if (scan(block, 0x18, name, found, &pending))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // The unnamed $DATA of a file record.
+    bool content(const QByteArray &rec, QByteArray *out, QString *why)
+    {
+        const qint64 a = attribute(rec, 0x80, QString());
+        if (a < 0)
+        {
+            *why = (attribute(rec, 0x20, QString()) >= 0)
+                ? BootCheck::tr("it is stored in more pieces than this reads")
+                : BootCheck::tr("it has no data");
+            return false;
+        }
+        if (u16(rec, a + 0x0C) & 0x40FF)
+        {
+            *why = BootCheck::tr("it is compressed or encrypted");
+            return false;
+        }
+        if (!rec[(int)a + 8])
+        {
+            *out = rec.mid((int)(a + u16(rec, a + 0x14)), (int)u32(rec, a + 0x10));
+            return true;
+        }
+        const unsigned long long size = u64(rec, a + 0x30);
+        QList<Run> r;
+        if (size > MAX_FILE_BYTES || !runs(rec, a, &r) || (size && !stream(r, 0, size, out)))
+        {
+            *why = BootCheck::tr("it could not be read");
+            return false;
+        }
+        if (size == 0) out->clear();
+        return true;
+    }
+
+private:
+    // Undoes the update sequence: the last two bytes of each 512 hold the
+    // sequence number, the real bytes being kept in the array.
+    static bool fixup(QByteArray *b, const char *sig)
+    {
+        if (b->left(4) != sig) return false;
+        const unsigned int off = u16(*b, 4), count = u16(*b, 6);
+        if (count == 0 || off + 2 * count > (unsigned int)b->size()) return false;
+        const unsigned int usn = u16(*b, off);
+        for (unsigned int i = 1; i < count; ++i)
+        {
+            const qint64 pos = (qint64)i * 512 - 2;
+            if (pos + 2 > b->size()) break;
+            if (u16(*b, pos) != usn) return false;
+            (*b)[(int)pos] = (*b)[(int)(off + 2 * i)];
+            (*b)[(int)pos + 1] = (*b)[(int)(off + 2 * i + 1)];
+        }
+        return true;
+    }
+
+    // The offset of the attribute of `type` named `name` in a record, or -1.
+    static qint64 attribute(const QByteArray &rec, unsigned int type, const QString &name)
+    {
+        qint64 o = u16(rec, 0x14);
+        while (o + 16 <= rec.size())
+        {
+            const unsigned int t = u32(rec, o), len = u32(rec, o + 4);
+            if (t == 0xFFFFFFFF || len < 16 || o + len > (unsigned long long)rec.size()) break;
+            if (t == type)
+            {
+                const int nlen = (unsigned char)rec[(int)o + 9];
+                const QString n = QString((const QChar *)(rec.constData() + o + u16(rec, o + 0x0A)), nlen);
+                if (n == name) return o;
+            }
+            o += len;
+        }
+        return -1;
+    }
+
+    // The run list of a non-resident attribute.
+    static bool runs(const QByteArray &rec, qint64 a, QList<Run> *out)
+    {
+        out->clear();
+        const qint64 end = a + u32(rec, a + 4);
+        qint64 p = a + u16(rec, a + 0x20);
+        unsigned long long vcn = u64(rec, a + 0x10);
+        long long lcn = 0;
+        while (p < end && rec[(int)p] != 0)
+        {
+            const unsigned char h = (unsigned char)rec[(int)p];
+            const int ln = h & 0x0F, lo = h >> 4;
+            if (ln == 0 || ln > 8 || lo > 8 || p + 1 + ln + lo > end) return false;
+            unsigned long long length = 0;
+            for (int i = 0; i < ln; ++i) length |= (unsigned long long)(unsigned char)rec[(int)(p + 1 + i)] << (8 * i);
+            long long delta = 0;
+            for (int i = 0; i < lo; ++i) delta |= (long long)(unsigned char)rec[(int)(p + 1 + ln + i)] << (8 * i);
+            if (lo && lo < 8 && (rec[(int)(p + ln + lo)] & 0x80)) delta -= (1ll << (8 * lo));
+            if (lo) lcn += delta;
+            out->append(Run{vcn, length, lo ? lcn : -1});
+            vcn += length;
+            p += 1 + ln + lo;
+        }
+        return true;
+    }
+
+    // Bytes [offset, offset + length) of a non-resident stream.
+    bool stream(const QList<Run> &r, unsigned long long offset, unsigned long long length,
+                QByteArray *out)
+    {
+        out->clear();
+        if (length > MAX_FILE_BYTES * 4) return false;
+        while (length)
+        {
+            const unsigned long long vcn = offset / myCluster;
+            const Run *run = NULL;
+            for (const Run &x : r)
+            {
+                if (vcn >= x.vcn && vcn < x.vcn + x.length) run = &x;
+            }
+            if (!run) return false;
+            const unsigned long long within = offset - run->vcn * myCluster;
+            const unsigned long long take = qMin(length, run->length * myCluster - within);
+            QByteArray piece;
+            if (run->lcn < 0)
+            {
+                piece = QByteArray((int)take, 0);
+            }
+            else if (!myPart.read((unsigned long long)run->lcn * myCluster + within, take, &piece))
+            {
+                return false;
+            }
+            out->append(piece);
+            offset += take;
+            length -= take;
+        }
+        return true;
+    }
+
+    // The entries of the index node whose header is at `node`: true when one
+    // is `name`; the nodes below it are added to *pending.
+    static bool scan(const QByteArray &b, qint64 node, const QString &name,
+                     unsigned long long *found, QList<unsigned long long> *pending)
+    {
+        qint64 p = node + u32(b, node);
+        const qint64 end = node + u32(b, node + 4);
+        for (int guard = 0; p + 16 <= end && p + 16 <= b.size() && guard < 4096; ++guard)
+        {
+            const unsigned int len = u16(b, p + 8), keylen = u16(b, p + 10), flags = u16(b, p + 12);
+            if (len < 16) return false;
+            if ((flags & 1) && len >= 24)
+            {
+                pending->append(u64(b, p + len - 8));
+            }
+            if (flags & 2) break;
+            if (keylen >= 0x42)
+            {
+                const qint64 key = p + 16;
+                const int nlen = (unsigned char)b[(int)(key + 0x40)];
+                const int space = (unsigned char)b[(int)(key + 0x41)];
+                if (key + 0x42 + 2 * nlen <= b.size() && space != 2)
+                {
+                    const QString n = QString((const QChar *)(b.constData() + key + 0x42), nlen);
+                    if (n.compare(name, Qt::CaseInsensitive) == 0)
+                    {
+                        *found = u64(b, p) & 0xFFFFFFFFFFFFull;
+                        return true;
+                    }
+                }
+            }
+            p += len;
+        }
+        return false;
+    }
+
+    const PartitionBytes &myPart;
+    unsigned long long myCluster = 0, myRecord = 0, myIndex = 0;
+    QList<Run> myMftRuns;
+};
+
+} // namespace
+
+bool ntfsReadFile(const BootSectorReader &read, unsigned long long sectorsize,
+                  unsigned long long first, unsigned long long sectors,
+                  const QStringList &path, QByteArray *data, QString *why)
+{
+    const PartitionBytes part(read, sectorsize, first, sectors);
+    Ntfs fs(part);
+    if (!fs.open(why))
+    {
+        return false;
+    }
+    QByteArray rec;
+    if (!fs.record(5, &rec))        // the root directory
+    {
+        *why = BootCheck::tr("its root directory could not be read");
+        return false;
+    }
+    for (int level = 0; level < path.size(); ++level)
+    {
+        unsigned long long n = 0;
+        if (!fs.lookup(rec, path[level], &n) || !fs.record(n, &rec))
+        {
+            *why = BootCheck::tr("it has no \\%1").arg(path.mid(0, level + 1).join("\\"));
+            return false;
+        }
+    }
+    QString detail;
+    if (!fs.content(rec, data, &detail))
+    {
+        *why = BootCheck::tr("\\%1: %2").arg(path.join("\\"), detail);
+        return false;
+    }
+    return true;
+}
+
+// ---------------------------------------------------------------- the hive ---
+
+namespace {
+
+class Hive
+{
+public:
+    explicit Hive(const QByteArray &d) : myData(d) {}
+
+    // A cell's data, after its size; empty if it is out of range.
+    QByteArray cell(unsigned int offset) const
+    {
+        const qint64 at = 0x1000 + (qint64)offset;
+        if (offset == 0xFFFFFFFF || at + 4 > myData.size()) return QByteArray();
+        const int size = (int)u32(myData, at);
+        const qint64 len = (size < 0) ? -(qint64)size : size;
+        if (len < 8 || at + len > myData.size()) return QByteArray();
+        return myData.mid((int)(at + 4), (int)(len - 4));
+    }
+
+    QString keyName(const QByteArray &nk) const
+    {
+        const int len = (int)u16(nk, 0x48);
+        if (u16(nk, 2) & 0x20)
+        {
+            return QString::fromLatin1(nk.constData() + 0x4C, qMin(len, nk.size() - 0x4C));
+        }
+        return QString((const QChar *)(nk.constData() + 0x4C), qMin(len, nk.size() - 0x4C) / 2);
+    }
+
+    // Subkeys of key `nk`, by name.
+    QMap<QString, QByteArray> subkeys(const QByteArray &nk) const
+    {
+        QMap<QString, QByteArray> out;
+        list(u32(nk, 0x1C), &out, 0);
+        return out;
+    }
+
+    // A value of key `nk`, by name: its type and data.
+    bool value(const QByteArray &nk, const QString &name, unsigned int *type, QByteArray *data) const
+    {
+        const unsigned int count = u32(nk, 0x24);
+        const QByteArray offsets = cell(u32(nk, 0x28));
+        for (unsigned int i = 0; i < count && (qint64)(i * 4 + 4) <= offsets.size(); ++i)
+        {
+            const QByteArray vk = cell(u32(offsets, i * 4));
+            if (vk.left(2) != "vk") continue;
+            const int nlen = (int)u16(vk, 2);
+            const QString n = (u16(vk, 0x10) & 1)
+                ? QString::fromLatin1(vk.constData() + 0x14, qMin(nlen, vk.size() - 0x14))
+                : QString((const QChar *)(vk.constData() + 0x14), qMin(nlen, vk.size() - 0x14) / 2);
+            if (n.compare(name, Qt::CaseInsensitive) != 0) continue;
+            *type = u32(vk, 0x0C);
+            const unsigned int size = u32(vk, 4);
+            if (size & 0x80000000u)
+            {
+                *data = vk.mid(8, (int)qMin(size & 0x7FFFFFFFu, 4u));
+                return true;
+            }
+            const QByteArray d = cell(u32(vk, 8));
+            if (size > 16344 && d.left(2) == "db")
+            {
+                // Big data, in segments.
+                const unsigned int segs = u16(d, 2);
+                const QByteArray list = cell(u32(d, 4));
+                data->clear();
+                for (unsigned int s = 0; s < segs && (unsigned int)data->size() < size; ++s)
+                {
+                    data->append(cell(u32(list, s * 4)).left(16344));
+                }
+                data->truncate((int)size);
+                return true;
+            }
+            *data = d.left((int)size);
+            return true;
+        }
+        return false;
+    }
+
+    QByteArray root() const { return cell(u32(myData, 0x24)); }
+
+private:
+    void list(unsigned int offset, QMap<QString, QByteArray> *out, int depth) const
+    {
+        const QByteArray l = cell(offset);
+        const QByteArray sig = l.left(2);
+        const unsigned int count = u16(l, 2);
+        if (depth > 4) return;
+        for (unsigned int i = 0; i < count; ++i)
+        {
+            if (sig == "lf" || sig == "lh")
+            {
+                const QByteArray nk = cell(u32(l, 4 + i * 8));
+                if (nk.left(2) == "nk") out->insert(keyName(nk).toLower(), nk);
+            }
+            else if (sig == "li")
+            {
+                const QByteArray nk = cell(u32(l, 4 + i * 4));
+                if (nk.left(2) == "nk") out->insert(keyName(nk).toLower(), nk);
+            }
+            else if (sig == "ri")
+            {
+                list(u32(l, 4 + i * 4), out, depth + 1);
+            }
+        }
+    }
+
+    const QByteArray &myData;
+};
+
+QString guidText(const QByteArray &g)
+{
+    return "{" + gptGuidText(g).toLower() + "}";
+}
+
+// Partition descriptors in a device element: the element's own, at 0x10,
+// after the GUID of its options object, and any inside it, as a ramdisk
+// holds the one its file is on. A descriptor: device type 6 (a partition),
+// flags, size, reserved; the partition (GPT: its unique GUID; MBR: its offset
+// in bytes); the disk's kind (0, local), the partition style (0 GPT, 1
+// MBR), and the disk ID (GPT: its GUID; MBR: its signature).
+void deviceRefs(const QByteArray &blob, BcdDeviceRef base, QList<BcdDeviceRef> *out)
+{
+    for (qint64 o = 0x10; o + 0x2C <= blob.size(); o += 4)
+    {
+        if (u32(blob, o) != 6 || u32(blob, o + 0x20) != 0 || u32(blob, o + 0x24) > 1)
+        {
+            continue;
+        }
+        BcdDeviceRef r = base;
+        r.gpt = (u32(blob, o + 0x24) == 0);
+        if (r.gpt)
+        {
+            if (o + 0x38 > blob.size()) continue;
+            r.partition = blob.mid((int)(o + 0x10), 16);
+            r.disk = blob.mid((int)(o + 0x28), 16);
+        }
+        else
+        {
+            if (u64(blob, o + 0x18) != 0) continue;
+            r.partition = blob.mid((int)(o + 0x10), 8);
+            r.disk = blob.mid((int)(o + 0x28), 4);
+        }
+        r.nested = (o != 0x10);
+        if (r.nested)
+        {
+            // A ramdisk: the file it loads, the longest path in the element,
+            // and its options object, the GUID it starts with.
+            QString best;
+            for (qint64 s = 0; s + 4 <= blob.size(); ++s)
+            {
+                if (u16(blob, s) != '\\') continue;
+                QString text;
+                for (qint64 c = s; c + 2 <= blob.size(); c += 2)
+                {
+                    const unsigned int ch = u16(blob, c);
+                    if (ch == 0) break;
+                    if (ch < 0x20 || ch > 0xFFFD) { text.clear(); break; }
+                    text.append(QChar((ushort)ch));
+                }
+                if (text.size() > best.size()) best = text;
+            }
+            r.path = best;
+            if (blob.left(16) != QByteArray(16, 0)) r.options = guidText(blob.left(16));
+        }
+        out->append(r);
+        o += 0x24;
+    }
+}
+
+} // namespace
+
+bool parseBcdHive(const QByteArray &hive, QList<BcdDeviceRef> *refs, int *objects, QString *why)
+{
+    refs->clear();
+    *objects = 0;
+    if (hive.size() < 0x1000 + 32 || hive.left(4) != "regf")
+    {
+        *why = BootCheck::tr("it is not a registry hive");
+        return false;
+    }
+    const Hive h(hive);
+    const QByteArray root = h.root();
+    if (root.left(2) != "nk")
+    {
+        *why = BootCheck::tr("its root key could not be read");
+        return false;
+    }
+    const QMap<QString, QByteArray> top = h.subkeys(root);
+    if (!top.contains("objects"))
+    {
+        *why = BootCheck::tr("it holds no boot objects");
+        return false;
+    }
+    const QMap<QString, QByteArray> objs = h.subkeys(top["objects"]);
+    *objects = objs.size();
+    for (auto it = objs.begin(); it != objs.end(); ++it)
+    {
+        const QMap<QString, QByteArray> parts = h.subkeys(it.value());
+        BcdDeviceRef base;
+        base.object = h.keyName(it.value()).toLower();
+        base.objectType = 0;
+        base.element = 0;
+        base.gpt = false;
+        base.nested = false;
+        unsigned int type = 0;
+        QByteArray data;
+        if (parts.contains("description") && h.value(parts["description"], "Type", &type, &data))
+        {
+            base.objectType = u32(data, 0);
+        }
+        if (!parts.contains("elements")) continue;
+        const QMap<QString, QByteArray> elements = h.subkeys(parts["elements"]);
+        if (elements.contains("12000004") && h.value(elements["12000004"], "Element", &type, &data))
+        {
+            base.description = QString((const QChar *)data.constData(), data.size() / 2);
+            base.description.truncate(base.description.indexOf(QChar(0)) < 0
+                                          ? base.description.size()
+                                          : base.description.indexOf(QChar(0)));
+        }
+        for (auto e = elements.begin(); e != elements.end(); ++e)
+        {
+            bool ok = false;
+            const unsigned int id = e.key().toUInt(&ok, 16);
+            // Only device-format elements name partitions.
+            if (!ok || (id & 0x0F000000) != 0x01000000) continue;
+            if (!h.value(e.value(), "Element", &type, &data)) continue;
+            BcdDeviceRef r = base;
+            r.element = id;
+            deviceRefs(data, r, refs);
+        }
+    }
+    return true;
+}
+
+// ------------------------------------------------------------------- check ---
+
+namespace {
+
+const char *ESP_GUID = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B";
+
+QString sizeText(unsigned long long bytes)
+{
+    if (bytes >= 1000000000ull) return BootCheck::tr("%1 GB").arg(bytes / 1e9, 0, 'f', 1);
+    return BootCheck::tr("%1 MB").arg(bytes / 1e6, 0, 'f', 0);
+}
+
+// The bcdedit name of a device element, for the object kind it is in.
+QString elementName(unsigned int objecttype, unsigned int element)
+{
+    switch (element)
+    {
+    case 0x11000001: return "device";
+    case 0x21000001: return (objecttype == 0x10200004) ? "filedevice" : "osdevice";
+    case 0x31000003: return "ramdisksdidevice";
+    }
+    return QString();
+}
+
+QString objectText(const BcdDeviceRef &r)
+{
+    static const QMap<QString, QString> known = {
+        { "{9dea862c-5cdd-4e70-acc1-f32b344d4795}", "Windows Boot Manager" },
+        { "{a5a30fa2-3d06-4e9f-b5f4-a01df9d1fcba}", "Firmware Boot Manager" },
+        { "{b2721d73-1db4-4c62-bf78-c548a880142d}", "Windows Memory Diagnostic" },
+        { "{7619dcc8-fafe-11d9-b411-000476eba25f}", "Ramdisk Options" },
+    };
+    QString name = r.description;
+    if (name.isEmpty()) name = known.value(r.object);
+    return name.isEmpty() ? r.object : QString("%1 %2").arg(name, r.object);
+}
+
+QString fsName(const BootSectorReader &read, unsigned long long ss, const CombinePartition &p)
+{
+    QByteArray b((int)ss, 0);
+    if (!read(p.first, 1, b.data())) return QString();
+    if (b.mid(3, 8) == "NTFS    ") return "NTFS";
+    if (b.mid(82, 5) == "FAT32") return "FAT32";
+    if (b.mid(54, 5) == "FAT16") return "FAT16";
+    if (b.mid(54, 5) == "FAT12") return "FAT12";
+    return QString();
+}
+
+} // namespace
+
+BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &read,
+                          const BootCheckDisk &disk)
+{
+    BootCheckResult out;
+    const unsigned long long ss = disk.sectorsize;
+    QString &rep = out.report;
+    const bool gpt = (layout.table == COMBINE_TABLE_GPT);
+    if (layout.table == COMBINE_TABLE_NONE)
+    {
+        rep = BootCheck::tr("The disk has no partition table, so nothing on it can be booted the way "
+                 "Windows boots.");
+        return out;
+    }
+    const QByteArray diskid = gpt ? layout.diskGuid : layout.tableRegion.mid(440, 4);
+    auto idText = [&](const QByteArray &id) {
+        return (id.size() == 16) ? guidText(id)
+                                 : QString("%1").arg(u32(id, 0), 8, 16, QChar('0')).toUpper();
+    };
+    // diskpart's number for each partition; the table's order without it.
+    auto number = [&](int i) {
+        return disk.partitionNumbers.value(layout.partitions[i].first, i + 1);
+    };
+    auto partText = [&](int i) {
+        const CombinePartition &p = layout.partitions[i];
+        const QString fs = fsName(read, ss, p);
+        return fs.isEmpty() ? BootCheck::tr("partition %1 (%2)").arg(number(i)).arg(sizeText(p.sectors * ss))
+                            : BootCheck::tr("partition %1 (%2, %3)").arg(number(i)).arg(fs, sizeText(p.sectors * ss));
+    };
+
+    rep += (gpt ? BootCheck::tr("Disk %1: GPT, disk GUID %2.") : BootCheck::tr("Disk %1: MBR, disk signature %2."))
+               .arg(disk.number).arg(idText(diskid)) + "\n";
+
+    // Where the BCD is: the EFI system partition's, or a BIOS system
+    // partition's -- the active one first.
+    QList<int> order;
+    for (int i = 0; i < layout.partitions.size(); ++i)
+    {
+        const CombinePartition &p = layout.partitions[i];
+        const bool esp = gpt ? (p.entry.size() >= 16 && gptGuidText(p.entry.left(16)) == ESP_GUID)
+                             : (p.mbrType == 0xEF);
+        const bool active = !gpt && p.entry.size() >= 1 && (unsigned char)p.entry[0] == 0x80;
+        if (esp || active) order.prepend(i); else order.append(i);
+    }
+    int bcdpart = -1;
+    bool efi = false;
+    QByteArray hive;
+    QStringList tried;
+    for (int i : order)
+    {
+        const CombinePartition &p = layout.partitions[i];
+        const QString fs = fsName(read, ss, p);
+        if (fs.isEmpty()) continue;
+        for (int kind = 0; kind < 2 && bcdpart < 0; ++kind)
+        {
+            const QStringList path = (kind == 0) ? QStringList{ "EFI", "Microsoft", "Boot", "BCD" }
+                                                 : QStringList{ "Boot", "BCD" };
+            QString why;
+            const bool ok = (fs == "NTFS")
+                ? ntfsReadFile(read, ss, p.first, p.sectors, path, &hive, &why)
+                : fatReadFile(read, ss, p.first, p.sectors, path, &hive, &why);
+            if (ok)
+            {
+                bcdpart = i;
+                efi = (kind == 0);
+            }
+        }
+        if (bcdpart >= 0) break;
+        tried.append(partText(i));
+    }
+    if (bcdpart < 0)
+    {
+        rep += BootCheck::tr("No Windows boot configuration was found: no partition holds "
+                  "\\EFI\\Microsoft\\Boot\\BCD or \\Boot\\BCD.");
+        if (!tried.isEmpty()) rep += "\n" + BootCheck::tr("Looked in: %1.").arg(tried.join(", "));
+        return out;
+    }
+    out.bcdFound = true;
+    const QString bcdpath = efi ? "\\EFI\\Microsoft\\Boot\\BCD" : "\\Boot\\BCD";
+    QList<BcdDeviceRef> refs;
+    int objects = 0;
+    QString why;
+    if (!parseBcdHive(hive, &refs, &objects, &why))
+    {
+        rep += BootCheck::tr("The boot configuration on %1, %2, could not be read: %3.")
+                   .arg(partText(bcdpart), bcdpath, why);
+        return out;
+    }
+    rep += BootCheck::tr("Boot configuration: %1, %2, %3 objects.").arg(partText(bcdpart), bcdpath).arg(objects)
+           + "\n\n";
+
+    // Each reference: the partition it names, here, if any.
+    QList<int> where;
+    QSet<QByteArray> otherids;
+    int stale = 0, missing = 0;
+    for (const BcdDeviceRef &r : refs)
+    {
+        int at = -1;
+        for (int i = 0; i < layout.partitions.size() && at < 0; ++i)
+        {
+            const CombinePartition &p = layout.partitions[i];
+            if (r.gpt && gpt && p.entry.mid(16, 16) == r.partition) at = i;
+            if (!r.gpt && !gpt && u64(r.partition, 0) == p.first * ss) at = i;
+        }
+        where.append(at);
+        if (r.disk != diskid) otherids.insert(r.disk);
+        if (at >= 0 && r.disk != diskid) ++stale;
+        if (at < 0) ++missing;
+    }
+    if (refs.isEmpty())
+    {
+        rep += BootCheck::tr("No entry names a partition.") + "\n";
+    }
+    else
+    {
+        rep += BootCheck::tr("Entries that name a partition:") + "\n";
+    }
+    for (int k = 0; k < refs.size(); ++k)
+    {
+        const BcdDeviceRef &r = refs[k];
+        QString name = elementName(r.objectType, r.element);
+        if (name.isEmpty()) name = QString("0x%1").arg(r.element, 8, 16, QChar('0'));
+        const QString status = (where[k] < 0) ? BootCheck::tr("MISSING") : (r.disk != diskid) ? BootCheck::tr("WRONG")
+                                                                                 : BootCheck::tr("OK");
+        QString what = (where[k] >= 0) ? partText(where[k])
+                                       : (r.gpt ? BootCheck::tr("partition %1").arg(guidText(r.partition))
+                                                : BootCheck::tr("the partition at byte %1").arg(u64(r.partition, 0)));
+        if (r.disk != diskid) what += ", " + BootCheck::tr("on disk %1").arg(idText(r.disk));
+        if (r.nested) what = BootCheck::tr("a ramdisk on %1").arg(what);
+        rep += QString("  %1  %2: %3 = %4\n").arg(status, -7).arg(objectText(r), name, what);
+    }
+    rep += "\n";
+
+    if (stale == 0 && missing == 0)
+    {
+        out.ok = true;
+        rep += BootCheck::tr("Every entry names this disk as it is now, and a partition it has: the boot "
+                  "configuration matches the disk.");
+        return out;
+    }
+    for (const QByteArray &id : otherids)
+    {
+        rep += (gpt ? BootCheck::tr("The boot configuration names the disk by GUID %1, but the disk's own is %2.")
+                    : BootCheck::tr("The boot configuration names the disk by signature %1, but the disk's own is %2."))
+                   .arg(idText(id), idText(diskid)) + " ";
+        const QString elsewhere = disk.diskWithId ? disk.diskWithId(id) : QString();
+        if (!elsewhere.isEmpty())
+        {
+            rep += BootCheck::tr("%1 on this computer has that ID: probably the disk this one was copied "
+                      "from, which made Windows give this one a new ID when it was attached.")
+                       .arg(elsewhere);
+        }
+        else
+        {
+            rep += BootCheck::tr("Windows gives a disk a new ID when it is attached where a disk with the "
+                      "same one already is, as a copy is where its original is.");
+        }
+        rep += "\n";
+    }
+    if (missing)
+    {
+        rep += BootCheck::tr("%1 entries name a partition this disk does not have; bcdedit cannot point "
+                  "those at the right partition, but bcdboot (below) can make new ones.")
+                   .arg(missing) + "\n";
+    }
+    rep += BootCheck::tr("The disk will not boot until this is fixed.") + "\n\n";
+
+    // The fix, from inside the VM: letters for the partitions, then bcdedit
+    // on the store. S: is the partition the BCD is on, W: the Windows one.
+    QMap<int, QChar> letters;
+    letters.insert(bcdpart, 'S');
+    int windows = -1;
+    for (int k = 0; k < refs.size(); ++k)
+    {
+        if (where[k] >= 0 && refs[k].objectType == 0x10200003 && refs[k].element == 0x21000001
+            && !refs[k].nested && windows < 0)
+        {
+            windows = where[k];
+        }
+    }
+    if (windows >= 0 && !letters.contains(windows)) letters.insert(windows, 'W');
+    // Any other partition an entry to fix names, a recovery one say.
+    const QString spare = "RTUVY";
+    int nextspare = 0;
+    for (int k = 0; k < refs.size(); ++k)
+    {
+        if (where[k] >= 0 && refs[k].disk != diskid && !letters.contains(where[k])
+            && nextspare < spare.size())
+        {
+            letters.insert(where[k], spare[nextspare++]);
+        }
+    }
+    const QString store = QString("S:%1").arg(bcdpath);
+    QStringList cmds;
+    for (int k = 0; k < refs.size(); ++k)
+    {
+        const BcdDeviceRef &r = refs[k];
+        if (where[k] < 0 || r.disk == diskid) continue;
+        const QString name = elementName(r.objectType, r.element);
+        const QChar letter = letters.value(where[k], '?');
+        if (name.isEmpty())
+        {
+            cmds.append(QString("rem %1: element 0x%2 -- set it by the name \"bcdedit /store %3 "
+                                "/enum all\" shows for it, to partition=%4:")
+                            .arg(objectText(r)).arg(r.element, 8, 16, QChar('0')).arg(store).arg(letter));
+        }
+        else if (r.nested)
+        {
+            if (r.path.isEmpty() || r.options.isEmpty())
+            {
+                cmds.append(QString("rem %1 %2: a ramdisk on partition %3: -- see \"bcdedit /store %4 "
+                                    "/enum all\" for its file and options")
+                                .arg(objectText(r), name).arg(letter).arg(store));
+            }
+            else
+            {
+                cmds.append(QString("bcdedit /store %1 /set %2 %3 ramdisk=[%4:]%5,%6")
+                                .arg(store, r.object, name).arg(letter).arg(r.path, r.options));
+            }
+        }
+        else
+        {
+            cmds.append(QString("bcdedit /store %1 /set %2 %3 partition=%4:")
+                            .arg(store, r.object, name).arg(letter));
+        }
+    }
+
+    rep += BootCheck::tr("To fix it and keep the disk's new ID, start the VM from Windows setup media, "
+              "press Shift+F10 for a command prompt, and run the commands below. There the disk "
+              "is an ordinary disk, so bcdedit names its partitions by the disk's GUID and their "
+              "own. On this computer, with the disk attached as a VHD or VHDX, bcdedit would name "
+              "the VHDX file instead, which a VM cannot find.") + "\n";
+    rep += BootCheck::tr("\"select disk 0\" assumes it is the VM's only disk: check \"list disk\" for one of "
+              "%1. If a partition already has a letter, use that one in the commands instead.")
+               .arg(sizeText((disk.sectors ? disk.sectors
+                              : layout.partitions.isEmpty() ? 0
+                              : layout.partitions.last().first + layout.partitions.last().sectors) * ss))
+           + "\n\n";
+    rep += "diskpart\nlist disk\nselect disk 0\nlist partition\n";
+    for (auto it = letters.begin(); it != letters.end(); ++it)
+    {
+        rep += QString("select partition %1\nassign letter=%2\n").arg(number(it.key())).arg(it.value());
+    }
+    rep += "exit\n\n";
+    for (const QString &c : cmds) rep += c + "\n";
+    rep += QString("bcdedit /store %1 /enum all\n\n").arg(store);
+    rep += BootCheck::tr("Partitions: %1.").arg([&]() {
+        QStringList l;
+        for (auto it = letters.begin(); it != letters.end(); ++it)
+        {
+            l.append(QString("%1: = %2").arg(it.value()).arg(partText(it.key())));
+        }
+        return l.join("; ");
+    }()) + "\n\n";
+    rep += BootCheck::tr("Or rebuild the boot files and the boot configuration from that Windows "
+              "instead, which replaces the configuration's entries with new ones:") + "\n";
+    rep += QString("bcdboot W:\\Windows /s S: /f %1\n").arg(efi ? "UEFI" : "BIOS");
+    return out;
+}

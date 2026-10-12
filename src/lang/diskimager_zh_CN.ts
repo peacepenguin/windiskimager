@@ -2,6 +2,205 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="zh_CN">
 <context>
+    <name>BootCheck</name>
+    <message>
+        <source>its first sector could not be read</source>
+        <translation>无法读取其第一个扇区</translation>
+    </message>
+    <message>
+        <source>it holds no FAT filesystem</source>
+        <translation>其中没有 FAT 文件系统</translation>
+    </message>
+    <message>
+        <source>its allocation table could not be read</source>
+        <translation>无法读取其分配表</translation>
+    </message>
+    <message>
+        <source>its root directory could not be read</source>
+        <translation>无法读取其根目录</translation>
+    </message>
+    <message>
+        <source>it has no \%1</source>
+        <translation>其中没有 \%1</translation>
+    </message>
+    <message>
+        <source>\%1 is not a file</source>
+        <translation>\%1 不是文件</translation>
+    </message>
+    <message>
+        <source>\%1 could not be read</source>
+        <translation>无法读取 \%1</translation>
+    </message>
+    <message>
+        <source>no file was named</source>
+        <translation>未指定文件</translation>
+    </message>
+    <message>
+        <source>it holds no NTFS filesystem</source>
+        <translation>其中没有 NTFS 文件系统</translation>
+    </message>
+    <message>
+        <source>its file table could not be read</source>
+        <translation>无法读取其文件表</translation>
+    </message>
+    <message>
+        <source>it is stored in more pieces than this reads</source>
+        <translation>其存储的碎片数超出本程序可读取的范围</translation>
+    </message>
+    <message>
+        <source>it has no data</source>
+        <translation>其中没有数据</translation>
+    </message>
+    <message>
+        <source>it is compressed or encrypted</source>
+        <translation>它已被压缩或加密</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>无法读取它</translation>
+    </message>
+    <message>
+        <source>\%1: %2</source>
+        <translation>\%1：%2</translation>
+    </message>
+    <message>
+        <source>it is not a registry hive</source>
+        <translation>它不是注册表配置单元</translation>
+    </message>
+    <message>
+        <source>its root key could not be read</source>
+        <translation>无法读取其根键</translation>
+    </message>
+    <message>
+        <source>it holds no boot objects</source>
+        <translation>其中没有启动对象</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>The disk has no partition table, so nothing on it can be booted the way Windows boots.</source>
+        <translation>该磁盘没有分区表，因此其中任何内容都无法按 Windows 的方式启动。</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2)</source>
+        <translation>分区 %1（%2）</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2, %3)</source>
+        <translation>分区 %1（%2，%3）</translation>
+    </message>
+    <message>
+        <source>Disk %1: GPT, disk GUID %2.</source>
+        <translation>磁盘 %1：GPT，磁盘 GUID %2。</translation>
+    </message>
+    <message>
+        <source>Disk %1: MBR, disk signature %2.</source>
+        <translation>磁盘 %1：MBR，磁盘签名 %2。</translation>
+    </message>
+    <message>
+        <source>No Windows boot configuration was found: no partition holds \EFI\Microsoft\Boot\BCD or \Boot\BCD.</source>
+        <translation>未找到 Windows 启动配置：没有任何分区包含 \EFI\Microsoft\Boot\BCD 或 \Boot\BCD。</translation>
+    </message>
+    <message>
+        <source>Looked in: %1.</source>
+        <translation>已查找：%1。</translation>
+    </message>
+    <message>
+        <source>The boot configuration on %1, %2, could not be read: %3.</source>
+        <translation>无法读取 %1（%2）上的启动配置：%3。</translation>
+    </message>
+    <message>
+        <source>Boot configuration: %1, %2, %3 objects.</source>
+        <translation>启动配置：%1，%2，%3 个对象。</translation>
+    </message>
+    <message>
+        <source>No entry names a partition.</source>
+        <translation>没有任何条目指定分区。</translation>
+    </message>
+    <message>
+        <source>Entries that name a partition:</source>
+        <translation>指定分区的条目：</translation>
+    </message>
+    <message>
+        <source>MISSING</source>
+        <translation>缺失</translation>
+    </message>
+    <message>
+        <source>WRONG</source>
+        <translation>错误</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>正常</translation>
+    </message>
+    <message>
+        <source>partition %1</source>
+        <translation>分区 %1</translation>
+    </message>
+    <message>
+        <source>the partition at byte %1</source>
+        <translation>位于字节 %1 处的分区</translation>
+    </message>
+    <message>
+        <source>on disk %1</source>
+        <translation>在磁盘 %1 上</translation>
+    </message>
+    <message>
+        <source>a ramdisk on %1</source>
+        <translation>%1 上的 RAM 磁盘</translation>
+    </message>
+    <message>
+        <source>Every entry names this disk as it is now, and a partition it has: the boot configuration matches the disk.</source>
+        <translation>每个条目都按此磁盘当前的标识指定它，并指定它拥有的分区：启动配置与磁盘相符。</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by GUID %1, but the disk&apos;s own is %2.</source>
+        <translation>启动配置以 GUID %1 指定磁盘，但磁盘自身的 GUID 是 %2。</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by signature %1, but the disk&apos;s own is %2.</source>
+        <translation>启动配置以签名 %1 指定磁盘，但磁盘自身的签名是 %2。</translation>
+    </message>
+    <message>
+        <source>%1 on this computer has that ID: probably the disk this one was copied from, which made Windows give this one a new ID when it was attached.</source>
+        <translation>此计算机上的 %1 具有该 ID：它可能就是此磁盘的复制来源，因此在连接此磁盘时 Windows 为其分配了新的 ID。</translation>
+    </message>
+    <message>
+        <source>Windows gives a disk a new ID when it is attached where a disk with the same one already is, as a copy is where its original is.</source>
+        <translation>若在已有相同 ID 的磁盘所在之处连接某个磁盘（例如在原磁盘所在之处连接其副本），Windows 会为该磁盘分配新的 ID。</translation>
+    </message>
+    <message>
+        <source>%1 entries name a partition this disk does not have; bcdedit cannot point those at the right partition, but bcdboot (below) can make new ones.</source>
+        <translation>%1 个条目指定了此磁盘上不存在的分区；bcdedit 无法将它们指向正确的分区，但 bcdboot（见下文）可以创建新的条目。</translation>
+    </message>
+    <message>
+        <source>The disk will not boot until this is fixed.</source>
+        <translation>修复此问题之前，该磁盘将无法启动。</translation>
+    </message>
+    <message>
+        <source>To fix it and keep the disk&apos;s new ID, start the VM from Windows setup media, press Shift+F10 for a command prompt, and run the commands below. There the disk is an ordinary disk, so bcdedit names its partitions by the disk&apos;s GUID and their own. On this computer, with the disk attached as a VHD or VHDX, bcdedit would name the VHDX file instead, which a VM cannot find.</source>
+        <translation>要修复此问题并保留磁盘的新 ID，请从 Windows 安装介质启动 VM，按 Shift+F10 打开命令提示符，然后运行下面的命令。在那里，该磁盘是普通磁盘，因此 bcdedit 会用磁盘的 GUID 和分区自身的 GUID 来指定其分区。而在此计算机上，磁盘以 VHD 或 VHDX 形式连接时，bcdedit 会改为指定 VHDX 文件，而 VM 无法找到该文件。</translation>
+    </message>
+    <message>
+        <source>&quot;select disk 0&quot; assumes it is the VM&apos;s only disk: check &quot;list disk&quot; for one of %1. If a partition already has a letter, use that one in the commands instead.</source>
+        <translation>“select disk 0” 假定它是 VM 中唯一的磁盘：请在 “list disk” 中查找大小为 %1 的磁盘。如果某个分区已有盘符，请在命令中改用该盘符。</translation>
+    </message>
+    <message>
+        <source>Partitions: %1.</source>
+        <translation>分区：%1。</translation>
+    </message>
+    <message>
+        <source>Or rebuild the boot files and the boot configuration from that Windows instead, which replaces the configuration&apos;s entries with new ones:</source>
+        <translation>或者改为从该 Windows 重建启动文件和启动配置，这会用新条目替换配置中的条目：</translation>
+    </message>
+</context>
+<context>
     <name>CombineDialog</name>
     <message>
         <source>Custom Partitioning</source>
@@ -569,6 +768,14 @@ New GUIDs can be generated for the later copies; the first keeps its own. Anythi
     <message>
         <source>Check Device GPT</source>
         <translation>检查设备 GPT</translation>
+    </message>
+    <message>
+        <source>Check Boot</source>
+        <translation>检查启动</translation>
+    </message>
+    <message>
+        <source>Check that the Windows boot configuration on the selected device names the device as it is now. Windows gives a disk a new ID when it is attached where its original is, as a Disk2vhd VHDX on the machine it was taken from, and the copy then no longer boots. Only reads; the report says how to fix it with Windows&apos; own tools.</source>
+        <translation>检查所选设备上的 Windows 启动配置是否按设备当前的标识指定它。若在原磁盘所在之处连接其副本（例如在制作 Disk2vhd VHDX 的那台计算机上连接该 VHDX），Windows 会为该磁盘分配新的 ID，副本随后便无法启动。此操作只读取；报告会说明如何使用 Windows 自带的工具进行修复。</translation>
     </message>
     <message>
         <source>Custom Partitioning...</source>
@@ -1233,6 +1440,26 @@ Repair the partition table now?</source>
     <message>
         <source>Could not open the device.</source>
         <translation>无法打开设备。</translation>
+    </message>
+    <message>
+        <source>Disk %1</source>
+        <translation>磁盘 %1</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table could not be read: %1.</source>
+        <translation>无法读取设备的分区表：%1。</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>无法读取它</translation>
+    </message>
+    <message>
+        <source>The boot configuration matches the device.</source>
+        <translation>启动配置与设备相符。</translation>
+    </message>
+    <message>
+        <source>Check Boot found a problem.</source>
+        <translation>“检查启动”发现了问题。</translation>
     </message>
     <message>
         <source>This device&apos;s partition table is broken:</source>

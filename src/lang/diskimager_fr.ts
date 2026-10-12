@@ -2,6 +2,205 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="fr_FR">
 <context>
+    <name>BootCheck</name>
+    <message>
+        <source>its first sector could not be read</source>
+        <translation>son premier secteur n&apos;a pas pu être lu</translation>
+    </message>
+    <message>
+        <source>it holds no FAT filesystem</source>
+        <translation>elle ne contient aucun système de fichiers FAT</translation>
+    </message>
+    <message>
+        <source>its allocation table could not be read</source>
+        <translation>sa table d&apos;allocation n&apos;a pas pu être lue</translation>
+    </message>
+    <message>
+        <source>its root directory could not be read</source>
+        <translation>son répertoire racine n&apos;a pas pu être lu</translation>
+    </message>
+    <message>
+        <source>it has no \%1</source>
+        <translation>elle ne contient pas de \%1</translation>
+    </message>
+    <message>
+        <source>\%1 is not a file</source>
+        <translation>\%1 n&apos;est pas un fichier</translation>
+    </message>
+    <message>
+        <source>\%1 could not be read</source>
+        <translation>\%1 n&apos;a pas pu être lu</translation>
+    </message>
+    <message>
+        <source>no file was named</source>
+        <translation>aucun fichier n&apos;a été indiqué</translation>
+    </message>
+    <message>
+        <source>it holds no NTFS filesystem</source>
+        <translation>elle ne contient aucun système de fichiers NTFS</translation>
+    </message>
+    <message>
+        <source>its file table could not be read</source>
+        <translation>sa table de fichiers n&apos;a pas pu être lue</translation>
+    </message>
+    <message>
+        <source>it is stored in more pieces than this reads</source>
+        <translation>il est stocké en plus de fragments que cette lecture n&apos;en prend en charge</translation>
+    </message>
+    <message>
+        <source>it has no data</source>
+        <translation>il ne contient aucune donnée</translation>
+    </message>
+    <message>
+        <source>it is compressed or encrypted</source>
+        <translation>il est compressé ou chiffré</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>il n&apos;a pas pu être lu</translation>
+    </message>
+    <message>
+        <source>\%1: %2</source>
+        <translation>\%1 : %2</translation>
+    </message>
+    <message>
+        <source>it is not a registry hive</source>
+        <translation>il ne s&apos;agit pas d&apos;une ruche du Registre</translation>
+    </message>
+    <message>
+        <source>its root key could not be read</source>
+        <translation>sa clé racine n&apos;a pas pu être lue</translation>
+    </message>
+    <message>
+        <source>it holds no boot objects</source>
+        <translation>il ne contient aucun objet de démarrage</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>The disk has no partition table, so nothing on it can be booted the way Windows boots.</source>
+        <translation>Le disque n&apos;a aucune table de partitions, donc rien sur ce disque ne peut démarrer comme Windows démarre.</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2)</source>
+        <translation>partition %1 (%2)</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2, %3)</source>
+        <translation>partition %1 (%2, %3)</translation>
+    </message>
+    <message>
+        <source>Disk %1: GPT, disk GUID %2.</source>
+        <translation>Disque %1 : GPT, GUID de disque %2.</translation>
+    </message>
+    <message>
+        <source>Disk %1: MBR, disk signature %2.</source>
+        <translation>Disque %1 : MBR, signature de disque %2.</translation>
+    </message>
+    <message>
+        <source>No Windows boot configuration was found: no partition holds \EFI\Microsoft\Boot\BCD or \Boot\BCD.</source>
+        <translation>Aucune configuration de démarrage Windows n&apos;a été trouvée : aucune partition ne contient \EFI\Microsoft\Boot\BCD ni \Boot\BCD.</translation>
+    </message>
+    <message>
+        <source>Looked in: %1.</source>
+        <translation>Emplacements examinés : %1.</translation>
+    </message>
+    <message>
+        <source>The boot configuration on %1, %2, could not be read: %3.</source>
+        <translation>La configuration de démarrage sur %1, %2, n&apos;a pas pu être lue : %3.</translation>
+    </message>
+    <message>
+        <source>Boot configuration: %1, %2, %3 objects.</source>
+        <translation>Configuration de démarrage : %1, %2, %3 objets.</translation>
+    </message>
+    <message>
+        <source>No entry names a partition.</source>
+        <translation>Aucune entrée ne désigne une partition.</translation>
+    </message>
+    <message>
+        <source>Entries that name a partition:</source>
+        <translation>Entrées qui désignent une partition :</translation>
+    </message>
+    <message>
+        <source>MISSING</source>
+        <translation>MANQUANT</translation>
+    </message>
+    <message>
+        <source>WRONG</source>
+        <translation>INCORRECT</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>partition %1</source>
+        <translation>partition %1</translation>
+    </message>
+    <message>
+        <source>the partition at byte %1</source>
+        <translation>la partition à l&apos;octet %1</translation>
+    </message>
+    <message>
+        <source>on disk %1</source>
+        <translation>sur le disque %1</translation>
+    </message>
+    <message>
+        <source>a ramdisk on %1</source>
+        <translation>un disque RAM sur %1</translation>
+    </message>
+    <message>
+        <source>Every entry names this disk as it is now, and a partition it has: the boot configuration matches the disk.</source>
+        <translation>Chaque entrée désigne ce disque tel qu&apos;il est maintenant, et une partition qu&apos;il possède : la configuration de démarrage correspond au disque.</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by GUID %1, but the disk&apos;s own is %2.</source>
+        <translation>La configuration de démarrage désigne le disque par le GUID %1, mais celui du disque est %2.</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by signature %1, but the disk&apos;s own is %2.</source>
+        <translation>La configuration de démarrage désigne le disque par la signature %1, mais celle du disque est %2.</translation>
+    </message>
+    <message>
+        <source>%1 on this computer has that ID: probably the disk this one was copied from, which made Windows give this one a new ID when it was attached.</source>
+        <translation>%1 sur cet ordinateur a cet ID : probablement le disque dont celui-ci a été copié, ce qui a amené Windows à donner un nouvel ID à celui-ci lors de son attachement.</translation>
+    </message>
+    <message>
+        <source>Windows gives a disk a new ID when it is attached where a disk with the same one already is, as a copy is where its original is.</source>
+        <translation>Windows donne un nouvel ID à un disque lorsqu&apos;il est attaché là où se trouve déjà un disque ayant le même, comme une copie là où se trouve son original.</translation>
+    </message>
+    <message>
+        <source>%1 entries name a partition this disk does not have; bcdedit cannot point those at the right partition, but bcdboot (below) can make new ones.</source>
+        <translation>%1 entrées désignent une partition que ce disque n&apos;a pas ; bcdedit ne peut pas les faire pointer vers la bonne partition, mais bcdboot (ci-dessous) peut en créer de nouvelles.</translation>
+    </message>
+    <message>
+        <source>The disk will not boot until this is fixed.</source>
+        <translation>Le disque ne démarrera pas tant que ce problème ne sera pas corrigé.</translation>
+    </message>
+    <message>
+        <source>To fix it and keep the disk&apos;s new ID, start the VM from Windows setup media, press Shift+F10 for a command prompt, and run the commands below. There the disk is an ordinary disk, so bcdedit names its partitions by the disk&apos;s GUID and their own. On this computer, with the disk attached as a VHD or VHDX, bcdedit would name the VHDX file instead, which a VM cannot find.</source>
+        <translation>Pour corriger le problème en conservant le nouvel ID du disque, démarrez la VM depuis un support d&apos;installation de Windows, appuyez sur Shift+F10 pour ouvrir une invite de commandes et exécutez les commandes ci-dessous. Là, le disque est un disque ordinaire, donc bcdedit désigne ses partitions par le GUID du disque et par le leur. Sur cet ordinateur, avec le disque attaché en tant que VHD ou VHDX, bcdedit désignerait plutôt le fichier VHDX, qu&apos;une VM ne peut pas trouver.</translation>
+    </message>
+    <message>
+        <source>&quot;select disk 0&quot; assumes it is the VM&apos;s only disk: check &quot;list disk&quot; for one of %1. If a partition already has a letter, use that one in the commands instead.</source>
+        <translation>&quot;select disk 0&quot; suppose qu&apos;il s&apos;agit du seul disque de la VM : cherchez dans &quot;list disk&quot; un disque de %1. Si une partition a déjà une lettre, utilisez plutôt celle-ci dans les commandes.</translation>
+    </message>
+    <message>
+        <source>Partitions: %1.</source>
+        <translation>Partitions : %1.</translation>
+    </message>
+    <message>
+        <source>Or rebuild the boot files and the boot configuration from that Windows instead, which replaces the configuration&apos;s entries with new ones:</source>
+        <translation>Ou bien reconstruisez plutôt les fichiers de démarrage et la configuration de démarrage depuis ce Windows, ce qui remplace les entrées de la configuration par de nouvelles :</translation>
+    </message>
+</context>
+<context>
     <name>CombineDialog</name>
     <message>
         <source>Custom Partitioning</source>
@@ -569,6 +768,14 @@ De nouveaux GUID peuvent être générés pour les copies suivantes ; la premiè
     <message>
         <source>Check Device GPT</source>
         <translation>Vérifier la GPT du périphérique</translation>
+    </message>
+    <message>
+        <source>Check Boot</source>
+        <translation>Vérifier le démarrage</translation>
+    </message>
+    <message>
+        <source>Check that the Windows boot configuration on the selected device names the device as it is now. Windows gives a disk a new ID when it is attached where its original is, as a Disk2vhd VHDX on the machine it was taken from, and the copy then no longer boots. Only reads; the report says how to fix it with Windows&apos; own tools.</source>
+        <translation>Vérifie que la configuration de démarrage Windows sur le périphérique sélectionné désigne le périphérique tel qu&apos;il est maintenant. Windows donne un nouvel ID à un disque lorsqu&apos;il est attaché là où se trouve son original, comme un VHDX Disk2vhd sur la machine dont il provient, et la copie ne démarre alors plus. Lecture seule ; le rapport indique comment corriger le problème avec les outils de Windows.</translation>
     </message>
     <message>
         <source>Custom Partitioning...</source>
@@ -1213,6 +1420,26 @@ Réparer la table de partitions maintenant ?</translation>
     <message>
         <source>Could not open the device.</source>
         <translation>Impossible d&apos;ouvrir le périphérique.</translation>
+    </message>
+    <message>
+        <source>Disk %1</source>
+        <translation>Disque %1</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table could not be read: %1.</source>
+        <translation>La table de partitions du périphérique n&apos;a pas pu être lue : %1.</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>il n&apos;a pas pu être lu</translation>
+    </message>
+    <message>
+        <source>The boot configuration matches the device.</source>
+        <translation>La configuration de démarrage correspond au périphérique.</translation>
+    </message>
+    <message>
+        <source>Check Boot found a problem.</source>
+        <translation>Vérifier le démarrage a détecté un problème.</translation>
     </message>
     <message>
         <source>This device&apos;s partition table is broken:</source>

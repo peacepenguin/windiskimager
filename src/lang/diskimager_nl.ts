@@ -2,6 +2,205 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="nl_NL">
 <context>
+    <name>BootCheck</name>
+    <message>
+        <source>its first sector could not be read</source>
+        <translation>de eerste sector kon niet worden gelezen</translation>
+    </message>
+    <message>
+        <source>it holds no FAT filesystem</source>
+        <translation>er staat geen FAT-bestandssysteem op</translation>
+    </message>
+    <message>
+        <source>its allocation table could not be read</source>
+        <translation>de toewijzingstabel kon niet worden gelezen</translation>
+    </message>
+    <message>
+        <source>its root directory could not be read</source>
+        <translation>de hoofdmap kon niet worden gelezen</translation>
+    </message>
+    <message>
+        <source>it has no \%1</source>
+        <translation>er staat geen \%1 op</translation>
+    </message>
+    <message>
+        <source>\%1 is not a file</source>
+        <translation>\%1 is geen bestand</translation>
+    </message>
+    <message>
+        <source>\%1 could not be read</source>
+        <translation>\%1 kon niet worden gelezen</translation>
+    </message>
+    <message>
+        <source>no file was named</source>
+        <translation>er is geen bestand opgegeven</translation>
+    </message>
+    <message>
+        <source>it holds no NTFS filesystem</source>
+        <translation>er staat geen NTFS-bestandssysteem op</translation>
+    </message>
+    <message>
+        <source>its file table could not be read</source>
+        <translation>de bestandstabel kon niet worden gelezen</translation>
+    </message>
+    <message>
+        <source>it is stored in more pieces than this reads</source>
+        <translation>het is in meer stukken opgeslagen dan hier worden gelezen</translation>
+    </message>
+    <message>
+        <source>it has no data</source>
+        <translation>het bevat geen gegevens</translation>
+    </message>
+    <message>
+        <source>it is compressed or encrypted</source>
+        <translation>het is gecomprimeerd of versleuteld</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>het kon niet worden gelezen</translation>
+    </message>
+    <message>
+        <source>\%1: %2</source>
+        <translation>\%1: %2</translation>
+    </message>
+    <message>
+        <source>it is not a registry hive</source>
+        <translation>het is geen registercomponent</translation>
+    </message>
+    <message>
+        <source>its root key could not be read</source>
+        <translation>de hoofdsleutel kon niet worden gelezen</translation>
+    </message>
+    <message>
+        <source>it holds no boot objects</source>
+        <translation>het bevat geen opstartobjecten</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>The disk has no partition table, so nothing on it can be booted the way Windows boots.</source>
+        <translation>De schijf heeft geen partitietabel, dus niets erop kan worden opgestart zoals Windows opstart.</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2)</source>
+        <translation>partitie %1 (%2)</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2, %3)</source>
+        <translation>partitie %1 (%2, %3)</translation>
+    </message>
+    <message>
+        <source>Disk %1: GPT, disk GUID %2.</source>
+        <translation>Schijf %1: GPT, schijf-GUID %2.</translation>
+    </message>
+    <message>
+        <source>Disk %1: MBR, disk signature %2.</source>
+        <translation>Schijf %1: MBR, schijfhandtekening %2.</translation>
+    </message>
+    <message>
+        <source>No Windows boot configuration was found: no partition holds \EFI\Microsoft\Boot\BCD or \Boot\BCD.</source>
+        <translation>Er is geen Windows-opstartconfiguratie gevonden: geen enkele partitie bevat \EFI\Microsoft\Boot\BCD of \Boot\BCD.</translation>
+    </message>
+    <message>
+        <source>Looked in: %1.</source>
+        <translation>Gezocht in: %1.</translation>
+    </message>
+    <message>
+        <source>The boot configuration on %1, %2, could not be read: %3.</source>
+        <translation>De opstartconfiguratie op %1, %2, kon niet worden gelezen: %3.</translation>
+    </message>
+    <message>
+        <source>Boot configuration: %1, %2, %3 objects.</source>
+        <translation>Opstartconfiguratie: %1, %2, %3 objecten.</translation>
+    </message>
+    <message>
+        <source>No entry names a partition.</source>
+        <translation>Geen enkele vermelding noemt een partitie.</translation>
+    </message>
+    <message>
+        <source>Entries that name a partition:</source>
+        <translation>Vermeldingen die een partitie noemen:</translation>
+    </message>
+    <message>
+        <source>MISSING</source>
+        <translation>ONTBREEKT</translation>
+    </message>
+    <message>
+        <source>WRONG</source>
+        <translation>ONJUIST</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>partition %1</source>
+        <translation>partitie %1</translation>
+    </message>
+    <message>
+        <source>the partition at byte %1</source>
+        <translation>de partitie op byte %1</translation>
+    </message>
+    <message>
+        <source>on disk %1</source>
+        <translation>op schijf %1</translation>
+    </message>
+    <message>
+        <source>a ramdisk on %1</source>
+        <translation>een RAM-schijf op %1</translation>
+    </message>
+    <message>
+        <source>Every entry names this disk as it is now, and a partition it has: the boot configuration matches the disk.</source>
+        <translation>Elke vermelding noemt deze schijf zoals die nu is, en een partitie die de schijf heeft: de opstartconfiguratie komt overeen met de schijf.</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by GUID %1, but the disk&apos;s own is %2.</source>
+        <translation>De opstartconfiguratie noemt de schijf met GUID %1, maar die van de schijf zelf is %2.</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by signature %1, but the disk&apos;s own is %2.</source>
+        <translation>De opstartconfiguratie noemt de schijf met handtekening %1, maar die van de schijf zelf is %2.</translation>
+    </message>
+    <message>
+        <source>%1 on this computer has that ID: probably the disk this one was copied from, which made Windows give this one a new ID when it was attached.</source>
+        <translation>%1 op deze computer heeft die ID: waarschijnlijk de schijf waarvan deze is gekopieerd, waardoor Windows deze een nieuwe ID gaf toen hij werd aangekoppeld.</translation>
+    </message>
+    <message>
+        <source>Windows gives a disk a new ID when it is attached where a disk with the same one already is, as a copy is where its original is.</source>
+        <translation>Windows geeft een schijf een nieuwe ID wanneer die wordt aangekoppeld waar al een schijf met dezelfde ID is, zoals een kopie waar het origineel is.</translation>
+    </message>
+    <message>
+        <source>%1 entries name a partition this disk does not have; bcdedit cannot point those at the right partition, but bcdboot (below) can make new ones.</source>
+        <translation>%1 vermeldingen noemen een partitie die deze schijf niet heeft; bcdedit kan die niet naar de juiste partitie laten verwijzen, maar bcdboot (hieronder) kan nieuwe maken.</translation>
+    </message>
+    <message>
+        <source>The disk will not boot until this is fixed.</source>
+        <translation>De schijf start niet op totdat dit is opgelost.</translation>
+    </message>
+    <message>
+        <source>To fix it and keep the disk&apos;s new ID, start the VM from Windows setup media, press Shift+F10 for a command prompt, and run the commands below. There the disk is an ordinary disk, so bcdedit names its partitions by the disk&apos;s GUID and their own. On this computer, with the disk attached as a VHD or VHDX, bcdedit would name the VHDX file instead, which a VM cannot find.</source>
+        <translation>Om het op te lossen en de nieuwe ID van de schijf te behouden, start u de VM vanaf Windows-installatiemedia, drukt u op Shift+F10 voor een opdrachtprompt en voert u de onderstaande opdrachten uit. Daar is de schijf een gewone schijf, dus noemt bcdedit de partities met de GUID van de schijf en hun eigen GUID. Op deze computer, met de schijf aangekoppeld als VHD of VHDX, zou bcdedit in plaats daarvan het VHDX-bestand noemen, dat een VM niet kan vinden.</translation>
+    </message>
+    <message>
+        <source>&quot;select disk 0&quot; assumes it is the VM&apos;s only disk: check &quot;list disk&quot; for one of %1. If a partition already has a letter, use that one in the commands instead.</source>
+        <translation>&quot;select disk 0&quot; gaat ervan uit dat het de enige schijf van de VM is: zoek in &quot;list disk&quot; een van %1. Als een partitie al een letter heeft, gebruik die dan in de opdrachten.</translation>
+    </message>
+    <message>
+        <source>Partitions: %1.</source>
+        <translation>Partities: %1.</translation>
+    </message>
+    <message>
+        <source>Or rebuild the boot files and the boot configuration from that Windows instead, which replaces the configuration&apos;s entries with new ones:</source>
+        <translation>Of bouw in plaats daarvan de opstartbestanden en de opstartconfiguratie opnieuw op vanuit die Windows, waardoor de vermeldingen van de configuratie door nieuwe worden vervangen:</translation>
+    </message>
+</context>
+<context>
     <name>CombineDialog</name>
     <message>
         <source>Custom Partitioning</source>
@@ -569,6 +768,14 @@ Voor de latere kopieën kunnen nieuwe GUID&apos;s worden gegenereerd; de eerste 
     <message>
         <source>Check Device GPT</source>
         <translation>GPT van apparaat controleren</translation>
+    </message>
+    <message>
+        <source>Check Boot</source>
+        <translation>Opstart controleren</translation>
+    </message>
+    <message>
+        <source>Check that the Windows boot configuration on the selected device names the device as it is now. Windows gives a disk a new ID when it is attached where its original is, as a Disk2vhd VHDX on the machine it was taken from, and the copy then no longer boots. Only reads; the report says how to fix it with Windows&apos; own tools.</source>
+        <translation>Controleert of de Windows-opstartconfiguratie op het geselecteerde apparaat het apparaat noemt zoals het nu is. Windows geeft een schijf een nieuwe ID wanneer die wordt aangekoppeld waar het origineel is, zoals een Disk2vhd-VHDX op de computer waarvan die is gemaakt, en de kopie start dan niet meer op. Leest alleen; het rapport legt uit hoe u het oplost met de eigen hulpmiddelen van Windows.</translation>
     </message>
     <message>
         <source>Custom Partitioning...</source>
@@ -1233,6 +1440,26 @@ De partitietabel nu herstellen?</translation>
     <message>
         <source>Could not open the device.</source>
         <translation>Kon het apparaat niet openen.</translation>
+    </message>
+    <message>
+        <source>Disk %1</source>
+        <translation>Schijf %1</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table could not be read: %1.</source>
+        <translation>De partitietabel van het apparaat kon niet worden gelezen: %1.</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>het kon niet worden gelezen</translation>
+    </message>
+    <message>
+        <source>The boot configuration matches the device.</source>
+        <translation>De opstartconfiguratie komt overeen met het apparaat.</translation>
+    </message>
+    <message>
+        <source>Check Boot found a problem.</source>
+        <translation>Opstart controleren heeft een probleem gevonden.</translation>
     </message>
     <message>
         <source>This device&apos;s partition table is broken:</source>

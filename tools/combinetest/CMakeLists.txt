@@ -27,6 +27,8 @@ qt6_wrap_ui(COMBINETEST_UI ${APPSRC}/mainwindow.ui)
 
 add_executable(combinetest
     main.cpp
+    ${APPSRC}/bootcheck.cpp
+    ${APPSRC}/devicecombobox.cpp
     ${APPSRC}/combine.cpp
     ${APPSRC}/combinedialog.cpp
     ${APPSRC}/combinereader.cpp

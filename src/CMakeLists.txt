@@ -107,6 +107,7 @@ add_custom_target(appicon DEPENDS ${ICON_ICO})
 
 qt_add_executable(WinDiskImager WIN32
     disk.cpp
+    bootcheck.cpp
     combine.cpp
     combinedialog.cpp
     combinereader.cpp

@@ -397,6 +397,22 @@
           </widget>
          </item>
          <item>
+          <widget class="QPushButton" name="bCheckBoot">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="text">
+            <string>Check Boot</string>
+           </property>
+           <property name="toolTip">
+            <string>Check that the Windows boot configuration on the selected device names the device as it is now. Windows gives a disk a new ID when it is attached where its original is, as a Disk2vhd VHDX on the machine it was taken from, and the copy then no longer boots. Only reads; the report says how to fix it with Windows' own tools.</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QPushButton" name="bCombine">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">

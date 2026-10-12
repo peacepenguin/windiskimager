@@ -50,6 +50,7 @@
 #include "imagesource.h"
 #include "transferpipe.h"
 #include "elapsedtimer.h"
+#include "bootcheck.h"
 #include "combine.h"
 #include "combinedialog.h"
 #include "combinereader.h"
@@ -477,6 +478,7 @@ void MainWindow::setReadWriteButtonState()
         bWrite->setEnabled(false);
         bVerify->setEnabled(false);
         bCheckGpt->setEnabled(false);
+        bCheckBoot->setEnabled(false);
         bCombine->setEnabled(false);
         bChoosePartitions->setEnabled(false);
         // Hashing is synchronous: started from a transfer loop's
@@ -498,6 +500,7 @@ void MainWindow::setReadWriteButtonState()
     // the other chooses its images itself, and can write an image file
     // without a device.
     bCheckGpt->setEnabled(deviceSelected);
+    bCheckBoot->setEnabled(deviceSelected);
     bCombine->setEnabled(true);
 }
 
@@ -767,6 +770,129 @@ bool MainWindow::offerGptRepair(HANDLE hDisk, unsigned long long disksectorsize,
 // Look at the selected device's partition table on its own, writing and
 // comparing nothing. A card Windows has already rescanned still matches its
 // image sector for sector, so the table is the only place the damage shows.
+// Another disk on this computer with disk ID `id` (a GPT disk GUID, or an MBR
+// signature), as "Disk N", or empty: the original a copy's BCD names.
+static QString diskWithId(const QByteArray &id, int except)
+{
+    for (int n = 0; n < 64; ++n)
+    {
+        if (n == except) continue;
+        HANDLE h = getHandleOnDevice(n, GENERIC_READ);
+        if (h == INVALID_HANDLE_VALUE) continue;
+        std::vector<char> buf(64 * 1024);
+        DWORD got = 0;
+        const bool ok = DeviceIoControl(h, IOCTL_DISK_GET_DRIVE_LAYOUT_EX, NULL, 0, buf.data(),
+                                        (DWORD)buf.size(), &got, NULL);
+        CloseHandle(h);
+        if (!ok) continue;
+        const DRIVE_LAYOUT_INFORMATION_EX *l = (const DRIVE_LAYOUT_INFORMATION_EX *)buf.data();
+        if ((l->PartitionStyle == PARTITION_STYLE_GPT && id.size() == 16
+             && memcmp(&l->Gpt.DiskId, id.constData(), 16) == 0)
+            || (l->PartitionStyle == PARTITION_STYLE_MBR && id.size() == 4
+                && memcmp(&l->Mbr.Signature, id.constData(), 4) == 0))
+        {
+            return MainWindow::tr("Disk %1").arg(n);
+        }
+    }
+    return QString();
+}
+
+// "Check Boot": does the device's Windows boot configuration name it as it is
+// now? Only reads, so nothing is locked; the report is shown to copy from.
+void MainWindow::on_bCheckBoot_clicked()
+{
+    if (status != STATUS_IDLE)
+    {
+        return;
+    }
+    const int deviceID = selectedDeviceID();
+    if (deviceID < 0)
+    {
+        QMessageBox::critical(this, tr("Device Error"), tr("Please select a device."));
+        return;
+    }
+    HANDLE hDisk = getHandleOnDevice(deviceID, GENERIC_READ);
+    if (hDisk == INVALID_HANDLE_VALUE)
+    {
+        statusbar->showMessage(tr("Could not open the device."));
+        return;
+    }
+    unsigned long long ss = 0ull;
+    const unsigned long long devicesectors = getNumberOfSectors(hDisk, &ss);
+    if (!devicesectors)
+    {
+        CloseHandle(hDisk);
+        return;
+    }
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    const BootSectorReader read = [&](unsigned long long first, unsigned long long count, char *buf) {
+        return first + count <= devicesectors && readSectorsInto(hDisk, buf, first, count, ss);
+    };
+    // The table, as Custom Partitioning reads a source's: its first MiB, or
+    // as far as a GPT's entries go.
+    ImageLayout layout;
+    unsigned long long headsectors = qMin(devicesectors, (1024ull * 1024ull) / ss);
+    bool parsed = false;
+    QString detail;
+    for (int attempt = 0; attempt < 2 && !parsed; ++attempt)
+    {
+        QByteArray head((int)(headsectors * ss), 0);
+        unsigned long long need = 0;
+        if (!read(0, headsectors, head.data()))
+        {
+            break;
+        }
+        parsed = parseImageLayout(head, ss, devicesectors, &layout, &need, &detail);
+        if (!parsed && need > headsectors && need <= qMin(devicesectors, (64ull << 20) / ss))
+        {
+            headsectors = need;
+        }
+        else
+        {
+            break;
+        }
+    }
+    BootCheckResult result;
+    if (parsed)
+    {
+        BootCheckDisk disk;
+        disk.number = deviceID;
+        disk.sectorsize = ss;
+        disk.sectors = devicesectors;
+        diskPartitionNumbers(hDisk, ss, &disk.partitionNumbers);
+        disk.diskWithId = [deviceID](const QByteArray &id) { return diskWithId(id, deviceID); };
+        result = checkBoot(layout, read, disk);
+    }
+    else
+    {
+        result.report = tr("The device's partition table could not be read: %1.")
+                            .arg(detail.isEmpty() ? tr("it could not be read") : detail);
+    }
+    CloseHandle(hDisk);
+    QApplication::restoreOverrideCursor();
+    statusbar->showMessage(result.ok ? tr("The boot configuration matches the device.")
+                                     : tr("Check Boot found a problem."));
+
+    QDialog box(this);
+    box.setWindowTitle(tr("Check Boot"));
+    QVBoxLayout *layoutBox = new QVBoxLayout(&box);
+    QPlainTextEdit *text = new QPlainTextEdit(&box);
+    text->setReadOnly(true);
+    text->setLineWrapMode(QPlainTextEdit::WidgetWidth);
+    text->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    text->setPlainText(result.report);
+    layoutBox->addWidget(text);
+    QDialogButtonBox *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &box);
+    QPushButton *copy = buttons->addButton(tr("Copy"), QDialogButtonBox::ActionRole);
+    connect(copy, &QPushButton::clicked, &box, [&]() {
+        QGuiApplication::clipboard()->setText(result.report);
+    });
+    connect(buttons, &QDialogButtonBox::rejected, &box, &QDialog::reject);
+    layoutBox->addWidget(buttons);
+    box.resize(fontMetrics().averageCharWidth() * 110, fontMetrics().lineSpacing() * 34);
+    box.exec();
+}
+
 void MainWindow::on_bCheckGpt_clicked()
 {
     // Reachable mid-run via processEvents(); must not lock or rewrite a disk

@@ -2,6 +2,205 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="en">
 <context>
+    <name>BootCheck</name>
+    <message>
+        <source>its first sector could not be read</source>
+        <translation>its first sector could not be read</translation>
+    </message>
+    <message>
+        <source>it holds no FAT filesystem</source>
+        <translation>it holds no FAT filesystem</translation>
+    </message>
+    <message>
+        <source>its allocation table could not be read</source>
+        <translation>its allocation table could not be read</translation>
+    </message>
+    <message>
+        <source>its root directory could not be read</source>
+        <translation>its root directory could not be read</translation>
+    </message>
+    <message>
+        <source>it has no \%1</source>
+        <translation>it has no \%1</translation>
+    </message>
+    <message>
+        <source>\%1 is not a file</source>
+        <translation>\%1 is not a file</translation>
+    </message>
+    <message>
+        <source>\%1 could not be read</source>
+        <translation>\%1 could not be read</translation>
+    </message>
+    <message>
+        <source>no file was named</source>
+        <translation>no file was named</translation>
+    </message>
+    <message>
+        <source>it holds no NTFS filesystem</source>
+        <translation>it holds no NTFS filesystem</translation>
+    </message>
+    <message>
+        <source>its file table could not be read</source>
+        <translation>its file table could not be read</translation>
+    </message>
+    <message>
+        <source>it is stored in more pieces than this reads</source>
+        <translation>it is stored in more pieces than this reads</translation>
+    </message>
+    <message>
+        <source>it has no data</source>
+        <translation>it has no data</translation>
+    </message>
+    <message>
+        <source>it is compressed or encrypted</source>
+        <translation>it is compressed or encrypted</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>it could not be read</translation>
+    </message>
+    <message>
+        <source>\%1: %2</source>
+        <translation>\%1: %2</translation>
+    </message>
+    <message>
+        <source>it is not a registry hive</source>
+        <translation>it is not a registry hive</translation>
+    </message>
+    <message>
+        <source>its root key could not be read</source>
+        <translation>its root key could not be read</translation>
+    </message>
+    <message>
+        <source>it holds no boot objects</source>
+        <translation>it holds no boot objects</translation>
+    </message>
+    <message>
+        <source>%1 GB</source>
+        <translation>%1 GB</translation>
+    </message>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>The disk has no partition table, so nothing on it can be booted the way Windows boots.</source>
+        <translation>The disk has no partition table, so nothing on it can be booted the way Windows boots.</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2)</source>
+        <translation>partition %1 (%2)</translation>
+    </message>
+    <message>
+        <source>partition %1 (%2, %3)</source>
+        <translation>partition %1 (%2, %3)</translation>
+    </message>
+    <message>
+        <source>Disk %1: GPT, disk GUID %2.</source>
+        <translation>Disk %1: GPT, disk GUID %2.</translation>
+    </message>
+    <message>
+        <source>Disk %1: MBR, disk signature %2.</source>
+        <translation>Disk %1: MBR, disk signature %2.</translation>
+    </message>
+    <message>
+        <source>No Windows boot configuration was found: no partition holds \EFI\Microsoft\Boot\BCD or \Boot\BCD.</source>
+        <translation>No Windows boot configuration was found: no partition holds \EFI\Microsoft\Boot\BCD or \Boot\BCD.</translation>
+    </message>
+    <message>
+        <source>Looked in: %1.</source>
+        <translation>Looked in: %1.</translation>
+    </message>
+    <message>
+        <source>The boot configuration on %1, %2, could not be read: %3.</source>
+        <translation>The boot configuration on %1, %2, could not be read: %3.</translation>
+    </message>
+    <message>
+        <source>Boot configuration: %1, %2, %3 objects.</source>
+        <translation>Boot configuration: %1, %2, %3 objects.</translation>
+    </message>
+    <message>
+        <source>No entry names a partition.</source>
+        <translation>No entry names a partition.</translation>
+    </message>
+    <message>
+        <source>Entries that name a partition:</source>
+        <translation>Entries that name a partition:</translation>
+    </message>
+    <message>
+        <source>MISSING</source>
+        <translation>MISSING</translation>
+    </message>
+    <message>
+        <source>WRONG</source>
+        <translation>WRONG</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>partition %1</source>
+        <translation>partition %1</translation>
+    </message>
+    <message>
+        <source>the partition at byte %1</source>
+        <translation>the partition at byte %1</translation>
+    </message>
+    <message>
+        <source>on disk %1</source>
+        <translation>on disk %1</translation>
+    </message>
+    <message>
+        <source>a ramdisk on %1</source>
+        <translation>a ramdisk on %1</translation>
+    </message>
+    <message>
+        <source>Every entry names this disk as it is now, and a partition it has: the boot configuration matches the disk.</source>
+        <translation>Every entry names this disk as it is now, and a partition it has: the boot configuration matches the disk.</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by GUID %1, but the disk&apos;s own is %2.</source>
+        <translation>The boot configuration names the disk by GUID %1, but the disk&apos;s own is %2.</translation>
+    </message>
+    <message>
+        <source>The boot configuration names the disk by signature %1, but the disk&apos;s own is %2.</source>
+        <translation>The boot configuration names the disk by signature %1, but the disk&apos;s own is %2.</translation>
+    </message>
+    <message>
+        <source>%1 on this computer has that ID: probably the disk this one was copied from, which made Windows give this one a new ID when it was attached.</source>
+        <translation>%1 on this computer has that ID: probably the disk this one was copied from, which made Windows give this one a new ID when it was attached.</translation>
+    </message>
+    <message>
+        <source>Windows gives a disk a new ID when it is attached where a disk with the same one already is, as a copy is where its original is.</source>
+        <translation>Windows gives a disk a new ID when it is attached where a disk with the same one already is, as a copy is where its original is.</translation>
+    </message>
+    <message>
+        <source>%1 entries name a partition this disk does not have; bcdedit cannot point those at the right partition, but bcdboot (below) can make new ones.</source>
+        <translation>%1 entries name a partition this disk does not have; bcdedit cannot point those at the right partition, but bcdboot (below) can make new ones.</translation>
+    </message>
+    <message>
+        <source>The disk will not boot until this is fixed.</source>
+        <translation>The disk will not boot until this is fixed.</translation>
+    </message>
+    <message>
+        <source>To fix it and keep the disk&apos;s new ID, start the VM from Windows setup media, press Shift+F10 for a command prompt, and run the commands below. There the disk is an ordinary disk, so bcdedit names its partitions by the disk&apos;s GUID and their own. On this computer, with the disk attached as a VHD or VHDX, bcdedit would name the VHDX file instead, which a VM cannot find.</source>
+        <translation>To fix it and keep the disk&apos;s new ID, start the VM from Windows setup media, press Shift+F10 for a command prompt, and run the commands below. There the disk is an ordinary disk, so bcdedit names its partitions by the disk&apos;s GUID and their own. On this computer, with the disk attached as a VHD or VHDX, bcdedit would name the VHDX file instead, which a VM cannot find.</translation>
+    </message>
+    <message>
+        <source>&quot;select disk 0&quot; assumes it is the VM&apos;s only disk: check &quot;list disk&quot; for one of %1. If a partition already has a letter, use that one in the commands instead.</source>
+        <translation>&quot;select disk 0&quot; assumes it is the VM&apos;s only disk: check &quot;list disk&quot; for one of %1. If a partition already has a letter, use that one in the commands instead.</translation>
+    </message>
+    <message>
+        <source>Partitions: %1.</source>
+        <translation>Partitions: %1.</translation>
+    </message>
+    <message>
+        <source>Or rebuild the boot files and the boot configuration from that Windows instead, which replaces the configuration&apos;s entries with new ones:</source>
+        <translation>Or rebuild the boot files and the boot configuration from that Windows instead, which replaces the configuration&apos;s entries with new ones:</translation>
+    </message>
+</context>
+<context>
     <name>CombineDialog</name>
     <message>
         <source>Custom Partitioning</source>
@@ -569,6 +768,14 @@ New GUIDs can be generated for the later copies; the first keeps its own. Anythi
     <message>
         <source>Check Device GPT</source>
         <translation>Check Device GPT</translation>
+    </message>
+    <message>
+        <source>Check Boot</source>
+        <translation>Check Boot</translation>
+    </message>
+    <message>
+        <source>Check that the Windows boot configuration on the selected device names the device as it is now. Windows gives a disk a new ID when it is attached where its original is, as a Disk2vhd VHDX on the machine it was taken from, and the copy then no longer boots. Only reads; the report says how to fix it with Windows&apos; own tools.</source>
+        <translation>Check that the Windows boot configuration on the selected device names the device as it is now. Windows gives a disk a new ID when it is attached where its original is, as a Disk2vhd VHDX on the machine it was taken from, and the copy then no longer boots. Only reads; the report says how to fix it with Windows&apos; own tools.</translation>
     </message>
     <message>
         <source>Custom Partitioning...</source>
@@ -1221,6 +1428,26 @@ Repair the partition table now?</translation>
     <message>
         <source>Could not open the device.</source>
         <translation>Could not open the device.</translation>
+    </message>
+    <message>
+        <source>Disk %1</source>
+        <translation>Disk %1</translation>
+    </message>
+    <message>
+        <source>The device&apos;s partition table could not be read: %1.</source>
+        <translation>The device&apos;s partition table could not be read: %1.</translation>
+    </message>
+    <message>
+        <source>it could not be read</source>
+        <translation>it could not be read</translation>
+    </message>
+    <message>
+        <source>The boot configuration matches the device.</source>
+        <translation>The boot configuration matches the device.</translation>
+    </message>
+    <message>
+        <source>Check Boot found a problem.</source>
+        <translation>Check Boot found a problem.</translation>
     </message>
     <message>
         <source>This device&apos;s partition table is broken:</source>
