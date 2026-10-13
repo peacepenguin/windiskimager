@@ -195,8 +195,13 @@ They are run in an administrator prompt on the host, with the disk attached
 as it is, using the letters its partitions already have there and free ones
 for the rest; or, with the VM's disk number, inside the VM booted from
 Windows setup media (Shift+F10). When no entry can be repointed, the fix is
-`bcdboot`, followed once Windows is up by `reagentc /disable` and `/enable`
-to register the recovery environment again.
+`bcdboot`. It makes no recovery entry, and Windows' `ReAgent.xml` still
+names the old one, so once Windows is up the report gives the steps to
+register the recovery environment again: a letter for the recovery
+partition, a backup of `Winre.wim`, `ReAgent.xml` set aside, `reagentc
+/setreimage` and `/enable`, and `shutdown /r /o` to try it -- from the VM's
+console (a Hyper-V Basic Session), as it does nothing over Enhanced Session
+or Remote Desktop.
 
 Check Boot also reads the copy's SYSTEM hive: Windows records its drive
 letters in `MountedDevices` by partition GUID (or signature and offset), so a

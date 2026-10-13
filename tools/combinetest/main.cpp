@@ -109,6 +109,7 @@ static QByteArray guid(const char *text)
 static const char *ESP   = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B";
 static const char *LINUX = "0FC63DAF-8483-4772-8E79-3D69D8477DE4";
 static const char *BASIC = "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7";
+static const char *WINRE_PART = "DE94BBA4-06D1-4D40-A16A-BFD50179D6AC";
 static const char *BIOSBOOT = "21686148-6449-6E6F-744E-656564454649";
 
 // Every sector of a partition, and of a lead-in, carries its own tag -- a
@@ -2031,7 +2032,7 @@ static void caseBootCheck()
         QByteArray dev = gptImage(90000, 34, {
             {espfirst, espfirst + espsectors - 1, ESP, "E5E5E5E5-0000-4000-8000-000000000001", "EFI", 'e', 0},
             {winfirst, winfirst + 4095, BASIC, "A1A1A1A1-0000-4000-8000-000000000002", "Windows", 'w', 0},
-            {refirst, refirst + 4095, BASIC, "ABABABAB-0000-4000-8000-000000000003", "Recovery", 'r', 0} },
+            {refirst, refirst + 4095, WINRE_PART, "ABABABAB-0000-4000-8000-000000000003", "Recovery", 'r', 0} },
             "0E0E0E0E-0000-4000-8000-0000000000BB");
         const QByteArray fs = fat32Esp(espsectors, bcd);
         memcpy(dev.data() + espfirst * SEC, fs.constData(), (size_t)fs.size());
@@ -2106,7 +2107,13 @@ static void caseBootCheck()
     check(r.report.contains("select partition 2\nassign letter=W")
           && r.report.contains("ren S:\\EFI\\Microsoft\\Boot\\BCD BCD.old\nbcdboot W:\\Windows /s S: /f UEFI"),
           "  nothing for bcdedit to set: Windows found by type, and bcdboot is the fix");
-    check(r.report.contains("reagentc /disable\nreagentc /enable"), "  and reagentc re-registers recovery after");
+    check(r.report.contains("select volume C\nselect partition 3\nassign letter=R")
+          && r.report.contains("robocopy R:\\Recovery\\WindowsRE C:\\WinREBackup Winre.wim /copy:DAT\n"
+                               "ren C:\\Windows\\System32\\Recovery\\ReAgent.xml ReAgent.xml.old\n"
+                               "reagentc /setreimage /path R:\\Recovery\\WindowsRE /target C:\\Windows\n"
+                               "reagentc /enable")
+          && r.report.contains("shutdown /r /o /t 0") && r.report.contains("remove letter=R"),
+          "  and reagentc re-registers recovery after, on the recovery partition found by its type");
 
     dev = gptDisk(bcdFor(oldid, guid("99999999-0000-4000-8000-000000000009")));
     r = checkBoot(layout, readerOf(dev), disk);

@@ -17,7 +17,9 @@ The report gives the commands to fix the BCD and keep the disk's new ID, run
   setup media: diskpart to give the partitions letters, bcdedit /store ...
   /set for each wrong entry, or bcdboot to rebuild it -- the only fix when
   every entry names a partition the disk does not have, when the Windows
-  partition is found by its type. reagentc re-registers recovery after
+  partition is found by its type. After bcdboot, the report gives the steps
+  to register Windows RE again -- Winre.wim backed up, the stale ReAgent.xml
+  set aside, reagentc /setreimage on the recovery partition, then /enable
 Check Boot reads the copy's SYSTEM hive too: when MountedDevices gives C: to a
   partition the disk does not have, Windows starts under another letter and
   sign-in stops at a black screen -- as it does with no C: recorded at all,

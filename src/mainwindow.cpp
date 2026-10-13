@@ -908,11 +908,32 @@ void MainWindow::on_bCheckBoot_clicked()
     QDialog box(this);
     box.setWindowTitle(tr("Check Boot"));
     QVBoxLayout *layoutBox = new QVBoxLayout(&box);
-    QPlainTextEdit *text = new QPlainTextEdit(&box);
+    // Prose wraps to the window; commands and the entry list do not, so a
+    // long command -- reg add's data, a bcdedit /set -- stays one line to
+    // select and copy, scrolling sideways instead of breaking after "/d".
+    static const QRegularExpression command(
+        "^(  |diskpart$|select |assign |list |exit$|remove |ren |bcdboot |bcdedit |reg |reagentc |rem |robocopy |rmdir |shutdown )");
+    QString html;
+    for (const QString &line : result.report.split('\n'))
+    {
+        if (line.isEmpty())
+        {
+            html += "<p style=\"margin:0\">&nbsp;</p>";
+        }
+        else if (command.match(line).hasMatch())
+        {
+            html += "<pre style=\"margin:0\">" + line.toHtmlEscaped() + "</pre>";
+        }
+        else
+        {
+            html += "<p style=\"margin:0\">" + line.toHtmlEscaped() + "</p>";
+        }
+    }
+    QTextEdit *text = new QTextEdit(&box);
     text->setReadOnly(true);
-    text->setLineWrapMode(QPlainTextEdit::WidgetWidth);
+    text->setLineWrapMode(QTextEdit::WidgetWidth);
     text->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    text->setPlainText(result.report);
+    text->setHtml(html);
     layoutBox->addWidget(text);
     QDialogButtonBox *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &box);
     QPushButton *copy = buttons->addButton(tr("Copy"), QDialogButtonBox::ActionRole);

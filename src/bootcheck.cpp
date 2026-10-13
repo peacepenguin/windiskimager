@@ -1288,10 +1288,54 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
     }
     if (!bcdok)
     {
-        rep += "\n" + BootCheck::tr("bcdboot does not recreate the Windows Recovery Environment "
-                  "entries. Once Windows starts, run these in an administrator command prompt to "
-                  "register it again, then check it with \"reagentc /info\":")
-               + "\nreagentc /disable\nreagentc /enable\n";
+        // bcdboot makes no recovery entry, and reagentc's ReAgent.xml still
+        // names the old one, so "reagentc /enable" alone fails. The recovery
+        // partition: by its type, GPT's Windows recovery or MBR's 0x27.
+        static const QByteArray recoveryType = QByteArray::fromHex("a4bb94ded106404da16abfd50179d6ac");
+        int recovery = -1;
+        for (int i = 0; i < layout.partitions.size() && recovery < 0; ++i)
+        {
+            const CombinePartition &p = layout.partitions[i];
+            if (gpt ? p.entry.left(16) == recoveryType
+                    : p.entry.size() >= 16 && (unsigned char)p.entry[4] == 0x27)
+            {
+                recovery = i;
+            }
+        }
+        rep += "\n" + BootCheck::tr("bcdboot does not recreate the Windows Recovery Environment's entry, "
+                  "and Windows' own record of it still names the old one, so \"reagentc /enable\" "
+                  "alone fails. Once Windows starts, run these in an administrator command prompt "
+                  "in the VM. \"select volume C\" picks the disk Windows is on; if R: is taken, use "
+                  "another letter.") + "\n\n";
+        if (recovery >= 0)
+        {
+            rep += QString("diskpart\nselect volume C\nselect partition %1\nassign letter=R\nexit\n\n")
+                       .arg(number(recovery));
+        }
+        else
+        {
+            rep += BootCheck::tr("No recovery partition was found: give R: to the one holding "
+                      "\\Recovery\\WindowsRE\\Winre.wim.") + "\n\n";
+        }
+        rep += "robocopy R:\\Recovery\\WindowsRE C:\\WinREBackup Winre.wim /copy:DAT\n"
+               "ren C:\\Windows\\System32\\Recovery\\ReAgent.xml ReAgent.xml.old\n"
+               "reagentc /setreimage /path R:\\Recovery\\WindowsRE /target C:\\Windows\n"
+               "reagentc /enable\n"
+               "reagentc /info\n\n";
+        rep += BootCheck::tr("robocopy keeps a copy of Winre.wim in C:\\WinREBackup, in case reagentc moves "
+                  "or loses it. \"reagentc /info\" should then say Enabled, with the recovery "
+                  "partition as its location. To try it, restart into it from the VM's console -- "
+                  "in Hyper-V, a Basic Session, not an Enhanced one or Remote Desktop, where it does "
+                  "not work:") + "\n\n";
+        rep += "shutdown /r /o /t 0\n\n";
+        rep += BootCheck::tr("It should start at \"Choose an option\"; Continue goes back to Windows. "
+                  "Then take the letter away again and delete the copy:") + "\n\n";
+        if (recovery >= 0)
+        {
+            rep += QString("diskpart\nselect volume C\nselect partition %1\nremove letter=R\nexit\n")
+                       .arg(number(recovery));
+        }
+        rep += "rmdir /s /q C:\\WinREBackup\n";
     }
     return out;
 }
