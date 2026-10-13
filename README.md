@@ -223,6 +223,46 @@ the report adds `reg load`, `reg delete ...\MountedDevices /va`, `reg add ...
 \DosDevices\C:` with the Windows partition's new GUID, and `reg unload`;
 Windows gives the other volumes letters again. **Copy** puts the report on the clipboard.
 
+### Getting Winre.wim from Windows setup media
+
+While the recovery environment is enabled, `Winre.wim` lives on the recovery
+partition, not in `\Windows\System32\Recovery`, so a disk that lost its
+recovery partition has none to copy. Take it from the recovery partition of
+another copy of the disk, or from a Windows ISO of the same release -- the
+same build if you can, or `reagentc /info` shows the older version. Or leave
+the recovery environment disabled: Windows starts without it.
+
+The ISO's `sources\install.esd` cannot be mounted directly, so export one
+edition to a WIM first (any edition: they carry the same `Winre.wim`). In an
+administrator command prompt, with the ISO mounted as E: (double-click it):
+
+```bat
+dism /Get-WimInfo /WimFile:E:\sources\install.esd
+mkdir C:\temp\mount
+dism /Export-Image /SourceImageFile:E:\sources\install.esd /SourceIndex:6 /DestinationImageFile:C:\temp\install.wim /Compress:max /CheckIntegrity
+dism /Mount-Image /ImageFile:C:\temp\install.wim /Index:1 /MountDir:C:\temp\mount /ReadOnly
+robocopy C:\temp\mount\Windows\System32\Recovery R:\Recovery\WindowsRE Winre.wim /copy:DAT
+dism /Unmount-Image /MountDir:C:\temp\mount /Discard
+```
+
+Use the index `/Get-WimInfo` lists for the edition in place of `6`. `R:` is
+the new recovery partition; copy to a local folder instead if it is not
+attached. robocopy copies `Winre.wim` although it is hidden and a system
+file. Delete `C:\temp\install.wim` and `C:\temp\mount` afterwards. If the ISO
+has `install.wim` instead, skip the export and mount it with the edition's
+index.
+
+With 7-Zip, which reads `.esd` files directly, one command does it; `6` is
+the edition's index, a folder in the archive:
+
+```bat
+"C:\Program Files\7-Zip\7z.exe" e E:\sources\install.esd 6\Windows\System32\Recovery\Winre.wim -oC:\temp
+```
+
+Then register it from inside the VM, as the Check Boot report gives:
+`reagentc /setreimage /path R:\Recovery\WindowsRE /target C:\Windows`, then
+`reagentc /enable`.
+
 ## The Windows GPT problem
 
 An image smaller than the card leaves its backup GPT where the image ends, not
