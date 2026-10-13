@@ -19,6 +19,7 @@
 
 #include "bootcheck.h"
 
+#include <algorithm>
 #include <QCoreApplication>
 #include <QObject>
 #include <QSet>
@@ -1093,15 +1094,78 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
                                       .arg(partText(esp))) + "\n\n";
         const bool lettersStale = checkLetters(windows);
 
-        // The layout Windows setup makes: an EFI system partition and, after
-        // Windows, a recovery one. Sizes as setup leaves them on a VM's disk.
-        const int ESP_MIB = 200, RECOVERY_MIB = 892;
-        const int need = (esp < 0 ? ESP_MIB : 0) + (recovery < 0 ? RECOVERY_MIB : 0);
+        // The layout Windows setup makes: an EFI system partition, a
+        // Microsoft reserved one after it, and a recovery one. Sizes in MB as
+        // diskpart counts them (MiB), as setup leaves them on a VM's disk.
+        const unsigned long long ESP_MB = 200, MSR_MB = 16, RECOVERY_MB = 892;
+        // The least each may have when it goes in space already free: a
+        // gap a little short of the full size -- the backup GPT's sectors,
+        // or what the partitions removed left -- is used as it is.
+        const unsigned long long ESP_MIN_MB = 100, RECOVERY_MIN_MB = 800;
+        static const QByteArray msrType = QByteArray::fromHex("16e3c9e35c0bb84d817df92df00215ae");
+        bool hasMsr = false;
+        for (const CombinePartition &p : layout.partitions) hasMsr = hasMsr || p.entry.left(16) == msrType;
+
+        // The disk's free space: gaps between the first and last usable
+        // sectors, each from a 1 MiB boundary, as diskpart puts partitions.
+        struct Gap { unsigned long long start, mb; };
+        QList<Gap> gaps;
+        const unsigned long long mib = 1048576 / ss;
         unsigned long long end = 0;
         for (const CombinePartition &p : layout.partitions) end = qMax(end, p.first + p.sectors);
-        const unsigned long long disksectors = disk.sectors ? disk.sectors : end;
-        const unsigned long long freeMib = (disksectors > end + 34) ? (disksectors - end - 34) * ss / 1048576 : 0;
-        const bool shrink = need > 0 && freeMib < (unsigned long long)need + 1;
+        const unsigned long long usableEnd = (disk.sectors ? disk.sectors : end) - 33;
+        QList<int> byStart;
+        for (int i = 0; i < layout.partitions.size(); ++i) byStart.append(i);
+        std::sort(byStart.begin(), byStart.end(),
+                  [&](int a, int b) { return layout.partitions[a].first < layout.partitions[b].first; });
+        unsigned long long at = layout.firstUsable ? layout.firstUsable : 34;
+        auto addGap = [&](unsigned long long from, unsigned long long to) {
+            from = (from + mib - 1) / mib * mib;
+            if (to > from && (to - from) / mib > 0) gaps.append({ from, (to - from) / mib });
+        };
+        for (int i : byStart)
+        {
+            addGap(at, layout.partitions[i].first);
+            at = qMax(at, layout.partitions[i].first + layout.partitions[i].sectors);
+        }
+        addGap(at, usableEnd);
+
+        // Each partition to make: in the smallest gap it fits, else in
+        // space shrunk from Windows' partition. offset 0: no gap.
+        struct Make { unsigned long long mb, offsetKb; };
+        auto place = [&](unsigned long long want, unsigned long long least) {
+            int best = -1;
+            for (int g = 0; g < gaps.size(); ++g)
+            {
+                if (gaps[g].mb >= least && (best < 0 || gaps[g].mb < gaps[best].mb)) best = g;
+            }
+            if (best < 0) return Make{ want, 0 };
+            const Make m{ qMin(want, gaps[best].mb), gaps[best].start * ss / 1024 };
+            gaps[best].start += m.mb * mib;
+            gaps[best].mb -= m.mb;
+            return m;
+        };
+        Make espMake{ 0, 0 }, msrMake{ 0, 0 }, recMake{ 0, 0 };
+        if (esp < 0)
+        {
+            espMake = place(ESP_MB, ESP_MIN_MB);
+            // The reserved partition, right after it, if the gap has room.
+            if (!hasMsr && espMake.offsetKb)
+            {
+                for (Gap &g : gaps)
+                {
+                    if (g.start * ss / 1024 == espMake.offsetKb + espMake.mb * 1024 && g.mb >= MSR_MB)
+                    {
+                        msrMake = Make{ MSR_MB, g.start * ss / 1024 };
+                        g.start += MSR_MB * mib;
+                        g.mb -= MSR_MB;
+                    }
+                }
+            }
+        }
+        if (recovery < 0) recMake = place(RECOVERY_MB, RECOVERY_MIN_MB);
+        const unsigned long long shrinkMb = (esp < 0 && !espMake.offsetKb ? espMake.mb : 0)
+                                          + (recovery < 0 && !recMake.offsetKb ? recMake.mb : 0);
 
         // Letters: the ones partitions have here, else W:, S:, R: if free.
         QString freeLetters = disk.freeLetters.isEmpty() ? QString("RSTUVWY") : disk.freeLetters;
@@ -1121,46 +1185,62 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
         rep += BootCheck::tr("To make it bootable, run the commands below in an administrator command "
                   "prompt on this computer, with the disk attached as it is now (Disk %1), and detach "
                   "it before starting the VM.").arg(disk.number) + " ";
-        if (need > 0)
+        if (esp < 0 || recovery < 0)
         {
             QStringList parts;
-            if (esp < 0) parts.append(BootCheck::tr("an EFI system partition of %1 MiB").arg(ESP_MIB));
+            if (esp < 0) parts.append(BootCheck::tr("an EFI system partition of %1 MB").arg(espMake.mb));
+            if (msrMake.mb) parts.append(BootCheck::tr("a Microsoft reserved partition of %1 MB").arg(MSR_MB));
             if (recovery < 0)
             {
-                parts.append(BootCheck::tr("a recovery partition of %1 MiB, for the Windows Recovery "
-                                           "Environment").arg(RECOVERY_MIB));
+                parts.append(BootCheck::tr("a recovery partition of %1 MB, for the Windows Recovery "
+                                           "Environment").arg(recMake.mb));
             }
             rep += BootCheck::tr("They make the partitions Windows setup would have: %1.")
-                       .arg(parts.join(BootCheck::tr(" and "))) + " ";
-            rep += shrink ? BootCheck::tr("The disk has no room for them, so Windows' partition is shrunk "
-                                "by %1 MiB first; that needs as much free space in it, and fails "
-                                "harmlessly if it is not there.").arg(need)
-                          : BootCheck::tr("They go in the disk's unused space, %1 MiB.").arg(freeMib);
+                       .arg(parts.join(", ")) + " ";
+            if (shrinkMb)
+            {
+                rep += BootCheck::tr("The disk's free space does not hold all of them, so Windows' partition "
+                          "is shrunk by %1 MB first; that needs as much free space in it, and fails "
+                          "harmlessly if it is not there.").arg(shrinkMb);
+            }
+            else
+            {
+                rep += BootCheck::tr("They go in the disk's free space, at the offsets given; nothing is "
+                          "shrunk.");
+            }
             rep += " ";
         }
         rep += "\n\n";
 
+        auto offset = [](const Make &m) {
+            return m.offsetKb ? QString(" offset=%1").arg(m.offsetKb) : QString();
+        };
         rep += QString("diskpart\nselect disk %1\nlist partition\n").arg(disk.number < 0 ? 0 : disk.number);
-        if (haveW.isNull() || shrink)
+        if (haveW.isNull() || shrinkMb)
         {
             rep += QString("select partition %1\n").arg(number(windows));
             if (haveW.isNull()) rep += QString("assign letter=%1\n").arg(W);
-            if (shrink) rep += QString("shrink desired=%1 minimum=%1\n").arg(need);
+            if (shrinkMb) rep += QString("shrink desired=%1 minimum=%1\n").arg(shrinkMb);
         }
         if (esp < 0)
         {
-            rep += QString("create partition efi size=%1\nformat quick fs=fat32 label=\"System\"\n"
-                           "assign letter=%2\n").arg(ESP_MIB).arg(S);
+            rep += QString("create partition efi size=%1%2\nformat quick fs=fat32 label=\"System\"\n"
+                           "assign letter=%3\n").arg(espMake.mb).arg(offset(espMake)).arg(S);
         }
         else if (haveS.isNull())
         {
             rep += QString("select partition %1\nassign letter=%2\n").arg(number(esp)).arg(S);
         }
+        if (msrMake.mb)
+        {
+            rep += QString("create partition msr size=%1%2\n").arg(msrMake.mb).arg(offset(msrMake));
+        }
         if (recovery < 0)
         {
-            rep += QString("create partition primary size=%1\nformat quick fs=ntfs label=\"Recovery\"\n"
+            rep += QString("create partition primary size=%1%2\nformat quick fs=ntfs label=\"Recovery\"\n"
                            "set id=\"de94bba4-06d1-4d40-a16a-bfd50179d6ac\"\n"
-                           "gpt attributes=0x8000000000000001\nassign letter=%2\n").arg(RECOVERY_MIB).arg(R);
+                           "gpt attributes=0x8000000000000001\nassign letter=%3\n")
+                       .arg(recMake.mb).arg(offset(recMake)).arg(R);
         }
         rep += "exit\n\n";
         rep += QString("bcdboot %1:\\Windows /s %2: /f UEFI\n").arg(W).arg(S);
@@ -1176,8 +1256,14 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
         if (recovery < 0)
         {
             rep += " " + BootCheck::tr("robocopy puts the recovery image, Winre.wim, on the new recovery "
-                      "partition; if Windows has none in \\Windows\\System32\\Recovery, copy it from "
-                      "another Windows of the same version, or from its setup media's install.wim.");
+                      "partition. It may well find none: while the recovery environment is enabled, "
+                      "Winre.wim lives on the recovery partition, not in \\Windows\\System32\\Recovery, "
+                      "so it went with that partition. Then copy Winre.wim to "
+                      "\\Recovery\\WindowsRE on the new recovery partition from elsewhere -- the "
+                      "recovery partition of another copy of this disk, or \\Windows\\System32\\Recovery "
+                      "inside the setup media's install.wim of the same version -- or leave the "
+                      "recovery environment disabled and skip the reagentc steps below; Windows "
+                      "starts without it.");
         }
         rep += "\n\n";
         rep += BootCheck::tr("Once Windows starts, register the recovery environment in an administrator "

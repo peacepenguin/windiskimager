@@ -2198,6 +2198,36 @@ static void caseBootCheck()
     check(!r.report.contains("shrink") && r.report.contains("create partition efi size=200"),
           "  with room on the disk: nothing shrunk");
 
+    // An 80 GiB VM disk whose EFI, reserved and recovery partitions were
+    // deleted: Windows from 217 MiB, 888 MiB free after it, 887 from its 1 MiB boundary. Read sparsely.
+    const unsigned long long vmsectors = 80ull * 1024 * 2048, winat = 217 * 2048;
+    const unsigned long long winend = vmsectors - 33 - 888 * 2048 - 100;
+    ImageLayout vm = datalayout;
+    vm.partitions[0].first = winat;
+    vm.partitions[0].sectors = winend - winat;
+    const QByteArray winvol = ntfsVolume(4096, QByteArray(), systemFor(oldwin));
+    const BootSectorReader sparse = [&](unsigned long long first, unsigned long long count, char *buf) {
+        memset(buf, 0, (size_t)(count * SEC));
+        for (unsigned long long s = 0; s < count; ++s)
+        {
+            const unsigned long long at = first + s;
+            if (at >= winat && at < winat + 4096) memcpy(buf + s * SEC, winvol.constData() + (at - winat) * SEC, SEC);
+        }
+        return first + count <= vmsectors;
+    };
+    BootCheckDisk vmdisk = disk;
+    vmdisk.sectors = vmsectors;
+    r = checkBoot(vm, sparse, vmdisk);
+    check(!r.report.contains("shrink")
+          && r.report.contains("create partition efi size=200 offset=1024\n")
+          && r.report.contains("create partition msr size=16 offset=205824\n")
+          && r.report.contains("create partition primary size=887 offset="),
+          "  its free space used as it is: EFI and reserved in front of Windows, recovery after, nothing shrunk");
+    if (!r.report.contains("create partition primary size=887 offset=") || !r.report.contains("msr size=16 offset=205824"))
+    {
+        printf("%s\n", r.report.toLocal8Bit().constData());
+    }
+
     // A BIOS disk: the BCD on the active NTFS partition, by offset and signature.
     const unsigned int oldsig = 0x11223344u, newsig = 0x55667788u;
     auto sig = [](unsigned int s) { QByteArray b(4, 0); put32(b, 0, s); return b; };

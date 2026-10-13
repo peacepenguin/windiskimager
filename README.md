@@ -206,9 +206,10 @@ or Remote Desktop.
 When no partition holds a boot configuration but one holds Windows -- a
 Windows on what was a data disk, or a VM disk whose boot partitions were left
 behind -- Check Boot says so, and on a GPT disk gives the commands to make it
-bootable: `diskpart` to shrink the Windows partition if the disk has no room,
-then make a 200 MiB EFI system partition and an 892 MiB recovery partition,
-as setup leaves them on a VM's disk; `bcdboot` to write the boot manager and
+bootable: `diskpart` to make a 200 MB EFI system partition, a 16 MB reserved
+partition and an 892 MB recovery partition, as setup leaves them on a VM's
+disk -- in the free space where it has it, the old ones' gaps included, else
+in space shrunk from the Windows partition; `bcdboot` to write the boot manager and
 its configuration; `robocopy` to put `Winre.wim` on the recovery partition;
 and, once Windows starts, `reagentc` to register it. An MBR disk is pointed
 at `mbr2gpt`, or a generation 1 VM.
