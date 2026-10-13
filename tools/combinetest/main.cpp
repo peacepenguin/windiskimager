@@ -1800,7 +1800,8 @@ static QByteArray fat32Esp(unsigned long long sectors, const QByteArray &bcd)
 // A small NTFS volume holding \Boot\BCD: 4 KiB clusters, 1 KiB file records.
 // The root's index has its entries in an allocation block, beside a stale
 // one no node points at; the BCD's data is in two pieces.
-static QByteArray ntfsVolume(unsigned long long sectors, const QByteArray &bcd)
+static QByteArray ntfsVolume(unsigned long long sectors, const QByteArray &bcd,
+                             const QByteArray &system = QByteArray())
 {
     const int CL = 4096, REC = 1024;
     QByteArray img((int)(sectors * 512), 0);
@@ -1939,7 +1940,20 @@ static QByteArray ntfsVolume(unsigned long long sectors, const QByteArray &bcd)
     // Entries of 96, 128 and 136 bytes from 0x40 put "Boot"'s at 424, its
     // name across bytes 510-511, which the block's fixup replaces.
     indx(10, 0, ientry("$MFT", 0) + ientry(QString(20, 'A'), 1) + ientry(QString(24, 'B'), 2)
-                    + ientry("Boot", 11) + iend(false, 0));
+                    + ientry("Boot", 11) + (system.isEmpty() ? QByteArray() : ientry("Windows", 6))
+                    + iend(false, 0));
+    if (!system.isEmpty())
+    {
+        // \Windows\System32\config\SYSTEM, records 6 to 9, its data from cluster 60.
+        record(6, true, { indexroot(ientry("System32", 7) + iend(false, 0), 0) });
+        record(7, true, { indexroot(ientry("config", 8) + iend(false, 0), 0) });
+        record(8, true, { indexroot(ientry("SYSTEM", 9) + iend(false, 0), 0) });
+        const unsigned long long n = (system.size() + CL - 1) / CL;
+        QByteArray runs;
+        runs.append((char)0x11).append((char)n).append((char)60);
+        record(9, false, { nonres(0x80, QString(), runs, n, (unsigned long long)system.size()) });
+        memcpy(img.data() + 60 * CL, system.constData(), (size_t)system.size());
+    }
     indx(11, 1, ientry("Boot", 14) + iend(false, 0));
     record(11, true, { indexroot(ientry("BCD", 12) + iend(false, 0), 0) });
     // The BCD: its first cluster at 20, the rest from 30.
@@ -2013,7 +2027,7 @@ static void caseBootCheck()
     };
     const unsigned long long espsectors = 70000, espfirst = 2048;
     const unsigned long long winfirst = 73728, refirst = 77824;
-    auto gptDisk = [&](const QByteArray &bcd) {
+    auto gptDisk = [&](const QByteArray &bcd, const QByteArray &system = QByteArray()) {
         QByteArray dev = gptImage(90000, 34, {
             {espfirst, espfirst + espsectors - 1, ESP, "E5E5E5E5-0000-4000-8000-000000000001", "EFI", 'e', 0},
             {winfirst, winfirst + 4095, BASIC, "A1A1A1A1-0000-4000-8000-000000000002", "Windows", 'w', 0},
@@ -2021,7 +2035,19 @@ static void caseBootCheck()
             "0E0E0E0E-0000-4000-8000-0000000000BB");
         const QByteArray fs = fat32Esp(espsectors, bcd);
         memcpy(dev.data() + espfirst * SEC, fs.constData(), (size_t)fs.size());
+        if (!system.isEmpty())
+        {
+            const QByteArray win = ntfsVolume(4096, QByteArray(5000, 'x'), system);
+            memcpy(dev.data() + winfirst * SEC, win.constData(), (size_t)win.size());
+        }
         return dev;
+    };
+    // A SYSTEM hive whose MountedDevices gives `letter` to partition `part`.
+    auto systemFor = [](const QByteArray &part, const char *letter = "\\DosDevices\\C:") {
+        HiveBuilder h;
+        const unsigned int md = h.key("MountedDevices", {},
+                                      { h.value(letter, 3, QByteArray("DMIO:ID:") + part) });
+        return h.hive(h.key("ROOT", { h.key("Select", {}), md }));
     };
     BootCheckDisk disk;
     disk.number = 3;
@@ -2055,7 +2081,7 @@ static void caseBootCheck()
     }
     check(t.contains("WRONG") && !t.contains("MISSING") && t.contains("Disk 0 on this computer"),
           "  every entry wrong, the original named");
-    check(t.contains("select disk 0") && t.contains("select partition 1\nassign letter=S")
+    check(t.contains("select disk 3") &&t.contains("select partition 1\nassign letter=S")
           && t.contains("select partition 2\nassign letter=W")
           && t.contains("select partition 3\nassign letter=R"),
           "  diskpart gives the ESP, Windows and recovery partitions letters");
@@ -2077,6 +2103,48 @@ static void caseBootCheck()
     r = checkBoot(layout, readerOf(dev), disk);
     check(!r.ok && r.report.contains("MISSING") && r.report.contains("bcdboot"),
           "a partition the disk does not have: missing, and bcdboot offered");
+    check(r.report.contains("select partition 2\nassign letter=W")
+          && r.report.contains("ren S:\\EFI\\Microsoft\\Boot\\BCD BCD.old\nbcdboot W:\\Windows /s S: /f UEFI"),
+          "  nothing for bcdedit to set: Windows found by type, and bcdboot is the fix");
+    check(r.report.contains("reagentc /disable\nreagentc /enable"), "  and reagentc re-registers recovery after");
+
+    dev = gptDisk(bcdFor(oldid, guid("99999999-0000-4000-8000-000000000009")));
+    r = checkBoot(layout, readerOf(dev), disk);
+    check(!r.ok && r.report.contains("select partition 2\nassign letter=W")
+          && r.report.contains("bcdboot W:\\Windows /s S: /f UEFI") && !r.report.contains("/set "),
+          "  and the same with the disk GUID changed too");
+
+    // Windows' drive letters, in the copy's SYSTEM hive.
+    const QByteArray oldwin = guid("99999999-0000-4000-8000-000000000009");
+    dev = gptDisk(bcdFor(newid, winuid), systemFor(oldwin));
+    r = checkBoot(layout, readerOf(dev), disk);
+    const QString regfix = "reg load HKLM\\CLONE W:\\Windows\\System32\\config\\SYSTEM\n"
+                           "reg delete HKLM\\CLONE\\MountedDevices /va /f\n"
+                           "reg add HKLM\\CLONE\\MountedDevices /v \\DosDevices\\C: /t REG_BINARY /d 444D494F3A49443A"
+                           + QString(winuid.toHex().toUpper()) + " /f\nreg unload HKLM\\CLONE";
+    check(!r.ok && r.report.contains("C: is recorded as partition {99999999-") && r.report.contains(regfix)
+          && r.report.contains("select partition 2\nassign letter=W") && !r.report.contains("bcdboot")
+          && !r.report.contains("letter=S"),
+          "a BCD that matches, but C: names a partition the disk does not have: reg records C: for its own");
+    if (!r.report.contains(regfix)) printf("%s\n", r.report.toLocal8Bit().constData());
+    dev = gptDisk(bcdFor(newid, winuid), systemFor(winuid, "\\DosDevices\\D:"));
+    r = checkBoot(layout, readerOf(dev), disk);
+    check(!r.ok && r.report.contains("no C: is recorded") && r.report.contains(regfix),
+          "  and no C: at all, Windows on D:: the same");
+    dev = gptDisk(bcdFor(newid, winuid), systemFor(winuid));
+    r = checkBoot(layout, readerOf(dev), disk);
+    check(r.ok && r.report.contains("C: is partition 2"), "  and C: naming its own partition: it matches");
+
+    // Letters the partitions have here are used; S: taken, the next free one.
+    BootCheckDisk here = disk;
+    here.partitionLetters.insert(winfirst, 'E');
+    here.freeLetters = "FGHRTW";
+    dev = gptDisk(bcdFor(oldid, oldwin), systemFor(oldwin));
+    r = checkBoot(layout, readerOf(dev), here);
+    check(r.report.contains("select partition 1\nassign letter=F") && !r.report.contains("select partition 2")
+          && r.report.contains("ren F:\\EFI\\Microsoft\\Boot\\BCD BCD.old\nbcdboot E:\\Windows /s F: /f UEFI")
+          && r.report.contains("reg load HKLM\\CLONE E:\\Windows"),
+          "on this computer: a partition's own letter kept, a free one for the rest, both fixes");
 
     // A BIOS disk: the BCD on the active NTFS partition, by offset and signature.
     const unsigned int oldsig = 0x11223344u, newsig = 0x55667788u;

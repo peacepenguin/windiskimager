@@ -24,7 +24,7 @@
 #include <QSet>
 
 // The largest file read: a BCD is tens of KB, rarely a MB.
-static const unsigned long long MAX_FILE_BYTES = 16ull * 1024ull * 1024ull;
+static const unsigned long long MAX_FILE_BYTES = 128ull * 1024ull * 1024ull;  // a SYSTEM hive can be tens of MB
 
 static unsigned int u16(const QByteArray &b, qint64 o)
 {
@@ -1001,12 +1001,11 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
     }
     rep += "\n";
 
-    if (stale == 0 && missing == 0)
+    const bool bcdok = (stale == 0 && missing == 0);
+    if (bcdok)
     {
-        out.ok = true;
         rep += BootCheck::tr("Every entry names this disk as it is now, and a partition it has: the boot "
-                  "configuration matches the disk.");
-        return out;
+                  "configuration matches the disk.") + "\n";
     }
     for (const QByteArray &id : otherids)
     {
@@ -1033,12 +1032,11 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
                   "those at the right partition, but bcdboot (below) can make new ones.")
                    .arg(missing) + "\n";
     }
-    rep += BootCheck::tr("The disk will not boot until this is fixed.") + "\n\n";
+    if (!bcdok) rep += BootCheck::tr("The disk will not boot until this is fixed.") + "\n";
+    rep += "\n";
 
-    // The fix, from inside the VM: letters for the partitions, then bcdedit
-    // on the store. S: is the partition the BCD is on, W: the Windows one.
-    QMap<int, QChar> letters;
-    letters.insert(bcdpart, 'S');
+    // The Windows partition: the one the loader names, or, when no loader
+    // entry names one the disk has, the largest basic data / NTFS partition.
     int windows = -1;
     for (int k = 0; k < refs.size(); ++k)
     {
@@ -1048,21 +1046,140 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
             windows = where[k];
         }
     }
-    if (windows >= 0 && !letters.contains(windows)) letters.insert(windows, 'W');
-    // Any other partition an entry to fix names, a recovery one say.
-    const QString spare = "RTUVY";
-    int nextspare = 0;
-    for (int k = 0; k < refs.size(); ++k)
+    const bool loaderFound = windows >= 0;
+    if (windows < 0)
     {
-        if (where[k] >= 0 && refs[k].disk != diskid && !letters.contains(where[k])
-            && nextspare < spare.size())
+        static const QByteArray basicData = QByteArray::fromHex("a2a0d0ebe5b9334487c068b6b72699c7");
+        unsigned long long best = 0;
+        for (int i = 0; i < layout.partitions.size(); ++i)
         {
-            letters.insert(where[k], spare[nextspare++]);
+            const CombinePartition &p = layout.partitions[i];
+            if (i == bcdpart) continue;
+            const bool data = gpt ? p.entry.left(16) == basicData
+                                  : p.entry.size() >= 16 && (unsigned char)p.entry[4] == 0x07;
+            if (data && p.sectors > best)
+            {
+                best = p.sectors;
+                windows = i;
+            }
         }
     }
-    const QString store = QString("S:%1").arg(bcdpath);
+
+    // Windows' own record of drive letters, MountedDevices in its SYSTEM
+    // hive, names partitions by partition GUID (GPT) or by signature and
+    // offset (MBR). A copy whose partitions got new IDs finds no C: there,
+    // its Windows partition gets another letter, and sign-in stops at a
+    // black screen.
+    bool lettersStale = false;
+    if (windows >= 0)
+    {
+        const CombinePartition &wp = layout.partitions[windows];
+        QByteArray system;
+        QString why;
+        unsigned int type = 0;
+        QByteArray c;
+        if (fsName(read, ss, wp) != "NTFS"
+            || !ntfsReadFile(read, ss, wp.first, wp.sectors, { "Windows", "System32", "config", "SYSTEM" },
+                             &system, &why)
+            || system.size() < 0x1000 + 32 || system.left(4) != "regf")
+        {
+            rep += BootCheck::tr("Windows' drive letters could not be checked: %1 has no "
+                      "\\Windows\\System32\\config\\SYSTEM that could be read.").arg(partText(windows)) + "\n";
+        }
+        else
+        {
+            const Hive h(system);
+            const QByteArray root = h.root();
+            const QMap<QString, QByteArray> top = (root.left(2) == "nk") ? h.subkeys(root)
+                                                                         : QMap<QString, QByteArray>();
+            if (!top.contains("mounteddevices")
+                || !h.value(top["mounteddevices"], "\\DosDevices\\C:", &type, &c))
+            {
+                // Windows does not then take C: for itself: it takes the next
+                // free letter, D: say, and sign-in fails as for a wrong one.
+                lettersStale = true;
+                rep += BootCheck::tr("Windows' drive letters: no C: is recorded, so Windows on %1 starts "
+                          "under another letter, D: say, and sign-in stops at a black screen. The "
+                          "commands below record C: for it.").arg(partText(windows)) + "\n";
+            }
+            else
+            {
+                bool mine = false, known = false;
+                if (gpt && c.size() == 24 && c.left(8) == "DMIO:ID:")
+                {
+                    known = true;
+                    mine = (c.mid(8, 16) == wp.entry.mid(16, 16));
+                }
+                else if (!gpt && c.size() == 12)
+                {
+                    known = true;
+                    mine = (c.left(4) == diskid && u64(c, 4) == wp.first * ss);
+                }
+                if (!known)
+                {
+                    rep += BootCheck::tr("Windows' drive letters: C: is recorded in a form not checked here.") + "\n";
+                }
+                else if (mine)
+                {
+                    rep += BootCheck::tr("Windows' drive letters: C: is %1, as it should be.").arg(partText(windows))
+                           + "\n";
+                }
+                else
+                {
+                    lettersStale = true;
+                    rep += BootCheck::tr("Windows' drive letters: C: is recorded as %1, which this disk does not "
+                              "have, so Windows on %2 starts under another letter and sign-in stops at "
+                              "a black screen. The commands below record C: for its partition.")
+                               .arg(gpt ? BootCheck::tr("partition %1").arg(guidText(c.mid(8, 16)))
+                                        : BootCheck::tr("the partition at byte %1 on disk %2")
+                                              .arg(u64(c, 4)).arg(idText(c.left(4))),
+                                    partText(windows)) + "\n";
+                }
+            }
+        }
+        rep += "\n";
+    }
+
+    out.ok = bcdok && !lettersStale;
+    if (out.ok) return out;
+
+    // Letters for the partitions the commands use: the one a partition has
+    // here already, or S: for the BCD's, W: for Windows, R: for any other,
+    // or the next free one when that is taken.
+    QString freeLetters = disk.freeLetters.isEmpty() ? QString("RSTUVWY") : disk.freeLetters;
+    QMap<int, QChar> letters;
+    QList<int> assign;
+    auto letterFor = [&](int i, QChar want) {
+        if (letters.contains(i)) return;
+        const QChar have = disk.partitionLetters.value(layout.partitions[i].first);
+        if (!have.isNull())
+        {
+            letters.insert(i, have);
+            return;
+        }
+        const QChar got = freeLetters.contains(want) ? want
+                        : freeLetters.isEmpty()      ? QChar('?')
+                                                     : freeLetters[0];
+        freeLetters.remove(got);
+        letters.insert(i, got);
+        assign.append(i);
+    };
+    if (!bcdok) letterFor(bcdpart, 'S');
+    if (windows >= 0) letterFor(windows, 'W');
+    if (!bcdok)
+    {
+        // Any other partition an entry to fix names, a recovery one say.
+        for (int k = 0; k < refs.size(); ++k)
+        {
+            if (where[k] >= 0 && refs[k].disk != diskid) letterFor(where[k], 'R');
+        }
+    }
+    const QChar S = letters.value(bcdpart, 'S');
+    const QChar W = letters.value(windows, 'W');
+
+    const QString store = QString("%1:%2").arg(S).arg(bcdpath);
     QStringList cmds;
-    for (int k = 0; k < refs.size(); ++k)
+    for (int k = 0; k < refs.size() && !bcdok; ++k)
     {
         const BcdDeviceRef &r = refs[k];
         if (where[k] < 0 || r.disk == diskid) continue;
@@ -1094,36 +1211,87 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
                             .arg(store, r.object, name).arg(letter));
         }
     }
+    const bool rebuild = !bcdok && (cmds.isEmpty() || !loaderFound);
+    const QString bcdboot = QString("bcdboot %1:\\Windows /s %2: /f %3\n").arg(W).arg(S).arg(efi ? "UEFI" : "BIOS");
 
-    rep += BootCheck::tr("To fix it and keep the disk's new ID, start the VM from Windows setup media, "
-              "press Shift+F10 for a command prompt, and run the commands below. There the disk "
-              "is an ordinary disk, so bcdedit names its partitions by the disk's GUID and their "
-              "own. On this computer, with the disk attached as a VHD or VHDX, bcdedit would name "
-              "the VHDX file instead, which a VM cannot find.") + "\n";
-    rep += BootCheck::tr("\"select disk 0\" assumes it is the VM's only disk: check \"list disk\" for one of "
-              "%1. If a partition already has a letter, use that one in the commands instead.")
+    rep += BootCheck::tr("To fix it and keep the disk's new IDs, run the commands below in an administrator "
+              "command prompt on this computer, with the disk attached as it is now (Disk %1, %2), "
+              "and detach it before starting the VM. In a VM started from Windows setup media "
+              "(Shift+F10), the same commands work with the VM's number for the disk.")
+               .arg(disk.number)
                .arg(sizeText((disk.sectors ? disk.sectors
                               : layout.partitions.isEmpty() ? 0
                               : layout.partitions.last().first + layout.partitions.last().sectors) * ss))
            + "\n\n";
-    rep += "diskpart\nlist disk\nselect disk 0\nlist partition\n";
+    if (!assign.isEmpty())
+    {
+        rep += QString("diskpart\nselect disk %1\nlist partition\n").arg(disk.number < 0 ? 0 : disk.number);
+        for (int i : assign)
+        {
+            rep += QString("select partition %1\nassign letter=%2\n").arg(number(i)).arg(letters[i]);
+        }
+        rep += "exit\n\n";
+    }
+    if (rebuild)
+    {
+        // Nothing bcdedit can repoint, or not the loader: set the old store
+        // aside and let bcdboot write a new one naming the disk as it is.
+        rep += QString("ren %1 BCD.old\n").arg(store) + bcdboot;
+    }
+    else if (!bcdok)
+    {
+        for (const QString &cmd : cmds) rep += cmd + "\n";
+        rep += QString("bcdedit /store %1 /enum all\n").arg(store);
+    }
+    if (lettersStale)
+    {
+        // C: as Windows records it: "DMIO:ID:" and the partition's GUID
+        // (GPT), or the disk signature and the partition's offset (MBR).
+        const CombinePartition &wp = layout.partitions[windows];
+        QByteArray c;
+        if (gpt)
+        {
+            c = QByteArray("DMIO:ID:") + wp.entry.mid(16, 16);
+        }
+        else
+        {
+            c = diskid;
+            for (int b = 0; b < 8; ++b) c.append((char)(((wp.first * ss) >> (8 * b)) & 0xFF));
+        }
+        rep += QString("reg load HKLM\\CLONE %1:\\Windows\\System32\\config\\SYSTEM\n"
+                       "reg delete HKLM\\CLONE\\MountedDevices /va /f\n"
+                       "reg add HKLM\\CLONE\\MountedDevices /v \\DosDevices\\C: /t REG_BINARY /d %2 /f\n"
+                       "reg unload HKLM\\CLONE\n").arg(W).arg(QString(c.toHex().toUpper()));
+    }
+    rep += "\n";
+    QStringList l;
     for (auto it = letters.begin(); it != letters.end(); ++it)
     {
-        rep += QString("select partition %1\nassign letter=%2\n").arg(number(it.key())).arg(it.value());
+        l.append(QString("%1: = %2").arg(it.value()).arg(partText(it.key())));
     }
-    rep += "exit\n\n";
-    for (const QString &c : cmds) rep += c + "\n";
-    rep += QString("bcdedit /store %1 /enum all\n\n").arg(store);
-    rep += BootCheck::tr("Partitions: %1.").arg([&]() {
-        QStringList l;
-        for (auto it = letters.begin(); it != letters.end(); ++it)
-        {
-            l.append(QString("%1: = %2").arg(it.value()).arg(partText(it.key())));
-        }
-        return l.join("; ");
-    }()) + "\n\n";
-    rep += BootCheck::tr("Or rebuild the boot files and the boot configuration from that Windows "
-              "instead, which replaces the configuration's entries with new ones:") + "\n";
-    rep += QString("bcdboot W:\\Windows /s S: /f %1\n").arg(efi ? "UEFI" : "BIOS");
+    rep += BootCheck::tr("Partitions: %1.").arg(l.join("; ")) + "\n";
+    if (windows < 0)
+    {
+        rep += BootCheck::tr("No Windows partition was found: give the one holding \\Windows a letter and "
+                  "use it for W: in the commands.") + "\n";
+    }
+    if (lettersStale)
+    {
+        rep += BootCheck::tr("The reg commands clear Windows' old drive letters, which name the old "
+                  "partitions, and record C: for %1; Windows gives the other volumes letters "
+                  "again as it finds them.").arg(partText(windows)) + "\n";
+    }
+    if (!bcdok && !rebuild)
+    {
+        rep += "\n" + BootCheck::tr("Or rebuild the boot files and the boot configuration from that Windows "
+                  "instead, which replaces the configuration's entries with new ones:") + "\n" + bcdboot;
+    }
+    if (!bcdok)
+    {
+        rep += "\n" + BootCheck::tr("bcdboot does not recreate the Windows Recovery Environment "
+                  "entries. Once Windows starts, run these in an administrator command prompt to "
+                  "register it again, then check it with \"reagentc /info\":")
+               + "\nreagentc /disable\nreagentc /enable\n";
+    }
     return out;
 }

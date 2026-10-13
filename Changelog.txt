@@ -12,9 +12,16 @@ It reads the BCD straight from the disk -- the EFI system partition's
   listed as OK, WRONG (the old disk ID) or MISSING, and the disk the BCD
   expects is named when it is on this computer
 The report gives the commands to fix the BCD and keep the disk's new ID, run
-  inside the VM from Windows setup media: diskpart to give the partitions
-  letters, bcdedit /store ... /set for each wrong entry, or bcdboot to
-  rebuild it. On the host, bcdedit would name the mounted VHDX file instead.
+  on this computer with the disk attached (its own disk number, the letters
+  its partitions have, free ones for the rest) or inside the VM from Windows
+  setup media: diskpart to give the partitions letters, bcdedit /store ...
+  /set for each wrong entry, or bcdboot to rebuild it -- the only fix when
+  every entry names a partition the disk does not have, when the Windows
+  partition is found by its type. reagentc re-registers recovery after
+Check Boot reads the copy's SYSTEM hive too: when MountedDevices gives C: to a
+  partition the disk does not have, Windows starts under another letter and
+  sign-in stops at a black screen -- as it does with no C: recorded at all,
+  when Windows takes D:; the report gives reg commands that record C: for it
   Copy puts the report on the clipboard
 Custom Partitioning: "New disk GUID" gives the result a disk GUID, or for an
   MBR a disk signature, of its own instead of the lead-in's or the kept

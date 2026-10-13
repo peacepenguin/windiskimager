@@ -29,8 +29,10 @@
 //
 // Everything here only reads, through a sector reader, so it works on a
 // disk Windows has taken offline, and on an image file in the harness. The
-// result is a report, with the commands to fix the BCD with Windows' own
-// tools from inside the VM, where the disk is an ordinary disk.
+// result is a report, with the commands to fix the BCD -- and Windows' own
+// record of its drive letters, MountedDevices, which names partitions the
+// same way -- with Windows' own tools, on this computer with the disk
+// attached, or inside the VM.
 
 #include <QByteArray>
 #include <QList>
@@ -92,6 +94,11 @@ struct BootCheckDisk
     // Another disk on this computer that has disk ID `id` (16 bytes, or 4 for
     // an MBR signature), named as "Disk 0", or empty.
     std::function<QString(const QByteArray &id)> diskWithId;
+    // Letters the disk's partitions have on this computer, by first sector,
+    // and the letters free here ("DEFG..."), for the fix's commands. Empty:
+    // none have one, and S:, W:, R: ... are taken to be free.
+    QMap<unsigned long long, QChar> partitionLetters;
+    QString freeLetters;
 };
 
 struct BootCheckResult

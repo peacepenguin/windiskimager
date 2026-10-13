@@ -191,9 +191,21 @@ When the IDs no longer match, the report lists each entry and gives the
 commands to fix it while keeping the disk's new ID: `diskpart` to give the
 partitions letters, then `bcdedit /store ... /set {entry} device
 partition=X:` for each entry, or `bcdboot` to rebuild the configuration.
-They are run inside the VM, booted from Windows setup media (Shift+F10):
-there the disk is an ordinary disk, whereas on the host `bcdedit` would name
-the mounted VHDX file instead. **Copy** puts the report on the clipboard.
+They are run in an administrator prompt on the host, with the disk attached
+as it is, using the letters its partitions already have there and free ones
+for the rest; or, with the VM's disk number, inside the VM booted from
+Windows setup media (Shift+F10). When no entry can be repointed, the fix is
+`bcdboot`, followed once Windows is up by `reagentc /disable` and `/enable`
+to register the recovery environment again.
+
+Check Boot also reads the copy's SYSTEM hive: Windows records its drive
+letters in `MountedDevices` by partition GUID (or signature and offset), so a
+copy whose partitions got new IDs starts with Windows under a letter other
+than C:, and sign-in stops at a black screen. When C: names a partition the
+disk does not have, or no C: is recorded at all (Windows then takes D:, not C:),
+the report adds `reg load`, `reg delete ...\MountedDevices /va`, `reg add ...
+\DosDevices\C:` with the Windows partition's new GUID, and `reg unload`;
+Windows gives the other volumes letters again. **Copy** puts the report on the clipboard.
 
 ## The Windows GPT problem
 

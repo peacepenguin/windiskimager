@@ -797,6 +797,37 @@ static QString diskWithId(const QByteArray &id, int except)
     return QString();
 }
 
+// The letters disk `number`'s partitions have here, by first sector, and the
+// letters no volume has, for Check Boot's commands. X: is left out: Windows
+// setup media boots as X:, where the same commands may be run.
+static void diskLetters(int number, unsigned long long sectorsize,
+                        QMap<unsigned long long, QChar> *letters, QString *free)
+{
+    const DWORD used = GetLogicalDrives();
+    for (char c = 'D'; c <= 'Z'; ++c)
+    {
+        if (!(used & (1u << (c - 'A'))) && c != 'X') free->append(QChar(c));
+    }
+    for (char c = 'A'; c <= 'Z'; ++c)
+    {
+        if (!(used & (1u << (c - 'A')))) continue;
+        const QString path = QString("\\\\.\\%1:").arg(QChar(c));
+        HANDLE h = CreateFileW((LPCWSTR)path.utf16(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                               OPEN_EXISTING, 0, NULL);
+        if (h == INVALID_HANDLE_VALUE) continue;
+        STORAGE_DEVICE_NUMBER dn;
+        PARTITION_INFORMATION_EX pi;
+        DWORD got = 0;
+        if (DeviceIoControl(h, IOCTL_STORAGE_GET_DEVICE_NUMBER, NULL, 0, &dn, sizeof(dn), &got, NULL)
+            && (int)dn.DeviceNumber == number
+            && DeviceIoControl(h, IOCTL_DISK_GET_PARTITION_INFO_EX, NULL, 0, &pi, sizeof(pi), &got, NULL))
+        {
+            letters->insert((unsigned long long)pi.StartingOffset.QuadPart / sectorsize, QChar(c));
+        }
+        CloseHandle(h);
+    }
+}
+
 // "Check Boot": does the device's Windows boot configuration name it as it is
 // now? Only reads, so nothing is locked; the report is shown to copy from.
 void MainWindow::on_bCheckBoot_clicked()
@@ -861,6 +892,7 @@ void MainWindow::on_bCheckBoot_clicked()
         disk.sectors = devicesectors;
         diskPartitionNumbers(hDisk, ss, &disk.partitionNumbers);
         disk.diskWithId = [deviceID](const QByteArray &id) { return diskWithId(id, deviceID); };
+        diskLetters(deviceID, ss, &disk.partitionLetters, &disk.freeLetters);
         result = checkBoot(layout, read, disk);
     }
     else
