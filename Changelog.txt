@@ -20,6 +20,10 @@ The report gives the commands to fix the BCD and keep the disk's new ID, run
   partition is found by its type. After bcdboot, the report gives the steps
   to register Windows RE again -- Winre.wim backed up, the stale ReAgent.xml
   set aside, reagentc /setreimage on the recovery partition, then /enable
+Check Boot finds a Windows with nothing to start it -- no partition with a
+  boot configuration, no EFI system partition -- and gives the commands to
+  shrink its partition if need be, make an EFI system partition and a
+  recovery partition, run bcdboot, and register Windows RE
 Check Boot reads the copy's SYSTEM hive too: when MountedDevices gives C: to a
   partition the disk does not have, Windows starts under another letter and
   sign-in stops at a black screen -- as it does with no C: recorded at all,

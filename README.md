@@ -203,6 +203,16 @@ partition, a backup of `Winre.wim`, `ReAgent.xml` set aside, `reagentc
 console (a Hyper-V Basic Session), as it does nothing over Enhanced Session
 or Remote Desktop.
 
+When no partition holds a boot configuration but one holds Windows -- a
+Windows on what was a data disk, or a VM disk whose boot partitions were left
+behind -- Check Boot says so, and on a GPT disk gives the commands to make it
+bootable: `diskpart` to shrink the Windows partition if the disk has no room,
+then make a 200 MiB EFI system partition and an 892 MiB recovery partition,
+as setup leaves them on a VM's disk; `bcdboot` to write the boot manager and
+its configuration; `robocopy` to put `Winre.wim` on the recovery partition;
+and, once Windows starts, `reagentc` to register it. An MBR disk is pointed
+at `mbr2gpt`, or a generation 1 VM.
+
 Check Boot also reads the copy's SYSTEM hive: Windows records its drive
 letters in `MountedDevices` by partition GUID (or signature and offset), so a
 copy whose partitions got new IDs starts with Windows under a letter other

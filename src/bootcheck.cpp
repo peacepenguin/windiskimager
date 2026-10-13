@@ -938,11 +938,259 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
         if (bcdpart >= 0) break;
         tried.append(partText(i));
     }
+    // Windows' own record of drive letters, MountedDevices in its SYSTEM
+    // hive, names partitions by partition GUID (GPT) or by signature and
+    // offset (MBR). A copy whose partitions got new IDs finds no C: there,
+    // its Windows partition gets another letter, and sign-in stops at a
+    // black screen.
+    auto checkLetters = [&](int windows) {
+        bool lettersStale = false;
+        const CombinePartition &wp = layout.partitions[windows];
+        QByteArray system;
+        QString why;
+        unsigned int type = 0;
+        QByteArray c;
+        if (fsName(read, ss, wp) != "NTFS"
+            || !ntfsReadFile(read, ss, wp.first, wp.sectors, { "Windows", "System32", "config", "SYSTEM" },
+                             &system, &why)
+            || system.size() < 0x1000 + 32 || system.left(4) != "regf")
+        {
+            rep += BootCheck::tr("Windows' drive letters could not be checked: %1 has no "
+                      "\\Windows\\System32\\config\\SYSTEM that could be read.").arg(partText(windows)) + "\n";
+        }
+        else
+        {
+            const Hive h(system);
+            const QByteArray root = h.root();
+            const QMap<QString, QByteArray> top = (root.left(2) == "nk") ? h.subkeys(root)
+                                                                         : QMap<QString, QByteArray>();
+            if (!top.contains("mounteddevices")
+                || !h.value(top["mounteddevices"], "\\DosDevices\\C:", &type, &c))
+            {
+                // Windows does not then take C: for itself: it takes the next
+                // free letter, D: say, and sign-in fails as for a wrong one.
+                lettersStale = true;
+                rep += BootCheck::tr("Windows' drive letters: no C: is recorded, so Windows on %1 starts "
+                          "under another letter, D: say, and sign-in stops at a black screen. The "
+                          "commands below record C: for it.").arg(partText(windows)) + "\n";
+            }
+            else
+            {
+                bool mine = false, known = false;
+                if (gpt && c.size() == 24 && c.left(8) == "DMIO:ID:")
+                {
+                    known = true;
+                    mine = (c.mid(8, 16) == wp.entry.mid(16, 16));
+                }
+                else if (!gpt && c.size() == 12)
+                {
+                    known = true;
+                    mine = (c.left(4) == diskid && u64(c, 4) == wp.first * ss);
+                }
+                if (!known)
+                {
+                    rep += BootCheck::tr("Windows' drive letters: C: is recorded in a form not checked here.") + "\n";
+                }
+                else if (mine)
+                {
+                    rep += BootCheck::tr("Windows' drive letters: C: is %1, as it should be.").arg(partText(windows))
+                           + "\n";
+                }
+                else
+                {
+                    lettersStale = true;
+                    rep += BootCheck::tr("Windows' drive letters: C: is recorded as %1, which this disk does not "
+                              "have, so Windows on %2 starts under another letter and sign-in stops at "
+                              "a black screen. The commands below record C: for its partition.")
+                               .arg(gpt ? BootCheck::tr("partition %1").arg(guidText(c.mid(8, 16)))
+                                        : BootCheck::tr("the partition at byte %1 on disk %2")
+                                              .arg(u64(c, 4)).arg(idText(c.left(4))),
+                                    partText(windows)) + "\n";
+                }
+            }
+        }
+        rep += "\n";
+        return lettersStale;
+    };
+
+    // The commands that record C: for partition `windows`, at letter W here.
+    auto regFix = [&](int windows, QChar W) {
+        // C: as Windows records it: "DMIO:ID:" and the partition's GUID
+        // (GPT), or the disk signature and the partition's offset (MBR).
+        const CombinePartition &wp = layout.partitions[windows];
+        QByteArray c;
+        if (gpt)
+        {
+            c = QByteArray("DMIO:ID:") + wp.entry.mid(16, 16);
+        }
+        else
+        {
+            c = diskid;
+            for (int b = 0; b < 8; ++b) c.append((char)(((wp.first * ss) >> (8 * b)) & 0xFF));
+        }
+        return QString("reg load HKLM\\CLONE %1:\\Windows\\System32\\config\\SYSTEM\n"
+                       "reg delete HKLM\\CLONE\\MountedDevices /va /f\n"
+                       "reg add HKLM\\CLONE\\MountedDevices /v \\DosDevices\\C: /t REG_BINARY /d %2 /f\n"
+                       "reg unload HKLM\\CLONE\n").arg(W).arg(QString(c.toHex().toUpper()));
+    };
+
+    // The EFI system and recovery partitions, by type.
+    static const QByteArray recoveryType = QByteArray::fromHex("a4bb94ded106404da16abfd50179d6ac");
+    auto findType = [&](bool esp) {
+        for (int i = 0; i < layout.partitions.size(); ++i)
+        {
+            const CombinePartition &p = layout.partitions[i];
+            const bool match = esp ? (gpt ? (p.entry.size() >= 16 && gptGuidText(p.entry.left(16)) == ESP_GUID)
+                                          : p.mbrType == 0xEF)
+                                   : (gpt ? p.entry.left(16) == recoveryType
+                                          : p.entry.size() >= 16 && (unsigned char)p.entry[4] == 0x27);
+            if (match) return i;
+        }
+        return -1;
+    };
+
     if (bcdpart < 0)
     {
         rep += BootCheck::tr("No Windows boot configuration was found: no partition holds "
                   "\\EFI\\Microsoft\\Boot\\BCD or \\Boot\\BCD.");
         if (!tried.isEmpty()) rep += "\n" + BootCheck::tr("Looked in: %1.").arg(tried.join(", "));
+        rep += "\n";
+
+        // A Windows with nothing to start it -- a VM's disk whose boot
+        // partitions were left behind, or a Windows on what was a second,
+        // data disk: an NTFS partition with \Windows\System32\winload.efi.
+        int windows = -1;
+        for (int i = 0; i < layout.partitions.size() && windows < 0; ++i)
+        {
+            const CombinePartition &p = layout.partitions[i];
+            QByteArray loader;
+            QString why;
+            if (fsName(read, ss, p) == "NTFS"
+                && ntfsReadFile(read, ss, p.first, p.sectors, { "Windows", "System32", "winload.efi" }, &loader, &why))
+            {
+                windows = i;
+            }
+        }
+        if (windows < 0) return out;
+        if (!gpt)
+        {
+            rep += "\n" + BootCheck::tr("Windows is on %1, but the disk is MBR: a UEFI VM (Hyper-V's generation 2) "
+                      "starts only a GPT disk. Convert it with \"mbr2gpt /convert /disk:%2 /allowFullOS\" "
+                      "once it has a boot configuration, or start it in a generation 1 VM after "
+                      "\"bcdboot X:\\Windows /s X: /f BIOS\" and marking its partition active.")
+                       .arg(partText(windows)).arg(disk.number) + "\n";
+            return out;
+        }
+
+        const int esp = findType(true);
+        const int recovery = findType(false);
+        rep += "\n" + BootCheck::tr("Windows is on %1, but nothing on the disk starts it: %2 The disk "
+                  "will not boot until it has one.")
+                   .arg(partText(windows),
+                        esp < 0 ? BootCheck::tr("there is no EFI system partition for the boot manager and "
+                                                "its boot configuration.")
+                                : BootCheck::tr("%1, the EFI system partition, holds no boot configuration.")
+                                      .arg(partText(esp))) + "\n\n";
+        const bool lettersStale = checkLetters(windows);
+
+        // The layout Windows setup makes: an EFI system partition and, after
+        // Windows, a recovery one. Sizes as setup leaves them on a VM's disk.
+        const int ESP_MIB = 200, RECOVERY_MIB = 892;
+        const int need = (esp < 0 ? ESP_MIB : 0) + (recovery < 0 ? RECOVERY_MIB : 0);
+        unsigned long long end = 0;
+        for (const CombinePartition &p : layout.partitions) end = qMax(end, p.first + p.sectors);
+        const unsigned long long disksectors = disk.sectors ? disk.sectors : end;
+        const unsigned long long freeMib = (disksectors > end + 34) ? (disksectors - end - 34) * ss / 1048576 : 0;
+        const bool shrink = need > 0 && freeMib < (unsigned long long)need + 1;
+
+        // Letters: the ones partitions have here, else W:, S:, R: if free.
+        QString freeLetters = disk.freeLetters.isEmpty() ? QString("RSTUVWY") : disk.freeLetters;
+        auto pick = [&](QChar want) {
+            const QChar got = freeLetters.contains(want) ? want
+                            : freeLetters.isEmpty()      ? QChar('?')
+                                                         : freeLetters[0];
+            freeLetters.remove(got);
+            return got;
+        };
+        const QChar haveW = disk.partitionLetters.value(layout.partitions[windows].first);
+        const QChar W = haveW.isNull() ? pick('W') : haveW;
+        const QChar haveS = esp < 0 ? QChar() : disk.partitionLetters.value(layout.partitions[esp].first);
+        const QChar S = haveS.isNull() ? pick('S') : haveS;
+        const QChar R = pick('R');
+
+        rep += BootCheck::tr("To make it bootable, run the commands below in an administrator command "
+                  "prompt on this computer, with the disk attached as it is now (Disk %1), and detach "
+                  "it before starting the VM.").arg(disk.number) + " ";
+        if (need > 0)
+        {
+            QStringList parts;
+            if (esp < 0) parts.append(BootCheck::tr("an EFI system partition of %1 MiB").arg(ESP_MIB));
+            if (recovery < 0)
+            {
+                parts.append(BootCheck::tr("a recovery partition of %1 MiB, for the Windows Recovery "
+                                           "Environment").arg(RECOVERY_MIB));
+            }
+            rep += BootCheck::tr("They make the partitions Windows setup would have: %1.")
+                       .arg(parts.join(BootCheck::tr(" and "))) + " ";
+            rep += shrink ? BootCheck::tr("The disk has no room for them, so Windows' partition is shrunk "
+                                "by %1 MiB first; that needs as much free space in it, and fails "
+                                "harmlessly if it is not there.").arg(need)
+                          : BootCheck::tr("They go in the disk's unused space, %1 MiB.").arg(freeMib);
+            rep += " ";
+        }
+        rep += "\n\n";
+
+        rep += QString("diskpart\nselect disk %1\nlist partition\n").arg(disk.number < 0 ? 0 : disk.number);
+        if (haveW.isNull() || shrink)
+        {
+            rep += QString("select partition %1\n").arg(number(windows));
+            if (haveW.isNull()) rep += QString("assign letter=%1\n").arg(W);
+            if (shrink) rep += QString("shrink desired=%1 minimum=%1\n").arg(need);
+        }
+        if (esp < 0)
+        {
+            rep += QString("create partition efi size=%1\nformat quick fs=fat32 label=\"System\"\n"
+                           "assign letter=%2\n").arg(ESP_MIB).arg(S);
+        }
+        else if (haveS.isNull())
+        {
+            rep += QString("select partition %1\nassign letter=%2\n").arg(number(esp)).arg(S);
+        }
+        if (recovery < 0)
+        {
+            rep += QString("create partition primary size=%1\nformat quick fs=ntfs label=\"Recovery\"\n"
+                           "set id=\"de94bba4-06d1-4d40-a16a-bfd50179d6ac\"\n"
+                           "gpt attributes=0x8000000000000001\nassign letter=%2\n").arg(RECOVERY_MIB).arg(R);
+        }
+        rep += "exit\n\n";
+        rep += QString("bcdboot %1:\\Windows /s %2: /f UEFI\n").arg(W).arg(S);
+        if (recovery < 0)
+        {
+            rep += QString("robocopy %1:\\Windows\\System32\\Recovery %2:\\Recovery\\WindowsRE Winre.wim /copy:DAT\n")
+                       .arg(W).arg(R);
+        }
+        if (lettersStale) rep += regFix(windows, W);
+        rep += "\n";
+        rep += BootCheck::tr("bcdboot copies the boot manager to the EFI system partition and writes a boot "
+                  "configuration that starts Windows on %1.").arg(partText(windows));
+        if (recovery < 0)
+        {
+            rep += " " + BootCheck::tr("robocopy puts the recovery image, Winre.wim, on the new recovery "
+                      "partition; if Windows has none in \\Windows\\System32\\Recovery, copy it from "
+                      "another Windows of the same version, or from its setup media's install.wim.");
+        }
+        rep += "\n\n";
+        rep += BootCheck::tr("Once Windows starts, register the recovery environment in an administrator "
+                  "command prompt in the VM -- the first line gives the recovery partition R: there:")
+               + "\n\n";
+        rep += "powershell -c \"Get-Partition -DiskNumber (Get-Partition -DriveLetter C).DiskNumber | "
+               "? GptType -eq '{de94bba4-06d1-4d40-a16a-bfd50179d6ac}' | Add-PartitionAccessPath -AccessPath R:\\\"\n"
+               "ren C:\\Windows\\System32\\Recovery\\ReAgent.xml ReAgent.xml.old\n"
+               "reagentc /setreimage /path R:\\Recovery\\WindowsRE /target C:\\Windows\n"
+               "reagentc /enable\n"
+               "reagentc /info\n"
+               "powershell -c \"Get-Partition -DiskNumber (Get-Partition -DriveLetter C).DiskNumber | "
+               "? GptType -eq '{de94bba4-06d1-4d40-a16a-bfd50179d6ac}' | Remove-PartitionAccessPath -AccessPath R:\\\"\n";
         return out;
     }
     out.bcdFound = true;
@@ -1065,80 +1313,7 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
         }
     }
 
-    // Windows' own record of drive letters, MountedDevices in its SYSTEM
-    // hive, names partitions by partition GUID (GPT) or by signature and
-    // offset (MBR). A copy whose partitions got new IDs finds no C: there,
-    // its Windows partition gets another letter, and sign-in stops at a
-    // black screen.
-    bool lettersStale = false;
-    if (windows >= 0)
-    {
-        const CombinePartition &wp = layout.partitions[windows];
-        QByteArray system;
-        QString why;
-        unsigned int type = 0;
-        QByteArray c;
-        if (fsName(read, ss, wp) != "NTFS"
-            || !ntfsReadFile(read, ss, wp.first, wp.sectors, { "Windows", "System32", "config", "SYSTEM" },
-                             &system, &why)
-            || system.size() < 0x1000 + 32 || system.left(4) != "regf")
-        {
-            rep += BootCheck::tr("Windows' drive letters could not be checked: %1 has no "
-                      "\\Windows\\System32\\config\\SYSTEM that could be read.").arg(partText(windows)) + "\n";
-        }
-        else
-        {
-            const Hive h(system);
-            const QByteArray root = h.root();
-            const QMap<QString, QByteArray> top = (root.left(2) == "nk") ? h.subkeys(root)
-                                                                         : QMap<QString, QByteArray>();
-            if (!top.contains("mounteddevices")
-                || !h.value(top["mounteddevices"], "\\DosDevices\\C:", &type, &c))
-            {
-                // Windows does not then take C: for itself: it takes the next
-                // free letter, D: say, and sign-in fails as for a wrong one.
-                lettersStale = true;
-                rep += BootCheck::tr("Windows' drive letters: no C: is recorded, so Windows on %1 starts "
-                          "under another letter, D: say, and sign-in stops at a black screen. The "
-                          "commands below record C: for it.").arg(partText(windows)) + "\n";
-            }
-            else
-            {
-                bool mine = false, known = false;
-                if (gpt && c.size() == 24 && c.left(8) == "DMIO:ID:")
-                {
-                    known = true;
-                    mine = (c.mid(8, 16) == wp.entry.mid(16, 16));
-                }
-                else if (!gpt && c.size() == 12)
-                {
-                    known = true;
-                    mine = (c.left(4) == diskid && u64(c, 4) == wp.first * ss);
-                }
-                if (!known)
-                {
-                    rep += BootCheck::tr("Windows' drive letters: C: is recorded in a form not checked here.") + "\n";
-                }
-                else if (mine)
-                {
-                    rep += BootCheck::tr("Windows' drive letters: C: is %1, as it should be.").arg(partText(windows))
-                           + "\n";
-                }
-                else
-                {
-                    lettersStale = true;
-                    rep += BootCheck::tr("Windows' drive letters: C: is recorded as %1, which this disk does not "
-                              "have, so Windows on %2 starts under another letter and sign-in stops at "
-                              "a black screen. The commands below record C: for its partition.")
-                               .arg(gpt ? BootCheck::tr("partition %1").arg(guidText(c.mid(8, 16)))
-                                        : BootCheck::tr("the partition at byte %1 on disk %2")
-                                              .arg(u64(c, 4)).arg(idText(c.left(4))),
-                                    partText(windows)) + "\n";
-                }
-            }
-        }
-        rep += "\n";
-    }
+    const bool lettersStale = (windows >= 0) && checkLetters(windows);
 
     out.ok = bcdok && !lettersStale;
     if (out.ok) return out;
@@ -1245,23 +1420,7 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
     }
     if (lettersStale)
     {
-        // C: as Windows records it: "DMIO:ID:" and the partition's GUID
-        // (GPT), or the disk signature and the partition's offset (MBR).
-        const CombinePartition &wp = layout.partitions[windows];
-        QByteArray c;
-        if (gpt)
-        {
-            c = QByteArray("DMIO:ID:") + wp.entry.mid(16, 16);
-        }
-        else
-        {
-            c = diskid;
-            for (int b = 0; b < 8; ++b) c.append((char)(((wp.first * ss) >> (8 * b)) & 0xFF));
-        }
-        rep += QString("reg load HKLM\\CLONE %1:\\Windows\\System32\\config\\SYSTEM\n"
-                       "reg delete HKLM\\CLONE\\MountedDevices /va /f\n"
-                       "reg add HKLM\\CLONE\\MountedDevices /v \\DosDevices\\C: /t REG_BINARY /d %2 /f\n"
-                       "reg unload HKLM\\CLONE\n").arg(W).arg(QString(c.toHex().toUpper()));
+        rep += regFix(windows, W);
     }
     rep += "\n";
     QStringList l;
@@ -1291,17 +1450,7 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
         // bcdboot makes no recovery entry, and reagentc's ReAgent.xml still
         // names the old one, so "reagentc /enable" alone fails. The recovery
         // partition: by its type, GPT's Windows recovery or MBR's 0x27.
-        static const QByteArray recoveryType = QByteArray::fromHex("a4bb94ded106404da16abfd50179d6ac");
-        int recovery = -1;
-        for (int i = 0; i < layout.partitions.size() && recovery < 0; ++i)
-        {
-            const CombinePartition &p = layout.partitions[i];
-            if (gpt ? p.entry.left(16) == recoveryType
-                    : p.entry.size() >= 16 && (unsigned char)p.entry[4] == 0x27)
-            {
-                recovery = i;
-            }
-        }
+        const int recovery = findType(false);
         rep += "\n" + BootCheck::tr("bcdboot does not recreate the Windows Recovery Environment's entry, "
                   "and Windows' own record of it still names the old one, so \"reagentc /enable\" "
                   "alone fails. Once Windows starts, run these in an administrator command prompt "

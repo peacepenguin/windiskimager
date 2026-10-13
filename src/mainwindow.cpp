@@ -912,7 +912,7 @@ void MainWindow::on_bCheckBoot_clicked()
     // long command -- reg add's data, a bcdedit /set -- stays one line to
     // select and copy, scrolling sideways instead of breaking after "/d".
     static const QRegularExpression command(
-        "^(  |diskpart$|select |assign |list |exit$|remove |ren |bcdboot |bcdedit |reg |reagentc |rem |robocopy |rmdir |shutdown )");
+        "^(  |diskpart$|select |assign |list |exit$|remove |ren |bcdboot |bcdedit |reg |reagentc |rem |robocopy |rmdir |shutdown |create |format |set id|gpt |shrink |powershell )");
     QString html;
     for (const QString &line : result.report.split('\n'))
     {

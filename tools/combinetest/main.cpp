@@ -1941,13 +1941,18 @@ static QByteArray ntfsVolume(unsigned long long sectors, const QByteArray &bcd,
     // Entries of 96, 128 and 136 bytes from 0x40 put "Boot"'s at 424, its
     // name across bytes 510-511, which the block's fixup replaces.
     indx(10, 0, ientry("$MFT", 0) + ientry(QString(20, 'A'), 1) + ientry(QString(24, 'B'), 2)
-                    + ientry("Boot", 11) + (system.isEmpty() ? QByteArray() : ientry("Windows", 6))
+                    + ientry(bcd.isEmpty() ? "Boox" : "Boot", 11) + (system.isEmpty() ? QByteArray() : ientry("Windows", 6))
                     + iend(false, 0));
     if (!system.isEmpty())
     {
         // \Windows\System32\config\SYSTEM, records 6 to 9, its data from cluster 60.
         record(6, true, { indexroot(ientry("System32", 7) + iend(false, 0), 0) });
-        record(7, true, { indexroot(ientry("config", 8) + iend(false, 0), 0) });
+        record(7, true, { indexroot(ientry("config", 8) + ientry("winload.efi", 10) + iend(false, 0), 0) });
+        // System32's winload.efi, record 10, a cluster at 70.
+        QByteArray winload;
+        winload.append((char)0x11).append((char)1).append((char)70);
+        record(10, false, { nonres(0x80, QString(), winload, 1, 512) });
+        memcpy(img.data() + 70 * CL, "MZ", 2);
         record(8, true, { indexroot(ientry("SYSTEM", 9) + iend(false, 0), 0) });
         const unsigned long long n = (system.size() + CL - 1) / CL;
         QByteArray runs;
@@ -1957,16 +1962,19 @@ static QByteArray ntfsVolume(unsigned long long sectors, const QByteArray &bcd,
     }
     indx(11, 1, ientry("Boot", 14) + iend(false, 0));
     record(11, true, { indexroot(ientry("BCD", 12) + iend(false, 0), 0) });
-    // The BCD: its first cluster at 20, the rest from 30.
-    const unsigned long long clusters = (bcd.size() + CL - 1) / CL;
-    QByteArray bcdruns;
-    bcdruns.append((char)0x11).append((char)1).append((char)20);
-    bcdruns.append((char)0x11).append((char)(clusters - 1)).append((char)10);
-    record(12, false, { nonres(0x80, QString(), bcdruns, clusters, (unsigned long long)bcd.size()) });
-    memcpy(img.data() + 20 * CL, bcd.constData(), (size_t)qMin(CL, bcd.size()));
-    if (bcd.size() > CL)
+    // The BCD, unless there is none: its first cluster at 20, the rest from 30.
+    if (!bcd.isEmpty())
     {
-        memcpy(img.data() + 30 * CL, bcd.constData() + CL, (size_t)(bcd.size() - CL));
+        const unsigned long long clusters = (bcd.size() + CL - 1) / CL;
+        QByteArray bcdruns;
+        bcdruns.append((char)0x11).append((char)1).append((char)20);
+        bcdruns.append((char)0x11).append((char)(clusters - 1)).append((char)10);
+        record(12, false, { nonres(0x80, QString(), bcdruns, clusters, (unsigned long long)bcd.size()) });
+        memcpy(img.data() + 20 * CL, bcd.constData(), (size_t)qMin(CL, bcd.size()));
+        if (bcd.size() > CL)
+        {
+            memcpy(img.data() + 30 * CL, bcd.constData() + CL, (size_t)(bcd.size() - CL));
+        }
     }
     return img;
 }
@@ -2152,6 +2160,43 @@ static void caseBootCheck()
           && r.report.contains("ren F:\\EFI\\Microsoft\\Boot\\BCD BCD.old\nbcdboot E:\\Windows /s F: /f UEFI")
           && r.report.contains("reg load HKLM\\CLONE E:\\Windows"),
           "on this computer: a partition's own letter kept, a free one for the rest, both fixes");
+
+    // Windows on a disk with nothing to start it: one NTFS partition, no ESP.
+    auto dataDisk = [&](unsigned long long sectors) {
+        QByteArray d = gptImage(sectors, 34, {
+            {2048, 2048 + 40000 - 1, BASIC, "A1A1A1A1-0000-4000-8000-000000000002", "Data", 'w', 0} },
+            "0E0E0E0E-0000-4000-8000-0000000000BB");
+        const QByteArray win = ntfsVolume(4096, QByteArray(), systemFor(oldwin));
+        memcpy(d.data() + 2048 * SEC, win.constData(), (size_t)win.size());
+        return d;
+    };
+    dev = dataDisk(90000);
+    ImageLayout datalayout;
+    layoutOf(dev, &datalayout);
+    r = checkBoot(datalayout, readerOf(dev), disk);
+    const QString &dt = r.report;
+    check(!r.ok && !r.bcdFound && dt.contains("Windows is on partition 1")
+          && dt.contains("no EFI system partition"),
+          "Windows on a disk with no EFI system partition: found, and not bootable");
+    if (!dt.contains("Windows is on")) printf("%s\n", dt.toLocal8Bit().constData());
+    check(dt.contains("select disk 3\nlist partition\nselect partition 1\nassign letter=W\n"
+                      "shrink desired=1092 minimum=1092\n"
+                      "create partition efi size=200\nformat quick fs=fat32 label=\"System\"\nassign letter=S\n"
+                      "create partition primary size=892\nformat quick fs=ntfs label=\"Recovery\"\n"
+                      "set id=\"de94bba4-06d1-4d40-a16a-bfd50179d6ac\"\ngpt attributes=0x8000000000000001\n"
+                      "assign letter=R\nexit")
+          && dt.contains("bcdboot W:\\Windows /s S: /f UEFI\n"
+                         "robocopy W:\\Windows\\System32\\Recovery R:\\Recovery\\WindowsRE Winre.wim /copy:DAT"),
+          "  no room: Windows shrunk, an EFI and a recovery partition made, bcdboot, Winre.wim copied");
+    check(dt.contains("reg add HKLM\\CLONE\\MountedDevices /v \\DosDevices\\C:") && dt.contains("reagentc /enable"),
+          "  and its C: recorded, and the recovery environment registered once it starts");
+    dev = dataDisk(4000000);
+    layoutOf(dev, &datalayout);
+    BootCheckDisk roomy = disk;
+    roomy.sectors = 4000000;
+    r = checkBoot(datalayout, readerOf(dev), roomy);
+    check(!r.report.contains("shrink") && r.report.contains("create partition efi size=200"),
+          "  with room on the disk: nothing shrunk");
 
     // A BIOS disk: the BCD on the active NTFS partition, by offset and signature.
     const unsigned int oldsig = 0x11223344u, newsig = 0x55667788u;
