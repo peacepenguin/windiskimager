@@ -2176,11 +2176,11 @@ static void caseBootCheck()
           "on this computer: a partition's own letter kept, a free one for the rest, both fixes");
 
     // Windows on a disk with nothing to start it: one NTFS partition, no ESP.
-    auto dataDisk = [&](unsigned long long sectors) {
+    auto dataDisk = [&](unsigned long long sectors, const QByteArray &system = QByteArray()) {
         QByteArray d = gptImage(sectors, 34, {
             {2048, 2048 + 40000 - 1, BASIC, "A1A1A1A1-0000-4000-8000-000000000002", "Data", 'w', 0} },
             "0E0E0E0E-0000-4000-8000-0000000000BB");
-        const QByteArray win = ntfsVolume(4096, QByteArray(), systemFor(oldwin));
+        const QByteArray win = ntfsVolume(4096, QByteArray(), system.isEmpty() ? systemFor(oldwin) : system);
         memcpy(d.data() + 2048 * SEC, win.constData(), (size_t)win.size());
         return d;
     };
@@ -2211,6 +2211,25 @@ static void caseBootCheck()
     r = checkBoot(datalayout, readerOf(dev), roomy);
     check(!r.report.contains("shrink") && r.report.contains("create partition efi size=200"),
           "  with room on the disk: nothing shrunk");
+
+    // A Windows imaged from an MBR disk onto this GPT one: its C: in the MBR
+    // form, a signature and an offset, which names nothing on a GPT disk.
+    {
+        HiveBuilder h;
+        QByteArray mbrc(12, 0);
+        put32(mbrc, 0, 0x11223344u);
+        put64(mbrc, 4, 1048576);
+        const unsigned int md = h.key("MountedDevices", {}, { h.value("\\DosDevices\\C:", 3, mbrc) });
+        dev = dataDisk(4000000, h.hive(h.key("ROOT", { h.key("Select", {}), md })));
+    }
+    layoutOf(dev, &datalayout);
+    r = checkBoot(datalayout, readerOf(dev), roomy);
+    check(r.report.contains("C: is recorded as the partition at byte 1048576 on MBR disk 11223344")
+          && r.report.contains("moved from one to this GPT disk")
+          && r.report.contains("reg add HKLM\\CLONE\\MountedDevices /v \\DosDevices\\C: /t REG_BINARY /d 444D494F3A49443A")
+          && r.report.contains("bcdboot W:\\Windows /s S: /f UEFI"),
+          "a Windows from an MBR disk on a GPT one: its MBR-form C: stale, recorded anew, bcdboot for UEFI");
+    if (!r.report.contains("MBR disk 11223344")) printf("%s\n", r.report.toLocal8Bit().constData());
 
     // An 80 GiB VM disk whose EFI, reserved and recovery partitions were
     // deleted: Windows from 217 MiB, 888 MiB free after it, 887 from its 1 MiB boundary. Read sparsely.

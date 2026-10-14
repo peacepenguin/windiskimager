@@ -1017,17 +1017,14 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
             }
             else
             {
-                bool mine = false, known = false;
-                if (gpt && c.size() == 24 && c.left(8) == "DMIO:ID:")
-                {
-                    known = true;
-                    mine = (c.mid(8, 16) == wp.entry.mid(16, 16));
-                }
-                else if (!gpt && c.size() == 12)
-                {
-                    known = true;
-                    mine = (c.left(4) == diskid && u64(c, 4) == wp.first * ss);
-                }
+                // Either form, whatever the disk is now: a Windows moved from
+                // an MBR disk to a GPT one, or back, has the other form, which
+                // cannot name a partition here.
+                const bool dmio = (c.size() == 24 && c.left(8) == "DMIO:ID:");
+                const bool mbrform = (c.size() == 12);
+                const bool known = dmio || mbrform;
+                const bool mine = gpt ? (dmio && c.mid(8, 16) == wp.entry.mid(16, 16))
+                                      : (mbrform && c.left(4) == diskid && u64(c, 4) == wp.first * ss);
                 if (!known)
                 {
                     rep += BootCheck::tr("Windows' drive letters: C: is recorded in a form not checked here.") + "\n";
@@ -1043,10 +1040,16 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
                     rep += BootCheck::tr("Windows' drive letters: C: is recorded as %1, which this disk does not "
                               "have, so Windows on %2 starts under another letter and sign-in stops at "
                               "a black screen. The commands below record C: for its partition.")
-                               .arg(gpt ? BootCheck::tr("partition %1").arg(guidText(c.mid(8, 16)))
-                                        : BootCheck::tr("the partition at byte %1 on disk %2")
-                                              .arg(u64(c, 4)).arg(idText(c.left(4))),
+                               .arg(dmio ? BootCheck::tr("partition %1").arg(guidText(c.mid(8, 16)))
+                                         : BootCheck::tr("the partition at byte %1 on MBR disk %2")
+                                               .arg(u64(c, 4)).arg(idText(c.left(4))),
                                     partText(windows)) + "\n";
+                    if (gpt != dmio)
+                    {
+                        rep += BootCheck::tr("That is how Windows records a partition on an %1 disk: this Windows "
+                                  "was moved from one to this %2 disk.")
+                                   .arg(gpt ? "MBR" : "GPT", gpt ? "GPT" : "MBR") + "\n";
+                    }
                 }
             }
         }
