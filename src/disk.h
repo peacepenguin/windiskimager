@@ -179,6 +179,14 @@ GptPrimaryState gptPrimaryState(HANDLE hRawDisk, unsigned long long sectorsize,
 bool repairPrimaryGpt(HANDLE hRawDisk, unsigned long long sectorsize,
                       unsigned long long devicesectors, QString *detail);
 
+// Give the disk IDs of its own, as Windows does to a copy it brings online
+// beside its original: for GPT a new disk GUID and a new unique GUID for each
+// partition, in both copies of the table; for MBR a new disk signature. Only
+// the table's sectors are written. False, with *detail, when the table is
+// not one that can be rewritten safely.
+bool giveDiskNewIds(HANDLE hRawDisk, unsigned long long sectorsize,
+                    unsigned long long devicesectors, QString *detail);
+
 // Where the image's own backup GPT sits, read from the image's sector 1
 // (lba1) because the device no longer records it once the fix has zeroed that
 // copy. A verify expects those sectors to differ. Returns false if the image

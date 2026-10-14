@@ -1954,6 +1954,115 @@ bool repairPrimaryGpt(HANDLE hRawDisk, unsigned long long sectorsize,
     return true;
 }
 
+// A random GUID as a GPT stores it: the first three fields little-endian.
+static QByteArray newGptGuid()
+{
+    QByteArray g = QUuid::createUuid().toRfc4122();
+    std::reverse(g.begin(), g.begin() + 4);
+    std::reverse(g.begin() + 4, g.begin() + 6);
+    std::reverse(g.begin() + 6, g.begin() + 8);
+    return g;
+}
+
+bool giveDiskNewIds(HANDLE hRawDisk, unsigned long long sectorsize,
+                    unsigned long long devicesectors, QString *detail)
+{
+    if (sectorsize < 512 || devicesectors < 96)
+    {
+        if (detail) *detail = QObject::tr("the device geometry is not usable");
+        return false;
+    }
+    QByteArray mbr(sectorsize, 0);
+    QByteArray lba1(sectorsize, 0);
+    if (!rawSeekRead(hRawDisk, 0, mbr.data(), (DWORD)sectorsize)
+        || !rawSeekRead(hRawDisk, sectorsize, lba1.data(), (DWORD)sectorsize))
+    {
+        if (detail) *detail = QObject::tr("the partition table could not be read");
+        return false;
+    }
+
+    if (memcmp(lba1.constData() + GPT_OFF_SIGNATURE, "EFI PART", 8) != 0)
+    {
+        // MBR: a new, non-zero disk signature at byte 440.
+        if ((unsigned char)mbr[510] != 0x55 || (unsigned char)mbr[511] != 0xAA)
+        {
+            if (detail) *detail = QObject::tr("the disk has no partition table");
+            return false;
+        }
+        unsigned int sig = 0;
+        while (sig == 0) sig = QRandomGenerator::system()->generate();
+        wr32((unsigned char *)mbr.data(), 440, sig);
+        if (!rawSeekWrite(hRawDisk, 0, mbr.constData(), (DWORD)sectorsize))
+        {
+            if (detail) *detail = QObject::tr("the new disk signature could not be written");
+            return false;
+        }
+        FlushFileBuffers(hRawDisk);
+        return true;
+    }
+
+    QByteArray primary, entries;
+    unsigned long long entrylba, entrysectors, numentries, entrysize, firstusable;
+    if (!readValidGpt(hRawDisk, sectorsize, devicesectors, &primary, &entries, &entrylba, &entrysectors,
+                      &numentries, &entrysize, &firstusable, detail))
+    {
+        if (detail && detail->isEmpty()) *detail = QObject::tr("the primary GPT is not valid");
+        return false;
+    }
+    unsigned char *hdr = (unsigned char *)primary.data();
+    const DWORD headersize = rd32(hdr, GPT_OFF_HEADERSIZE);
+
+    // The backup: its header where the primary says, valid, and its entry
+    // array where that header says.
+    const unsigned long long backuphdr = rd64(hdr, GPT_OFF_ALTLBA);
+    QByteArray backup(sectorsize, 0);
+    unsigned char *bhdr = (unsigned char *)backup.data();
+    if (backuphdr < 2 || backuphdr >= devicesectors
+        || !rawSeekRead(hRawDisk, backuphdr * sectorsize, bhdr, (DWORD)sectorsize)
+        || memcmp(bhdr + GPT_OFF_SIGNATURE, "EFI PART", 8) != 0)
+    {
+        if (detail) *detail = QObject::tr("the backup GPT header is not where the primary says");
+        return false;
+    }
+    const unsigned long long backupentries = rd64(bhdr, GPT_OFF_ENTRYLBA);
+    if (backupentries < 2 || backupentries + entrysectors > devicesectors)
+    {
+        if (detail) *detail = QObject::tr("the backup GPT entry array is not usable");
+        return false;
+    }
+
+    // New IDs: the disk's, in both headers, and each used entry's own.
+    const QByteArray disk = newGptGuid();
+    memcpy(hdr + 56, disk.constData(), 16);
+    memcpy(bhdr + 56, disk.constData(), 16);
+    for (unsigned long long i = 0; i < numentries; ++i)
+    {
+        unsigned char *e = (unsigned char *)entries.data() + i * entrysize;
+        if (gptEntryInUse(e)) memcpy(e + 16, newGptGuid().constData(), 16);
+    }
+    const DWORD crc = gptCrc32((const unsigned char *)entries.constData(), (size_t)(numentries * entrysize));
+    wr32(hdr, GPT_OFF_ENTRIESCRC, crc);
+    wr32(bhdr, GPT_OFF_ENTRIESCRC, crc);
+    wr32(hdr, GPT_OFF_HEADERCRC, 0);
+    wr32(hdr, GPT_OFF_HEADERCRC, gptCrc32(hdr, headersize));
+    wr32(bhdr, GPT_OFF_HEADERCRC, 0);
+    wr32(bhdr, GPT_OFF_HEADERCRC, gptCrc32(bhdr, rd32(bhdr, GPT_OFF_HEADERSIZE)));
+
+    // Backup copies first, as relocateBackupGPT() writes them.
+    if (!rawSeekWrite(hRawDisk, backupentries * sectorsize, entries.constData(),
+                      (DWORD)(entrysectors * sectorsize))
+        || !rawSeekWrite(hRawDisk, backuphdr * sectorsize, bhdr, (DWORD)sectorsize)
+        || !rawSeekWrite(hRawDisk, entrylba * sectorsize, entries.constData(),
+                         (DWORD)(entrysectors * sectorsize))
+        || !rawSeekWrite(hRawDisk, sectorsize, hdr, (DWORD)sectorsize))
+    {
+        if (detail) *detail = QObject::tr("the new IDs could not be written");
+        return false;
+    }
+    FlushFileBuffers(hRawDisk);
+    return true;
+}
+
 bool gptImageBackupRange(const unsigned char *lba1, unsigned long long sectorsize,
                          unsigned long long *first, unsigned long long *last)
 {

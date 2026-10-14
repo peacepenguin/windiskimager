@@ -902,6 +902,46 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
     rep += (gpt ? BootCheck::tr("Disk %1: GPT, disk GUID %2.") : BootCheck::tr("Disk %1: MBR, disk signature %2."))
                .arg(disk.number).arg(idText(diskid)) + "\n";
 
+    // A copy beside its original, with the same IDs. Windows keeps it
+    // offline here -- a mounted VHDX is left so -- but gives it new IDs when
+    // it is brought online where the original is, attached to the
+    // original's VM say, and its boot configuration and drive letters then
+    // name IDs it no longer has. Giving it IDs of its own now, with the fix
+    // for those after, keeps that from happening unseen.
+    for (const BootCheckDisk::Other &o : disk.others)
+    {
+        int shared = 0;
+        for (const CombinePartition &p : layout.partitions)
+        {
+            if (gpt && p.entry.size() >= 32 && o.partitions.contains(p.entry.mid(16, 16))) ++shared;
+        }
+        const bool sameDisk = (o.id == diskid && diskid != QByteArray(diskid.size(), 0));
+        if (!sameDisk && shared == 0) continue;
+        out.duplicate = true;
+        rep += "\n";
+        if (sameDisk && shared)
+        {
+            rep += BootCheck::tr("%1 on this computer has the same disk GUID, and %2 of the same partition "
+                      "GUIDs: this disk is a copy of it.").arg(o.name).arg(shared);
+        }
+        else if (sameDisk)
+        {
+            rep += (gpt ? BootCheck::tr("%1 on this computer has the same disk GUID: this disk is a copy of it.")
+                        : BootCheck::tr("%1 on this computer has the same disk signature: this disk is a copy "
+                                        "of it.")).arg(o.name);
+        }
+        else
+        {
+            rep += BootCheck::tr("%1 on this computer has %2 of the same partition GUIDs: this disk is a "
+                      "copy of it.").arg(o.name).arg(shared);
+        }
+        rep += " " + BootCheck::tr("Windows keeps a disk like this offline, and gives it new IDs when it "
+                  "comes online beside the original -- a VHDX attached to the original's VM, say -- "
+                  "after which it no longer boots. \"New IDs\" gives it IDs of its own now; Check Boot "
+                  "then shows the commands that make its boot configuration and drive letters name "
+                  "them.") + "\n";
+    }
+
     // Where the BCD is: the EFI system partition's, or a BIOS system
     // partition's -- the active one first.
     QList<int> order;
@@ -1401,8 +1441,9 @@ BootCheckResult checkBoot(const ImageLayout &layout, const BootSectorReader &rea
 
     const bool lettersStale = (windows >= 0) && checkLetters(windows);
 
-    out.ok = bcdok && !lettersStale;
-    if (out.ok) return out;
+    out.ok = bcdok && !lettersStale && !out.duplicate;
+    // A duplicate with nothing else wrong: "New IDs" is its fix.
+    if (bcdok && !lettersStale) return out;
 
     // Letters for the partitions the commands use: the one a partition has
     // here already, or S: for the BCD's, W: for Windows, R: for any other,

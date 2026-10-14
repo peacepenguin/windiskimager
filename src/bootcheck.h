@@ -99,12 +99,26 @@ struct BootCheckDisk
     // none have one, and S:, W:, R: ... are taken to be free.
     QMap<unsigned long long, QChar> partitionLetters;
     QString freeLetters;
+    // The other disks on this computer, by name ("Disk 0"): their disk ID
+    // (16 bytes, or 4 for an MBR signature) and, for GPT, their partitions'
+    // unique GUIDs, as a GPT stores them. A disk sharing them is a copy
+    // Windows has not yet given IDs of its own.
+    struct Other
+    {
+        QString name;
+        QByteArray id;
+        QList<QByteArray> partitions;
+    };
+    QList<Other> others;
 };
 
 struct BootCheckResult
 {
     bool bcdFound = false;
     bool ok = false;                // every partition the BCD names is this disk's, as it is now
+    // Another disk here has this one's disk ID or partition GUIDs: "New IDs"
+    // (giveDiskNewIds()) gives it its own, before Windows does it later.
+    bool duplicate = false;
     QString report;
 };
 

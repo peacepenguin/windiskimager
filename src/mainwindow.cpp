@@ -797,6 +797,46 @@ static QString diskWithId(const QByteArray &id, int except)
     return QString();
 }
 
+// Every disk here but `except`, with its disk ID and its GPT partitions'
+// unique GUIDs, as Windows has them: for Check Boot to find a copy's original.
+static QList<BootCheckDisk::Other> otherDisks(int except)
+{
+    QList<BootCheckDisk::Other> out;
+    for (int n = 0; n < 64; ++n)
+    {
+        if (n == except) continue;
+        HANDLE h = getHandleOnDevice(n, GENERIC_READ);
+        if (h == INVALID_HANDLE_VALUE) continue;
+        std::vector<char> buf(64 * 1024);
+        DWORD got = 0;
+        const bool ok = DeviceIoControl(h, IOCTL_DISK_GET_DRIVE_LAYOUT_EX, NULL, 0, buf.data(),
+                                        (DWORD)buf.size(), &got, NULL);
+        CloseHandle(h);
+        if (!ok) continue;
+        const DRIVE_LAYOUT_INFORMATION_EX *l = (const DRIVE_LAYOUT_INFORMATION_EX *)buf.data();
+        BootCheckDisk::Other o;
+        o.name = MainWindow::tr("Disk %1").arg(n);
+        if (l->PartitionStyle == PARTITION_STYLE_GPT)
+        {
+            o.id = QByteArray((const char *)&l->Gpt.DiskId, 16);
+            for (DWORD i = 0; i < l->PartitionCount; ++i)
+            {
+                o.partitions.append(QByteArray((const char *)&l->PartitionEntry[i].Gpt.PartitionId, 16));
+            }
+        }
+        else if (l->PartitionStyle == PARTITION_STYLE_MBR)
+        {
+            o.id = QByteArray((const char *)&l->Mbr.Signature, 4);
+        }
+        else
+        {
+            continue;
+        }
+        out.append(o);
+    }
+    return out;
+}
+
 // The letters disk `number`'s partitions have here, by first sector, and the
 // letters no volume has, for Check Boot's commands. X: is left out: Windows
 // setup media boots as X:, where the same commands may be run.
@@ -893,6 +933,7 @@ void MainWindow::on_bCheckBoot_clicked()
         diskPartitionNumbers(hDisk, ss, &disk.partitionNumbers);
         disk.diskWithId = [deviceID](const QByteArray &id) { return diskWithId(id, deviceID); };
         diskLetters(deviceID, ss, &disk.partitionLetters, &disk.freeLetters);
+        disk.others = otherDisks(deviceID);
         result = checkBoot(layout, read, disk);
     }
     else
@@ -940,10 +981,46 @@ void MainWindow::on_bCheckBoot_clicked()
     connect(copy, &QPushButton::clicked, &box, [&]() {
         QGuiApplication::clipboard()->setText(result.report);
     });
+    // A copy with its original's IDs: give it its own, then check again, so
+    // the report gives the commands for the boot configuration and letters.
+    bool recheck = false;
+    if (result.duplicate)
+    {
+        QPushButton *newIds = buttons->addButton(tr("New IDs"), QDialogButtonBox::ActionRole);
+        connect(newIds, &QPushButton::clicked, &box, [&]() {
+            if (QMessageBox::warning(&box, tr("New IDs"),
+                    tr("Give Disk %1 a new disk GUID and new partition GUIDs (or, for MBR, a new disk "
+                       "signature)?\n\nOnly the partition table is written. Its boot configuration and "
+                       "Windows' drive letters will then name IDs it no longer has, until the commands "
+                       "Check Boot gives next are run.").arg(deviceID),
+                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+            {
+                return;
+            }
+            HANDLE h = getHandleOnDevice(deviceID, GENERIC_READ | GENERIC_WRITE);
+            QString why;
+            const bool done = (h != INVALID_HANDLE_VALUE) && giveDiskNewIds(h, ss, devicesectors, &why);
+            if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
+            if (!done)
+            {
+                QMessageBox::critical(&box, tr("New IDs"),
+                    tr("The new IDs could not be written: %1.")
+                        .arg(why.isEmpty() ? tr("the device could not be opened for writing") : why));
+                return;
+            }
+            recheck = true;
+            box.accept();
+        });
+    }
     connect(buttons, &QDialogButtonBox::rejected, &box, &QDialog::reject);
     layoutBox->addWidget(buttons);
     box.resize(fontMetrics().averageCharWidth() * 110, fontMetrics().lineSpacing() * 34);
     box.exec();
+    if (recheck)
+    {
+        statusbar->showMessage(tr("Disk %1 has new IDs.").arg(deviceID));
+        on_bCheckBoot_clicked();
+    }
 }
 
 void MainWindow::on_bCheckGpt_clicked()

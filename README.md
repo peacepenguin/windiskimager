@@ -229,6 +229,18 @@ the report adds `reg load`, `reg delete ...\MountedDevices /va`, `reg add ...
 \DosDevices\C:` with the Windows partition's new GUID, and `reg unload`;
 Windows gives the other volumes letters again. **Copy** puts the report on the clipboard.
 
+Check Boot also compares the disk with every other disk on the computer. A
+copy mounted beside its original -- a cloned VHDX on the original VM's host --
+has the same disk GUID (or MBR signature) and partition GUIDs. Windows keeps
+it offline there without fixing it, then gives it new IDs the moment it comes
+online beside the original elsewhere, attached to the original's VM say, and
+the copy stops booting. Check Boot names the original, and its **New IDs**
+button gives the copy a new disk GUID and new partition GUIDs (or a new MBR
+signature) itself, in both copies of the GPT, writing nothing but the table.
+Check Boot then runs again, and gives the commands above for the boot
+configuration and drive letters, which still name the old IDs. Detach and
+reattach the VHDX afterwards so Windows reads the new table.
+
 ### Getting Winre.wim from Windows setup media
 
 While the recovery environment is enabled, `Winre.wim` lives on the recovery

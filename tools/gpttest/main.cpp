@@ -1380,6 +1380,63 @@ static void caseHasMbrTable()
     printf("\n");
 }
 
+// giveDiskNewIds(): a copy's IDs replaced, both GPT copies valid and alike,
+// nothing else written; an MBR's signature replaced.
+static void caseNewIds()
+{
+    printf("giveDiskNewIds() gives a GPT disk and its partitions new IDs\n");
+    const unsigned long long device = 2048;
+    Disk dk = buildDisk(34, device, device);
+    QByteArray &before = dk.bytes;
+    HANDLE h = writeTestFile(before);
+    if (h == INVALID_HANDLE_VALUE) return;
+    QString why;
+    check(giveDiskNewIds(h, SEC, device, &why), "reported success");
+    QByteArray after(device * SEC, 0);
+    SetFilePointer(h, 0, NULL, FILE_BEGIN);
+    DWORD got = 0;
+    ReadFile(h, after.data(), (DWORD)after.size(), &got, NULL);
+    CloseHandle(h);
+    const unsigned char *a = (const unsigned char *)after.constData();
+    const unsigned char *b = (const unsigned char *)before.constData();
+    const unsigned char *primary = a + SEC, *backup = a + (device - 1) * SEC;
+    const unsigned char *pe = a + 2 * SEC, *be = a + dk.imgbackupentries * SEC;
+    check(headerCrcValid(primary) && headerCrcValid(backup), "both headers' checksums are valid");
+    check(rd32(primary, 88) == crc32of(pe, ENTRIES * ENTRYSIZE) && memcmp(pe, be, ENTRIES * ENTRYSIZE) == 0
+          && rd32(backup, 88) == rd32(primary, 88),
+          "both entry arrays alike, and their checksum right");
+    check(memcmp(primary + 56, b + SEC + 56, 16) != 0 && memcmp(primary + 56, backup + 56, 16) == 0,
+          "a new disk GUID, the same in both headers");
+    check(memcmp(pe + 16, b + 2 * SEC + 16, 16) != 0 && memcmp(pe, b + 2 * SEC, 16) == 0
+          && memcmp(pe + 32, b + 2 * SEC + 32, ENTRYSIZE - 32) == 0
+          && rangeIsZero(pe + ENTRYSIZE, 0, 0),
+          "the partition's unique GUID new, its type, extent and name kept, the empty entries left empty");
+    check(unchangedOutside(before, after, { {1, 1 + ENTRYSECTORS}, {dk.imgbackupentries, device - 1} }),
+          "nothing but the two tables written");
+
+    printf("giveDiskNewIds() gives an MBR disk a new signature\n");
+    QByteArray mbr(device * SEC, 0);
+    for (unsigned long long s = 1; s < device; ++s) fillSectors(mbr, s, 1, (char)(1 + s % 250));
+    unsigned char *m = (unsigned char *)mbr.data();
+    wr32(m, 440, 0x11223344u);
+    m[446 + 4] = 0x07;
+    wr32(m, 446 + 8, 2048 / 4);
+    wr32(m, 446 + 12, 100);
+    m[510] = 0x55; m[511] = 0xAA;
+    h = writeTestFile(mbr);
+    if (h == INVALID_HANDLE_VALUE) return;
+    check(giveDiskNewIds(h, SEC, device, &why), "reported success");
+    QByteArray mafter(device * SEC, 0);
+    SetFilePointer(h, 0, NULL, FILE_BEGIN);
+    ReadFile(h, mafter.data(), (DWORD)mafter.size(), &got, NULL);
+    CloseHandle(h);
+    const unsigned int sig = rd32((const unsigned char *)mafter.constData(), 440);
+    check(sig != 0x11223344u && sig != 0, "a new, non-zero disk signature");
+    check(mafter.mid(0, 440) == mbr.mid(0, 440) && mafter.mid(444) == mbr.mid(444),
+          "nothing else changed");
+    printf("\n");
+}
+
 static void caseWipe()
 {
     printf("wipePartitionTables() zeroes both ends and nothing else\n");
@@ -1520,6 +1577,7 @@ int main(int argc, char **argv)
 
     caseRewriteRisk();
     caseHasMbrTable();
+    caseNewIds();
     caseWipe();
     caseOwnedSectors();
     caseSectorIO();

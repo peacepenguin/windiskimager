@@ -2107,6 +2107,20 @@ static void caseBootCheck()
     dev = gptDisk(bcdFor(newid, winuid));
     r = checkBoot(layout, readerOf(dev), disk);
     check(r.bcdFound && r.ok && !r.report.contains("bcdedit"), "a BCD naming the disk as it is: it matches");
+    check(!r.duplicate, "  and no other disk shares its IDs");
+
+    // The same disk beside its original, which has the same IDs.
+    BootCheckDisk beside = disk;
+    beside.others = { { "Disk 0", newid, { espuid, winuid } }, { "Disk 5", guid("55555555-0000-4000-8000-000000000005"), {} } };
+    r = checkBoot(layout, readerOf(dev), beside);
+    check(r.duplicate && !r.ok && r.report.contains("Disk 0 on this computer has the same disk GUID, and 2 of the same "
+                                                    "partition GUIDs")
+          && !r.report.contains("Disk 5") && !r.report.contains("bcdedit"),
+          "a copy beside its original: found, the original named, New IDs its fix");
+    beside.others = { { "Disk 0", guid("55555555-0000-4000-8000-000000000005"), { winuid } } };
+    r = checkBoot(layout, readerOf(dev), beside);
+    check(r.duplicate && r.report.contains("Disk 0 on this computer has 1 of the same partition GUIDs"),
+          "  a partition GUID alone shared: found too");
 
     dev = gptDisk(bcdFor(newid, guid("99999999-0000-4000-8000-000000000009")));
     r = checkBoot(layout, readerOf(dev), disk);
