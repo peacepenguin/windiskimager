@@ -20,6 +20,12 @@ corrupting the GPT of images like ARM board images. See
 > This program comes with no warranty. The authors take no responsibility for
 > lost or damaged data.
 
+> **AI-written code.** This fork has been largely "vibe coded": its changes
+> from Win32DiskImager were written by an AI coding assistant, with a person
+> directing and testing them, not reviewing every line. It writes raw disks,
+> so test it on disks and images you can afford to lose, and keep backups. See
+> [About this fork](#about-this-fork).
+
 ## Features
 
 - **Write** a raw image (`.img`, `.raw`, `.bin`) or one compressed with gzip,
@@ -317,6 +323,15 @@ WinDiskImager is a fork of Win32DiskImager (the ImageWriter project). It is not
 affiliated with the original project or its maintainers. It has its own name so
 that its builds are not mistaken for theirs. Please report problems to this
 repository, not to SourceForge.
+
+This fork's code -- the GPT protection, Custom Partitioning, Check Boot and
+the rest of what it adds to Win32DiskImager -- was written largely by an AI
+coding assistant (Claude), directed and tested by its maintainer: it is "vibe
+coded". It has automated tests (see BUILD.md) and has been tried on real
+disks and VMs, but it has not had line-by-line human review, and AI-written
+code can be wrong in ways that look plausible. Read the commands Check Boot
+gives before you run them, try things on a copy first, and report what goes
+wrong.
 
 ## License
 
