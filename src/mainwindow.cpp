@@ -772,12 +772,13 @@ bool MainWindow::offerGptRepair(HANDLE hDisk, unsigned long long disksectorsize,
 // image sector for sector, so the table is the only place the damage shows.
 // Another disk on this computer with disk ID `id` (a GPT disk GUID, or an MBR
 // signature), as "Disk N", or empty: the original a copy's BCD names.
+static HANDLE openDiskQuietly(int n);
 static QString diskWithId(const QByteArray &id, int except)
 {
     for (int n = 0; n < 64; ++n)
     {
         if (n == except) continue;
-        HANDLE h = getHandleOnDevice(n, GENERIC_READ);
+        HANDLE h = openDiskQuietly(n);
         if (h == INVALID_HANDLE_VALUE) continue;
         std::vector<char> buf(64 * 1024);
         DWORD got = 0;
@@ -797,6 +798,16 @@ static QString diskWithId(const QByteArray &id, int except)
     return QString();
 }
 
+// Disk `n` opened to read its layout, or INVALID_HANDLE_VALUE without a word:
+// most numbers a scan tries are not disks at all, which getHandleOnDevice()
+// would report, one message box each.
+static HANDLE openDiskQuietly(int n)
+{
+    const QString name = QString("\\\\.\\PhysicalDrive%1").arg(n);
+    return CreateFileW((LPCWSTR)name.utf16(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                       OPEN_EXISTING, 0, NULL);
+}
+
 // Every disk here but `except`, with its disk ID and its GPT partitions'
 // unique GUIDs, as Windows has them: for Check Boot to find a copy's original.
 static QList<BootCheckDisk::Other> otherDisks(int except)
@@ -805,7 +816,7 @@ static QList<BootCheckDisk::Other> otherDisks(int except)
     for (int n = 0; n < 64; ++n)
     {
         if (n == except) continue;
-        HANDLE h = getHandleOnDevice(n, GENERIC_READ);
+        HANDLE h = openDiskQuietly(n);
         if (h == INVALID_HANDLE_VALUE) continue;
         std::vector<char> buf(64 * 1024);
         DWORD got = 0;
