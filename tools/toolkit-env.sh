@@ -225,7 +225,7 @@ toolkit_licences()
 # .release and .release-url record which, for the sysroots built on it.
 toolkit_install_llvm_mingw()
 {
-    toolkit_llvm_mingw_release
+    toolkit_llvm_mingw_release || return 1
     local have=""
     [ ! -f "$TOOLKIT_LLVM_MINGW/.release" ] || have=$(cat "$TOOLKIT_LLVM_MINGW/.release")
     if [ "$have" != "$TOOLKIT_LLVM_MINGW_VERSION" ]; then

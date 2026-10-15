@@ -26,8 +26,6 @@ concurrency:
 env:
   TOOLKIT_REGISTRY: forgejo.example.org/repository-owner/llvm-mingw-qt6
   TOOLKIT_SOURCE_URL: ${{ forgejo.server_url }}/${{ forgejo.repository }}
-  # Only a GitHub token can authenticate the upstream llvm-mingw API lookup.
-  GITHUB_TOKEN: ${{ secrets.UPSTREAM_GITHUB_TOKEN }}
 
 defaults:
   run:
@@ -57,7 +55,11 @@ jobs:
       - name: Build and publish
         env:
           FORCE: ${{ inputs.force }}
+          UPSTREAM_GITHUB_TOKEN: ${{ secrets.UPSTREAM_GITHUB_TOKEN }}
         run: |
+          # Override Forgejo's injected GITHUB_TOKEN explicitly, even when
+          # the optional upstream token is empty (anonymous GitHub access).
+          export GITHUB_TOKEN="$UPSTREAM_GITHUB_TOKEN"
           if [ "$FORCE" = true ]; then
             bash tools/toolkit-publish.sh --force
           else
