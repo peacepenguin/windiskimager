@@ -42,7 +42,7 @@ jobs:
         env:
           AUTH_DIR: ${{ runner.temp }}
         run: printf 'REGISTRY_AUTH_FILE=%s/podman-toolkit-auth.json\n' "$AUTH_DIR" >> "$GITHUB_ENV"
-      - uses: https://data.forgejo.org/actions/checkout@v4
+      - uses: https://github.com/actions/checkout@v4
 
       - name: Log in to the Forgejo registry
         env:
