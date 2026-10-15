@@ -1,0 +1,66 @@
+name: toolkit
+
+# Same toolkit and validation as GitHub, published to this Forgejo instance.
+on:
+  schedule:
+    - cron: '23 5 * * *'
+  push:
+    branches: [master]
+    paths:
+      - tools/Containerfile.toolkit
+      - tools/toolkit-env.sh
+      - tools/build-env.sh
+      - tools/toolkit-publish.sh
+      - .forgejo/workflows/toolkit.yml
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild and publish even if nothing has changed
+        type: boolean
+        default: false
+
+concurrency:
+  group: toolkit
+  cancel-in-progress: false
+
+env:
+  TOOLKIT_REGISTRY: forgejo.example.org/repository-owner/llvm-mingw-qt6
+  TOOLKIT_SOURCE_URL: ${{ forgejo.server_url }}/${{ forgejo.repository }}
+  REGISTRY_AUTH_FILE: ${{ runner.temp }}/podman-toolkit-auth.json
+  # Only a GitHub token can authenticate the upstream llvm-mingw API lookup.
+  GITHUB_TOKEN: ${{ secrets.UPSTREAM_GITHUB_TOKEN }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish:
+    runs-on: rocky-podman
+    timeout-minutes: 180
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+
+      - name: Log in to the Forgejo registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          REGISTRY_USER: ${{ vars.REGISTRY_USER || forgejo.actor }}
+        run: |
+          : "${REGISTRY_TOKEN:?Set the REGISTRY_TOKEN Actions secret with write:package access}"
+          printf '%s' "$REGISTRY_TOKEN" |
+            podman login forgejo.example.org -u "$REGISTRY_USER" --password-stdin
+
+      # Builds and packages both Windows targets before pushing any image tags.
+      - name: Build and publish
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          if [ "$FORCE" = true ]; then
+            bash tools/toolkit-publish.sh --force
+          else
+            bash tools/toolkit-publish.sh
+          fi
+
+      - name: Remove registry credentials
+        if: always()
+        run: rm -f "$REGISTRY_AUTH_FILE"

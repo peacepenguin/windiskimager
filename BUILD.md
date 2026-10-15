@@ -206,6 +206,68 @@ waits for both and carries `WinDiskImager-vX-win-x64.zip` and
 `-win-arm64.zip`, each with its `.sha256` (before 2.0.4, the x64 zip was
 `-win64`).
 
+### Forgejo on Rocky Linux 10
+
+The GitHub workflows stay in `.github/workflows/` and use GHCR. The
+Forgejo workflows in [.forgejo/workflows/](.forgejo/workflows/) use the same
+build scripts, build both Windows architectures, and publish tag releases
+on Forgejo. Forgejo pulls and publishes its toolkit at
+`forgejo.example.org/repository-owner/llvm-mingw-qt6`, independently of GHCR.
+
+In the Forgejo runner configuration, replace `runner.labels: []` with:
+
+```yaml
+runner:
+  labels:
+    - rocky-podman:host
+```
+
+Merge this into the existing `runner` section; do not add a second section.
+The equivalent inline syntax is `labels: ["rocky-podman:host"]`. Keep any
+existing Docker label entries alongside it if other workflows use them.
+Restart the runner after changing its configuration. The workflows select
+`runs-on: rocky-podman`; the `:host` suffix belongs only in runner configuration.
+
+Host jobs execute as the runner service user. If the runner itself runs in
+a container, "host" is that container, so run the runner service directly
+on Rocky to use Rocky's installed Podman. Install the host tools:
+
+```sh
+sudo dnf install -y podman git nodejs bash curl jq zip tar gzip
+```
+
+Use Node.js 20 or newer for the checkout and artifact actions. Verify
+`podman info` as the runner service user, including its rootless configuration
+and storage permissions. The build scripts already handle SELinux bind mounts.
+Only run trusted code on this host runner: workflow shell steps execute
+directly as its service user, including pull request builds.
+
+Enable Actions in the Forgejo repository settings and configure:
+
+- **Secret `REGISTRY_TOKEN`**: a Forgejo personal access token with
+  `write:package` access and permission to publish under `repository-owner`.
+- **Variable `REGISTRY_USER`**: the username owning that token. Set this
+  explicitly so scheduled and manually triggered runs use the same identity;
+  without it, login defaults to the triggering actor.
+- **Optional secret `UPSTREAM_GITHUB_TOKEN`**: a GitHub token for upstream
+  llvm-mingw release lookups. Without it, those requests are anonymous.
+  Do not put a Forgejo token here.
+
+Run the Forgejo **toolkit** workflow manually once to populate the local
+registry (enable `force` to rebuild regardless of freshness). Ensure the
+toolkit package is public for anonymous pull request builds. The source
+label links a newly published package to the Forgejo repository; an existing
+package can be linked through its settings. Image tags and the validation
+before publishing match GitHub's toolkit workflow.
+
+The Forgejo build workflow uploads artifacts using the Forgejo variants of
+the v4 artifact actions. A `v*` tag builds both targets, checks the tag against
+the project version, then creates a draft release via the Forgejo API, uploads
+both ZIPs and checksums, and publishes it. It uses the automatic
+`FORGEJO_TOKEN` for repository releases; no GitHub CLI is needed. If an upload
+fails, the draft is retained for inspection; remove that draft before retrying
+the release job.
+
 ## Other tools
 
 - **`tools/gpttest.sh`**, **`tools/imgtest.sh`**, **`tools/combinetest.sh`**

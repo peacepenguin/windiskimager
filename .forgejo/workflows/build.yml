@@ -1,0 +1,161 @@
+name: build
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+# Override the shared scripts' GHCR default only on Forgejo.
+env:
+  TOOLKIT_REGISTRY: forgejo.example.org/repository-owner/llvm-mingw-qt6
+  # Keep credentials out of the host runner's persistent Podman auth file.
+  REGISTRY_AUTH_FILE: ${{ runner.temp }}/podman-build-auth.json
+  # Forgejo's automatic token is not valid for api.github.com.
+  GITHUB_TOKEN: ${{ secrets.UPSTREAM_GITHUB_TOKEN }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Cross-compile for Windows from Linux, exactly as a developer does with
+  # podman: build-container.sh pulls llvm-mingw-qt6, the toolkit image the
+  # toolkit workflow publishes (llvm-mingw, and for each target zlib, xz,
+  # zstd, bzip2 and Qt compiled from Fedora's source RPMs), and runs the
+  # build in it; deploy-container.sh packages it there. The two targets
+  # differ only in the architecture named. The runner itself only needs
+  # podman on the rocky-podman:host runner (see BUILD.md).
+  #
+  # If the image for this revision of the toolkit is not published yet -- a
+  # commit that changes the toolkit and raises TOOLKIT_IMAGE_REVISION --
+  # build-container.sh builds it here instead, which takes most of an hour.
+  #
+  # Release files, artifacts and jobs are named win-x64 and win-arm64, as
+  # Windows names the two (Settings, System, About) and as .NET and Node.js
+  # name their Windows builds.
+  build:
+    name: win-${{ matrix.arch }}
+    runs-on: rocky-podman
+    timeout-minutes: 180
+    strategy:
+      # One target failing says nothing about the other; let both finish.
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        arch: [x64, arm64]
+
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+
+      # Public toolkit pulls, including fork PRs, need no credentials.
+      - name: Log in to the Forgejo registry
+        if: forgejo.event_name != 'pull_request'
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          REGISTRY_USER: ${{ vars.REGISTRY_USER || forgejo.actor }}
+        run: |
+          if [ -n "$REGISTRY_TOKEN" ]; then
+            printf '%s' "$REGISTRY_TOKEN" |
+              podman login forgejo.example.org -u "$REGISTRY_USER" --password-stdin
+          fi
+
+      # Pulls the toolkit image, then builds the exe; fails if it is not a
+      # Windows binary for this architecture. GITHUB_TOKEN is for the
+      # GitHub API lookup of llvm-mingw's newest release, should the image
+      # have to be built here; container_run passes it in as a secret, so it
+      # is not stored in the image.
+      - name: Build
+        run: bash tools/build-container.sh ${{ matrix.arch }}
+
+      # The package records the image it was built in, by digest, in
+      # THIRD-PARTY-NOTICES.txt.
+      - name: Package
+        run: bash tools/deploy-container.sh ${{ matrix.arch }}
+
+      - uses: https://data.forgejo.org/forgejo/upload-artifact@v4
+        with:
+          name: WinDiskImager-win-${{ matrix.arch }}
+          path: dist-${{ matrix.arch }}/
+          if-no-files-found: error
+
+      - name: Remove registry credentials
+        if: always()
+        run: rm -f "$REGISTRY_AUTH_FILE"
+
+  # One release for both builds, made only once both have succeeded, so a tag
+  # never publishes one architecture without the other.
+  release:
+    if: startsWith(forgejo.ref, 'refs/tags/v')
+    needs: build
+    runs-on: rocky-podman
+    timeout-minutes: 15
+
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+
+      # A tag that disagrees with src/CMakeLists.txt would ship a binary whose
+      # own version string contradicts the release it is attached to.
+      - name: Check the tag matches the project version
+        run: |
+          version=$(sed -n 's/^project(WinDiskImager VERSION \([0-9.]*\).*/\1/p' src/CMakeLists.txt)
+          echo "project version: $version, tag: ${GITHUB_REF_NAME}"
+          test "v$version" = "${GITHUB_REF_NAME}"
+
+      - uses: https://data.forgejo.org/forgejo/download-artifact@v4
+        with:
+          name: WinDiskImager-win-x64
+          path: WinDiskImager-${{ forgejo.ref_name }}-win-x64
+
+      - uses: https://data.forgejo.org/forgejo/download-artifact@v4
+        with:
+          name: WinDiskImager-win-arm64
+          path: WinDiskImager-${{ forgejo.ref_name }}-win-arm64
+
+      - name: Build the release zips
+        run: |
+          for arch in win-x64 win-arm64; do
+            name="WinDiskImager-${GITHUB_REF_NAME}-$arch"
+            zip -qr "$name.zip" "$name"
+            sha256sum "$name.zip" > "$name.zip.sha256"
+            cat "$name.zip.sha256"
+          done
+
+      # Use the Forgejo API directly; no Docker daemon or GitHub CLI required.
+      - name: Publish the release
+        env:
+          RELEASE_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+          RELEASE_API: ${{ forgejo.server_url }}/api/v1/repos/${{ forgejo.repository }}
+          RELEASE_TAG: ${{ forgejo.ref_name }}
+        run: |
+          base="WinDiskImager-$RELEASE_TAG"
+          cat > notes.md <<'EOF'
+          Standalone builds for Windows:
+
+          - `win-x64`: most Windows PCs (Intel and AMD).
+          - `win-arm64`: Windows on ARM (Snapdragon and other ARM64 devices).
+
+          Unzip the one for your machine and run `WinDiskImager.exe` as Administrator.
+          Verify the download against the published `.sha256` before running it.
+          See `Changelog.txt` in the zip for what changed.
+          EOF
+          jq -n --arg tag "$RELEASE_TAG" --rawfile body notes.md \
+            '{tag_name: $tag, name: $tag, body: $body, draft: true}' > release.json
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: token $RELEASE_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data-binary @release.json "$RELEASE_API/releases" > response.json
+          id=$(jq -er '.id' response.json)
+          for arch in win-x64 win-arm64; do
+            for file in "$base-$arch.zip" "$base-$arch.zip.sha256"; do
+              curl --fail-with-body --silent --show-error \
+                -H "Authorization: token $RELEASE_TOKEN" \
+                -F "attachment=@$file" "$RELEASE_API/releases/$id/assets"
+            done
+          done
+          # Publish only after all four assets have uploaded successfully.
+          curl --fail-with-body --silent --show-error -X PATCH \
+            -H "Authorization: token $RELEASE_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data '{"draft":false}' "$RELEASE_API/releases/$id"

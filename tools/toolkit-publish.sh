@@ -5,7 +5,7 @@
 #   tools/toolkit-publish.sh             # only if the published one has fallen behind
 #   tools/toolkit-publish.sh --force     # regardless
 #
-# .github/workflows/toolkit.yml runs this daily and whenever the toolkit's
+# The GitHub and Forgejo toolkit workflows run this daily and when toolkit
 # files change, and with --force when asked to by hand. By hand here it needs
 # "podman login" to the registry first.
 #
@@ -70,7 +70,9 @@ fi
 stamp=$(date -u +%Y%m%d)
 version="r$TOOLKIT_IMAGE_REVISION-$stamp"
 tag="$TOOLKIT_REGISTRY:$version"
-source_repo="https://github.com/${GITHUB_REPOSITORY:-peacepenguin/windiskimager}"
+# Forgejo supplies TOOLKIT_SOURCE_URL; GitHub and manual builds keep their
+# existing source label by default.
+source_repo="${TOOLKIT_SOURCE_URL:-${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-peacepenguin/windiskimager}}"
 commit=$(git -C "$REPO" rev-parse HEAD 2>/dev/null) || commit=unknown
 
 # The GitHub token, if any, as a build secret (see container_run).
