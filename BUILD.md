@@ -212,7 +212,9 @@ The GitHub workflows stay in `.github/workflows/` and use GHCR. The
 Forgejo workflows in [.forgejo/workflows/](.forgejo/workflows/) use the same
 build scripts, build both Windows architectures, and publish tag releases
 on Forgejo. Forgejo pulls and publishes its toolkit at
-`forgejo.example.org/repository-owner/llvm-mingw-qt6`, independently of GHCR.
+`<forgejo-host>/<repository-owner>/llvm-mingw-qt6`, independently of GHCR.
+The registry host and owner are derived from the running workflow's
+repository, so forks and other Forgejo instances need no URL edits.
 
 In the Forgejo runner configuration, replace `runner.labels: []` with:
 
@@ -245,7 +247,7 @@ directly as its service user, including pull request builds.
 Enable Actions in the Forgejo repository settings and configure:
 
 - **Secret `REGISTRY_TOKEN`**: a Forgejo personal access token with
-  `write:package` access and permission to publish under `repository-owner`.
+  `write:package` access and permission to publish under the repository owner.
 - **Variable `REGISTRY_USER`**: the username owning that token. Set this
   explicitly so scheduled and manually triggered runs use the same identity;
   without it, login defaults to the triggering actor.

@@ -24,7 +24,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  TOOLKIT_REGISTRY: forgejo.example.org/repository-owner/llvm-mingw-qt6
   TOOLKIT_SOURCE_URL: ${{ forgejo.server_url }}/${{ forgejo.repository }}
 
 defaults:
@@ -36,10 +35,19 @@ jobs:
     runs-on: rocky-podman
     timeout-minutes: 180
     steps:
-      - name: Set temporary registry auth file
+      - name: Set toolkit registry and temporary auth file
         env:
           AUTH_DIR: ${{ runner.temp }}
-        run: printf 'REGISTRY_AUTH_FILE=%s/podman-toolkit-auth.json\n' "$AUTH_DIR" >> "$GITHUB_ENV"
+          SOURCE_SERVER: ${{ forgejo.server_url }}
+          SOURCE_REPOSITORY: ${{ forgejo.repository }}
+        run: |
+          registry_host=${SOURCE_SERVER#*://}
+          registry_host=${registry_host%%/*}
+          owner=${SOURCE_REPOSITORY%%/*}
+          {
+            printf 'TOOLKIT_REGISTRY=%s/%s/llvm-mingw-qt6\n' "${registry_host,,}" "${owner,,}"
+            printf 'REGISTRY_AUTH_FILE=%s/podman-toolkit-auth.json\n' "$AUTH_DIR"
+          } >> "$GITHUB_ENV"
       - uses: https://github.com/actions/checkout@v4
 
       - name: Log in to the Forgejo registry
@@ -49,7 +57,7 @@ jobs:
         run: |
           : "${REGISTRY_TOKEN:?Set the REGISTRY_TOKEN Actions secret with write:package access}"
           printf '%s' "$REGISTRY_TOKEN" |
-            podman login forgejo.example.org -u "$REGISTRY_USER" --password-stdin
+            podman login "${TOOLKIT_REGISTRY%%/*}" -u "$REGISTRY_USER" --password-stdin
 
       # Builds and packages both Windows targets before pushing any image tags.
       - name: Build and publish
