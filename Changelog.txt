@@ -29,6 +29,12 @@ Check Boot reads the copy's SYSTEM hive too: when MountedDevices gives C: to a
   sign-in stops at a black screen -- as it does with no C: recorded at all,
   when Windows takes D:; the report gives reg commands that record C: for it
   Copy puts the report on the clipboard
+Check Boot compares the disk with every other disk on the computer, and names
+  the original when a copy has its disk GUID, or MBR signature, and partition
+  GUIDs -- a cloned VHDX mounted beside it, which Windows keeps offline and
+  gives new IDs once it is online elsewhere. New IDs gives the copy a disk
+  GUID and partition GUIDs of its own (or an MBR signature), in both copies
+  of the GPT, writing nothing but the table, and Check Boot runs again
 Custom Partitioning: "New disk GUID" gives the result a disk GUID, or for an
   MBR a disk signature, of its own instead of the lead-in's or the kept
   device's; the boot code, lead-in and partition GUIDs are still copied
