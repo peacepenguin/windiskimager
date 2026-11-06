@@ -77,9 +77,20 @@ CONTAINER_STALE=()
 #
 # Fedora's key for this release, into rpm's keyring, so srpm_fetch can check
 # the signature on each source RPM. dnf checks its binary packages itself.
+# Fedora 45 moved the keys from /etc/pki/rpm-gpg to /usr/share/pki/rpm-gpg;
+# both are looked in, the new place first.
 srpm_keys()
 {
-    rpm --import "/etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$(rpm -E %fedora)-primary"
+    local name d
+    name=RPM-GPG-KEY-fedora-$(rpm -E %fedora)-primary
+    for d in /usr/share/pki/rpm-gpg /etc/pki/rpm-gpg; do
+        if [ -e "$d/$name" ]; then
+            rpm --import "$d/$name"
+            return
+        fi
+    done
+    echo "error: $name not found in /usr/share/pki/rpm-gpg or /etc/pki/rpm-gpg" >&2
+    return 1
 }
 
 # srpm_fetch PACKAGE TARBALL_GLOB [VERSION-RELEASE]
